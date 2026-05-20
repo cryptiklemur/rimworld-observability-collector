@@ -38,7 +38,7 @@ public static class CardinalityGuard
 
     public static string Canonicalize(string k1, string? v1, string k2, string? v2, string k3, string? v3)
     {
-        StringBuilder sb = new();
+        StringBuilder sb = new(k1.Length + (v1?.Length ?? 0) + k2.Length + (v2?.Length ?? 0) + k3.Length + (v3?.Length ?? 0) + 5);
         AppendPair(sb, k1, v1);
         sb.Append(',');
         AppendPair(sb, k2, v2);
@@ -52,7 +52,13 @@ public static class CardinalityGuard
         if (labels == null || labels.Length == 0)
             return string.Empty;
 
-        StringBuilder sb = new();
+        int capacity = 0;
+        for (int i = 0; i < labels.Length; i++)
+        {
+            capacity += labels[i].Key.Length + (labels[i].Value?.Length ?? 0) + 2;
+        }
+
+        StringBuilder sb = new(capacity);
         for (int i = 0; i < labels.Length; i++)
         {
             if (i > 0)

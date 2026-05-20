@@ -29,5 +29,6 @@ public sealed class MetricDescriptor
     internal long CounterTotal;
     internal long GaugeValue;
     internal long HistogramObservationCount;
+    internal long HistogramSum;
     internal long CardinalityIncidentCount;
 }

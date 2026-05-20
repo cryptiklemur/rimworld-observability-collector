@@ -34,6 +34,8 @@ public sealed class UdpTelemetrySink : ISampleSink, IDisposable
     private bool _metaSent;
     private long _sent;
     private long _bytesSent;
+    private long _sendErrors;
+    private Exception? _lastSendError;
 
     public UdpTelemetrySink(string ownerId, int port = DefaultPort, string host = "127.0.0.1")
     {
@@ -50,6 +52,8 @@ public sealed class UdpTelemetrySink : ISampleSink, IDisposable
     public long SamplesSent => Interlocked.Read(ref _sent);
     public long BytesSent => Interlocked.Read(ref _bytesSent);
     public long SamplesDropped => _ring.Dropped;
+    public long SendErrors => Interlocked.Read(ref _sendErrors);
+    public Exception? LastSendError => Volatile.Read(ref _lastSendError);
 
     public void Start()
     {
@@ -77,9 +81,11 @@ public sealed class UdpTelemetrySink : ISampleSink, IDisposable
                 FlushRegistrations();
                 FlushSamples();
             }
-            catch
+            catch (Exception ex) when (ex is SocketException or ObjectDisposedException or InvalidOperationException)
             {
-                // Sender failures are silent: collector may be absent.
+                // Expected when the collector is absent or the socket has been torn down.
+                Interlocked.Increment(ref _sendErrors);
+                Volatile.Write(ref _lastSendError, ex);
             }
             _stop.Wait(DrainIntervalMs);
         }
@@ -173,7 +179,14 @@ public sealed class UdpTelemetrySink : ISampleSink, IDisposable
     public void Dispose()
     {
         _stop.Set();
-        try { _sender.Join(1000); } catch { }
+        try
+        {
+            _sender.Join(1000);
+        }
+        catch (ThreadStateException)
+        {
+            // Thread was never started; nothing to join.
+        }
         _client.Dispose();
         _stop.Dispose();
     }
