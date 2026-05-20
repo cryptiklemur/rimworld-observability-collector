@@ -2,7 +2,7 @@ namespace Cryptiklemur.RimObs.Observers;
 
 public readonly struct GcEventSample
 {
-    public GcEventSample(byte generation, byte pauseType, long heapBefore, long heapAfter, long durationMicros, long tick, long allocationRateBytesPerMinute)
+    public GcEventSample(byte generation, GcPauseType pauseType, long heapBefore, long heapAfter, long durationMicros, long tick, long allocationRateBytesPerMinute)
     {
         Generation = generation;
         PauseType = pauseType;
@@ -14,7 +14,7 @@ public readonly struct GcEventSample
     }
 
     public byte Generation { get; }
-    public byte PauseType { get; }
+    public GcPauseType PauseType { get; }
     public long HeapBefore { get; }
     public long HeapAfter { get; }
     public long DurationMicros { get; }
@@ -22,8 +22,8 @@ public readonly struct GcEventSample
     public long AllocationRateBytesPerMinute { get; }
 }
 
-public static class GcPauseType
+public enum GcPauseType : byte
 {
-    public const byte Foreground = 0;
-    public const byte Background = 1;
+    Foreground = 0,
+    Background = 1,
 }

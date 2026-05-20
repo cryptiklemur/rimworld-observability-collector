@@ -15,7 +15,7 @@ public sealed class TelemetryBatch
     public string OwnerId { get; set; } = string.Empty;
 
     [Key(3)]
-    public byte BatchType { get; set; }
+    public BatchType BatchType { get; set; }
 
     [Key(4)]
     public byte[] Payload { get; set; } = [];

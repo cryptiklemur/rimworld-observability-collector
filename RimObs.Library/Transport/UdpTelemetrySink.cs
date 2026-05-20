@@ -113,8 +113,8 @@ public sealed class UdpTelemetrySink : ISampleSink, IDisposable
             return;
         SectionRegistrationsBatch batch = new()
         {
-            SectionIds = SliceInts(_registrationIds, n),
-            Names = SliceStrings(_registrationNames, n),
+            SectionIds = Slice(_registrationIds, n),
+            Names = Slice(_registrationNames, n),
         };
         byte[] payload = MessagePackSerializer.Serialize(batch);
         SendBatch(BatchType.SectionRegistrations, payload);
@@ -130,9 +130,9 @@ public sealed class UdpTelemetrySink : ISampleSink, IDisposable
 
             SectionBatch batch = new()
             {
-                SectionIds = SliceInts(_sectionIds, n),
-                StartTimestamps = SliceLongs(_startTimestamps, n),
-                ElapsedTicks = SliceLongs(_elapsedTicks, n),
+                SectionIds = Slice(_sectionIds, n),
+                StartTimestamps = Slice(_startTimestamps, n),
+                ElapsedTicks = Slice(_elapsedTicks, n),
             };
             byte[] payload = MessagePackSerializer.Serialize(batch);
             SendBatch(BatchType.Sections, payload);
@@ -147,7 +147,7 @@ public sealed class UdpTelemetrySink : ISampleSink, IDisposable
             SchemaVersion = SchemaVersion.Current,
             Sequence = ++_sequence,
             OwnerId = _ownerId,
-            BatchType = (byte)type,
+            BatchType = type,
             Payload = payload,
         };
         byte[] bytes = MessagePackSerializer.Serialize(envelope);
@@ -155,23 +155,9 @@ public sealed class UdpTelemetrySink : ISampleSink, IDisposable
         Interlocked.Add(ref _bytesSent, bytes.Length);
     }
 
-    private static int[] SliceInts(int[] src, int n)
+    private static T[] Slice<T>(T[] src, int n)
     {
-        int[] dst = new int[n];
-        Array.Copy(src, 0, dst, 0, n);
-        return dst;
-    }
-
-    private static long[] SliceLongs(long[] src, int n)
-    {
-        long[] dst = new long[n];
-        Array.Copy(src, 0, dst, 0, n);
-        return dst;
-    }
-
-    private static string[] SliceStrings(string[] src, int n)
-    {
-        string[] dst = new string[n];
+        T[] dst = new T[n];
         Array.Copy(src, 0, dst, 0, n);
         return dst;
     }

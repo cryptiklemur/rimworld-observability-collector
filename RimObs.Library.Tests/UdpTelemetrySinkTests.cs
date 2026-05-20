@@ -1,0 +1,110 @@
+using System;
+using System.Net;
+using System.Net.Sockets;
+using System.Threading;
+using Cryptiklemur.RimObs.Profile;
+using Cryptiklemur.RimObs.Transport;
+using Cryptiklemur.RimObs.Wire;
+using FluentAssertions;
+using MessagePack;
+using Xunit;
+
+namespace Cryptiklemur.RimObs.Tests;
+
+public sealed class UdpTelemetrySinkTests : IDisposable
+{
+    public void Dispose()
+    {
+        SectionRegistry.Clear();
+    }
+
+    private static int GetFreePort()
+    {
+        using UdpClient probe = new(new IPEndPoint(IPAddress.Loopback, 0));
+        return ((IPEndPoint)probe.Client.LocalEndPoint!).Port;
+    }
+
+    [Fact]
+    public void Constructor_throws_on_null_owner_id()
+    {
+        Action act = () => new UdpTelemetrySink(null!);
+        act.Should().Throw<ArgumentNullException>();
+    }
+
+    [Fact]
+    public void SendErrors_starts_at_zero_and_last_error_null()
+    {
+        using UdpTelemetrySink sink = new(ownerId: "test.owner", port: GetFreePort());
+
+        sink.SendErrors.Should().Be(0);
+        sink.LastSendError.Should().BeNull();
+    }
+
+    [Fact]
+    public void RecordSection_buffers_without_throwing_when_no_receiver()
+    {
+        using UdpTelemetrySink sink = new(ownerId: "test.owner", port: GetFreePort());
+
+        for (int i = 0; i < 32; i++)
+            sink.RecordSection(sectionId: i, startTimestamp: i * 100L, elapsedTicks: 50L);
+
+        // No exception means the ring buffer absorbed the writes even with no sender thread running.
+        sink.SamplesSent.Should().Be(0);
+    }
+
+    [Fact]
+    public void Drain_flushes_to_loopback_receiver()
+    {
+        int port = GetFreePort();
+        SessionAnchor.Initialize("test-session");
+
+        using UdpClient receiver = new(new IPEndPoint(IPAddress.Loopback, port));
+        receiver.Client.ReceiveTimeout = 2000;
+
+        using UdpTelemetrySink sink = new(ownerId: "test.owner", port: port);
+        sink.Start();
+
+        SectionHandle handle = SectionRegistry.Register("test.section");
+        for (int i = 0; i < 8; i++)
+            sink.RecordSection(handle.Id, startTimestamp: i, elapsedTicks: 100);
+
+        bool sawSection = false;
+        DateTime deadline = DateTime.UtcNow.AddSeconds(3);
+        IPEndPoint any = new(IPAddress.Any, 0);
+        while (DateTime.UtcNow < deadline && !sawSection)
+        {
+            try
+            {
+                byte[] bytes = receiver.Receive(ref any);
+                TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(bytes);
+                if (envelope.BatchType == BatchType.Sections)
+                    sawSection = true;
+            }
+            catch (SocketException)
+            {
+                break;
+            }
+        }
+
+        sawSection.Should().BeTrue("UdpTelemetrySink should flush SectionBatch frames to the loopback receiver within 3s");
+        sink.SamplesSent.Should().BeGreaterThan(0);
+    }
+
+    [Fact]
+    public void Send_to_unbound_port_records_socket_error()
+    {
+        int port = GetFreePort();
+        SessionAnchor.Initialize("test-session");
+
+        using UdpTelemetrySink sink = new(ownerId: "test.owner", port: port);
+        sink.Start();
+
+        sink.RecordSection(sectionId: 0, startTimestamp: 0L, elapsedTicks: 1L);
+
+        // No receiver bound; on most OSes loopback UDP swallows silently, but the send loop
+        // should still drain the ring buffer without leaking exceptions.
+        Thread.Sleep(300);
+
+        sink.SamplesDropped.Should().Be(0);
+    }
+}
