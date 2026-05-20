@@ -1,0 +1,28 @@
+using System;
+using System.Reflection;
+
+namespace Cryptiklemur.RimObs.Patching;
+
+public sealed class CatalogEntry
+{
+    public CatalogEntry(string name, string typeName, string methodName, string[]? paramTypeNames)
+    {
+        Name = name;
+        TypeName = typeName;
+        MethodName = methodName;
+        ParamTypeNames = paramTypeNames;
+    }
+
+    public string Name { get; }
+    public string TypeName { get; }
+    public string MethodName { get; }
+    public string[]? ParamTypeNames { get; }
+    public MethodBase? Resolved { get; internal set; }
+    public int SectionId { get; internal set; } = -1;
+    public string? ResolutionError { get; internal set; }
+    public bool Installed { get; internal set; }
+    public Exception? InstallError { get; internal set; }
+    public bool Declared { get; internal set; }
+    public string? Subsystem { get; internal set; }
+    public string? Owner { get; internal set; }
+}
