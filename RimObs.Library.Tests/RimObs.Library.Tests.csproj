@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <IsPackable>false</IsPackable>
+        <IsTestProject>true</IsTestProject>
+        <RootNamespace>Cryptiklemur.RimObs.Tests</RootNamespace>
+        <AssemblyName>RimObs.Library.Tests</AssemblyName>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\RimObs.Wire\RimObs.Wire.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <Compile Include="..\RimObs.Library\Profile\**\*.cs" LinkBase="LinkedSource\Profile"/>
+        <Compile Include="..\RimObs.Library\Transport\**\*.cs" LinkBase="LinkedSource\Transport"/>
+        <Compile Include="..\RimObs.Library\Patching\**\*.cs" LinkBase="LinkedSource\Patching"/>
+        <Compile Include="..\RimObs.Library\Api\**\*.cs" LinkBase="LinkedSource\Api"/>
+        <Compile Include="..\RimObs.Library\Metrics\**\*.cs" LinkBase="LinkedSource\Metrics"/>
+        <Compile Include="..\RimObs.Library\Observers\**\*.cs" LinkBase="LinkedSource\Observers"/>
+        <Compile Include="..\RimObs.Library\Config\**\*.cs" LinkBase="LinkedSource\Config"/>
+        <Compile Include="..\RimObs.Library\BuildInfo.cs" LinkBase="LinkedSource"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MessagePack" Version="2.5.187"/>
+        <PackageReference Include="Lib.Harmony" Version="2.4.2"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1"/>
+        <PackageReference Include="xunit" Version="2.9.2"/>
+        <PackageReference Include="xunit.runner.visualstudio" Version="2.8.2"/>
+        <PackageReference Include="FluentAssertions" Version="6.12.2"/>
+        <PackageReference Include="coverlet.collector" Version="6.0.2"/>
+    </ItemGroup>
+</Project>
