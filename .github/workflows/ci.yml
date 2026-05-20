@@ -1,0 +1,58 @@
+name: ci
+
+on:
+  push:
+    branches: [main, beta]
+  pull_request:
+    branches: [main, beta]
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: build (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: |
+            8.0.x
+            10.0.x
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+          run_install: false
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+          cache-dependency-path: RimObs.Dashboard/pnpm-lock.yaml
+
+      - name: pnpm install
+        working-directory: RimObs.Dashboard
+        run: pnpm install --no-frozen-lockfile
+
+      - name: Build dashboard
+        working-directory: RimObs.Dashboard
+        run: pnpm build
+
+      - name: dotnet restore
+        run: dotnet restore RimObs.sln
+
+      - name: dotnet build
+        run: dotnet build RimObs.sln -c Release --nologo --no-restore
+
+      - name: dotnet test
+        run: dotnet test RimObs.sln -c Release --nologo --no-build --logger "console;verbosity=normal"
