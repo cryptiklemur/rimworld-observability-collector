@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk.Web">
+    <PropertyGroup>
+        <Authors>CryptikLemur</Authors>
+        <TargetFramework>net10.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <EnableNETAnalyzers>True</EnableNETAnalyzers>
+        <AnalysisLevel>latest</AnalysisLevel>
+        <WarningLevel>4</WarningLevel>
+        <RootNamespace>Cryptiklemur.RimObs.Collector</RootNamespace>
+        <AssemblyName>Collector</AssemblyName>
+        <OutputType>Exe</OutputType>
+        <DebugType>embedded</DebugType>
+
+        <RuntimeIdentifiers>win-x64;linux-x64;osx-arm64;osx-x64</RuntimeIdentifiers>
+        <PublishSingleFile>true</PublishSingleFile>
+        <SelfContained>true</SelfContained>
+        <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+        <InvariantGlobalization>false</InvariantGlobalization>
+    </PropertyGroup>
+
+    <PropertyGroup Condition="'$(Configuration)' == 'Release'">
+        <DebugType>portable</DebugType>
+        <Optimize>true</Optimize>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\RimObs.Wire\RimObs.Wire.csproj"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="MessagePack" Version="2.5.187"/>
+        <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0"/>
+        <PackageReference Include="HdrHistogram" Version="2.5.0"/>
+        <PackageReference Include="Serilog.AspNetCore" Version="8.0.3"/>
+        <PackageReference Include="Serilog.Sinks.File" Version="6.0.0"/>
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0"/>
+        <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0"/>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Remove="..\RimObs.Dashboard\dist\**\*"/>
+        <EmbeddedResource Include="..\RimObs.Dashboard\dist\**\*" LogicalName="Dashboard.%(RecursiveDir)%(Filename)%(Extension)" Condition="Exists('..\RimObs.Dashboard\dist')"/>
+    </ItemGroup>
+
+    <Target Name="BuildDashboard" BeforeTargets="BeforeBuild" Condition="!Exists('..\RimObs.Dashboard\dist') And Exists('..\RimObs.Dashboard\package.json')">
+        <Exec Command="pnpm install --frozen-lockfile" WorkingDirectory="..\RimObs.Dashboard" ContinueOnError="true"/>
+        <Exec Command="pnpm build" WorkingDirectory="..\RimObs.Dashboard" ContinueOnError="true"/>
+    </Target>
+</Project>
