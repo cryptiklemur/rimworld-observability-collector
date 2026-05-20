@@ -1,0 +1,111 @@
+using System;
+using System.Collections.Generic;
+using System.Reflection;
+using System.Reflection.Emit;
+using Cryptiklemur.RimObs.Profile;
+using HarmonyLib;
+
+namespace Cryptiklemur.RimObs.Patching;
+
+public static class MethodTransplanter
+{
+    private static readonly MethodInfo StartByIdMethod = typeof(Profiler).GetMethod(
+        nameof(Profiler.StartById),
+        BindingFlags.Public | BindingFlags.Static
+    ) ?? throw new InvalidOperationException("Profiler.StartById not found.");
+
+    private static readonly MethodInfo StopByIdMethod = typeof(Profiler).GetMethod(
+        nameof(Profiler.StopById),
+        BindingFlags.Public | BindingFlags.Static
+    ) ?? throw new InvalidOperationException("Profiler.StopById not found.");
+
+    public static MethodInfo TranspilerMethod { get; } = typeof(MethodTransplanter).GetMethod(
+        nameof(Transpile),
+        BindingFlags.Public | BindingFlags.Static
+    ) ?? throw new InvalidOperationException("MethodTransplanter.Transpile not found.");
+
+    public static IEnumerable<CodeInstruction> Transpile(
+        IEnumerable<CodeInstruction> instructions,
+        ILGenerator generator,
+        MethodBase __originalMethod
+    )
+    {
+        if (!SectionCatalog.TryGetSectionId(__originalMethod, out int sectionId))
+        {
+            foreach (CodeInstruction inst in instructions)
+                yield return inst;
+            yield break;
+        }
+
+        Type returnType = __originalMethod is MethodInfo mi ? mi.ReturnType : typeof(void);
+        bool hasReturn = returnType != typeof(void);
+
+        LocalBuilder tokenLocal = generator.DeclareLocal(typeof(long));
+        LocalBuilder? returnLocal = hasReturn ? generator.DeclareLocal(returnType) : null;
+        Label endLabel = generator.DefineLabel();
+
+        yield return new CodeInstruction(OpCodes.Ldc_I4, sectionId);
+        yield return new CodeInstruction(OpCodes.Call, StartByIdMethod);
+        yield return new CodeInstruction(OpCodes.Stloc, tokenLocal);
+
+        List<CodeInstruction> body = new(instructions);
+        if (body.Count == 0)
+        {
+            yield return new CodeInstruction(OpCodes.Ret);
+            yield break;
+        }
+
+        body[0].blocks.Insert(0, new ExceptionBlock(ExceptionBlockType.BeginExceptionBlock));
+
+        for (int i = 0; i < body.Count; i++)
+        {
+            CodeInstruction inst = body[i];
+            if (inst.opcode == OpCodes.Ret)
+            {
+                if (hasReturn)
+                {
+                    CodeInstruction stloc = new(OpCodes.Stloc, returnLocal!);
+                    stloc.labels.AddRange(inst.labels);
+                    stloc.blocks.AddRange(inst.blocks);
+                    yield return stloc;
+                    yield return new CodeInstruction(OpCodes.Leave, endLabel);
+                }
+                else
+                {
+                    CodeInstruction leave = new(OpCodes.Leave, endLabel);
+                    leave.labels.AddRange(inst.labels);
+                    leave.blocks.AddRange(inst.blocks);
+                    yield return leave;
+                }
+            }
+            else
+            {
+                yield return inst;
+            }
+        }
+
+        CodeInstruction finallyStart = new(OpCodes.Ldc_I4, sectionId);
+        finallyStart.blocks.Add(new ExceptionBlock(ExceptionBlockType.BeginFinallyBlock));
+        yield return finallyStart;
+        yield return new CodeInstruction(OpCodes.Ldloc, tokenLocal);
+        yield return new CodeInstruction(OpCodes.Call, StopByIdMethod);
+
+        CodeInstruction endFinally = new(OpCodes.Endfinally);
+        endFinally.blocks.Add(new ExceptionBlock(ExceptionBlockType.EndExceptionBlock));
+        yield return endFinally;
+
+        if (hasReturn)
+        {
+            CodeInstruction ldlocRet = new(OpCodes.Ldloc, returnLocal!);
+            ldlocRet.labels.Add(endLabel);
+            yield return ldlocRet;
+            yield return new CodeInstruction(OpCodes.Ret);
+        }
+        else
+        {
+            CodeInstruction ret = new(OpCodes.Ret);
+            ret.labels.Add(endLabel);
+            yield return ret;
+        }
+    }
+}
