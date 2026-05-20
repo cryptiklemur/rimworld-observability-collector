@@ -108,7 +108,7 @@ public sealed class EndToEndSmokeTests
             SchemaVersion = SchemaVersion.Current,
             Sequence = 1,
             OwnerId = "smoke",
-            BatchType = (byte)type,
+            BatchType = type,
             Payload = payload,
         };
         byte[] bytes = MessagePackSerializer.Serialize(envelope);

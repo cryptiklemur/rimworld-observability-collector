@@ -29,7 +29,14 @@ public sealed class UdpReceiver : BackgroundService
 
         stoppingToken.Register(() =>
         {
-            try { _client?.Dispose(); } catch { }
+            try
+            {
+                _client?.Dispose();
+            }
+            catch (ObjectDisposedException)
+            {
+                // Already disposed by another path.
+            }
         });
 
         while (!stoppingToken.IsCancellationRequested)
@@ -77,7 +84,7 @@ public sealed class UdpReceiver : BackgroundService
 
         try
         {
-            switch ((BatchType)envelope.BatchType)
+            switch (envelope.BatchType)
             {
                 case BatchType.SessionMeta:
                     _aggregator.OnSessionMeta(MessagePackSerializer.Deserialize<SessionMeta>(envelope.Payload));
