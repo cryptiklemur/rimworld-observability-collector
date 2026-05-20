@@ -12,4 +12,5 @@ public sealed class MetricLabelEntry
     internal long CounterTotal;
     internal long GaugeValue;
     internal long HistogramObservationCount;
+    internal long HistogramSum;
 }

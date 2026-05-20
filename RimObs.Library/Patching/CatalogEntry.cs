@@ -19,7 +19,7 @@ public sealed class CatalogEntry
     public string[]? ParamTypeNames { get; }
     public MethodBase? Resolved { get; internal set; }
     public int SectionId { get; internal set; } = -1;
-    public string? ResolutionError { get; internal set; }
+    public Exception? ResolutionError { get; internal set; }
     public bool Installed { get; internal set; }
     public Exception? InstallError { get; internal set; }
     public bool Declared { get; internal set; }

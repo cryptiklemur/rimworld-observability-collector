@@ -15,10 +15,12 @@ public sealed class RimObsMod : Mod
         {
             SessionAnchor.Initialize(System.Guid.NewGuid().ToString("N"));
             PopulateOwnerRegistry();
-            SectionCatalog.RegisterCorePack();
             ProfilingXmlLoader.LoadResult declared = LoadDeclaredProfiling();
             PatchInstaller.InstallAll();
             GcObserverHost.Start();
+            // AllocationSamplerHost is opt-in (PRD §35.18, §11.2). Mod authors or future
+            // config polling (M1.8) start it via AllocationSamplerHost.Start(). Default off
+            // because the GC.GetTotalMemory delta heuristic is a soft cost on every poll.
 
             int coreCount = 0;
             int declaredCount = 0;
@@ -53,7 +55,7 @@ public sealed class RimObsMod : Mod
             foreach (CatalogEntry entry in SectionCatalog.Entries)
             {
                 if (!entry.Installed && entry.ResolutionError != null)
-                    Log.Warning($"[RimObs] Section '{entry.Name}' unresolved: {entry.ResolutionError}");
+                    Log.Warning($"[RimObs] Section '{entry.Name}' unresolved: {entry.ResolutionError.Message}");
                 else if (entry.InstallError != null)
                     Log.Error($"[RimObs] Section '{entry.Name}' install failed: {entry.InstallError.Message}");
             }

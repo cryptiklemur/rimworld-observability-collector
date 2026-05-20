@@ -9,7 +9,6 @@ public sealed class AllocationSampler
     private static readonly long TimestampTicksPerSecond = Stopwatch.Frequency;
 
     private long _lastHeapBytes;
-    private long _lastTimestamp;
     private long _windowStartTimestamp;
     private long _windowBytesAccumulator;
     private long _windowSamplesAccumulator;
@@ -19,7 +18,6 @@ public sealed class AllocationSampler
     {
         long now = Stopwatch.GetTimestamp();
         _lastHeapBytes = GC.GetTotalMemory(forceFullCollection: false);
-        _lastTimestamp = now;
         _windowStartTimestamp = now;
     }
 
@@ -37,7 +35,6 @@ public sealed class AllocationSampler
             _windowSamplesAccumulator++;
         }
         _lastHeapBytes = heapNow;
-        _lastTimestamp = now;
 
         long elapsedMs = (now - _windowStartTimestamp) * 1000L / TimestampTicksPerSecond;
         if (elapsedMs < windowDurationMs)

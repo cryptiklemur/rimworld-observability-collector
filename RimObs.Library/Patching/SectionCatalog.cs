@@ -95,14 +95,14 @@ public static class SectionCatalog
                     Type? type = FindType(entry.TypeName);
                     if (type == null)
                     {
-                        entry.ResolutionError = "type not found";
+                        entry.ResolutionError = new TypeLoadException($"type '{entry.TypeName}' not found");
                         continue;
                     }
 
                     MethodInfo? method = ResolveMethod(type, entry.MethodName, entry.ParamTypeNames);
                     if (method == null)
                     {
-                        entry.ResolutionError = "method not found";
+                        entry.ResolutionError = new MissingMethodException(entry.TypeName, entry.MethodName);
                         continue;
                     }
 
@@ -114,7 +114,7 @@ public static class SectionCatalog
                 }
                 catch (Exception ex)
                 {
-                    entry.ResolutionError = ex.Message;
+                    entry.ResolutionError = ex;
                 }
             }
         }
@@ -125,6 +125,16 @@ public static class SectionCatalog
         lock (s_Lock)
         {
             return s_MethodToSectionId.TryGetValue(method, out sectionId);
+        }
+    }
+
+    public static void Clear()
+    {
+        lock (s_Lock)
+        {
+            s_Entries.Clear();
+            s_MethodToSectionId.Clear();
+            s_CorePackRegistered = false;
         }
     }
 

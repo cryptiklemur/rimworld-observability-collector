@@ -78,4 +78,16 @@ public static class SectionRegistry
             return n;
         }
     }
+
+    public static void Clear()
+    {
+        lock (s_Lock)
+        {
+            Array.Clear(s_Names, 0, s_Count);
+            Array.Clear(s_Active, 0, s_Count);
+            s_Lookup.Clear();
+            s_PendingRegistrations.Clear();
+            s_Count = 0;
+        }
+    }
 }

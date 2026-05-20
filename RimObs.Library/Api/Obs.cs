@@ -140,6 +140,7 @@ public static class Obs
             if (descriptor == null)
                 return;
             Interlocked.Increment(ref descriptor.HistogramObservationCount);
+            Interlocked.Add(ref descriptor.HistogramSum, value);
         }
 
         public static void Observe(HistogramHandle handle, long value, string labelKey, string labelValue)
@@ -150,6 +151,7 @@ public static class Obs
             string canonical = CardinalityGuard.Canonicalize(labelKey, labelValue);
             MetricLabelEntry entry = CardinalityGuard.ResolveLabelEntry(descriptor, canonical);
             Interlocked.Increment(ref entry.HistogramObservationCount);
+            Interlocked.Add(ref entry.HistogramSum, value);
         }
 
         public static void Observe(HistogramHandle handle, long value, params (string Key, string Value)[] labels)
@@ -160,6 +162,7 @@ public static class Obs
             string canonical = CardinalityGuard.Canonicalize(labels);
             MetricLabelEntry entry = CardinalityGuard.ResolveLabelEntry(descriptor, canonical);
             Interlocked.Increment(ref entry.HistogramObservationCount);
+            Interlocked.Add(ref entry.HistogramSum, value);
         }
     }
 }

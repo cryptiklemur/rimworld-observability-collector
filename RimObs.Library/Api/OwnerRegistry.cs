@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.Reflection;
 
 namespace Cryptiklemur.RimObs.Api;
@@ -22,11 +23,11 @@ public static class OwnerRegistry
         }
     }
 
-    public static bool TryGetPackageId(Assembly assembly, out string packageId)
+    public static bool TryGetPackageId(Assembly assembly, [MaybeNullWhen(false)] out string packageId)
     {
         lock (s_Lock)
         {
-            return s_AssemblyToPackageId.TryGetValue(assembly, out packageId!);
+            return s_AssemblyToPackageId.TryGetValue(assembly, out packageId);
         }
     }
 
@@ -35,7 +36,7 @@ public static class OwnerRegistry
         if (assembly == null)
             throw new ArgumentNullException(nameof(assembly));
 
-        if (TryGetPackageId(assembly, out string packageId))
+        if (TryGetPackageId(assembly, out string? packageId))
             return packageId;
 
         throw new InvalidOperationException(
