@@ -1,0 +1,51 @@
+/** @type {import('semantic-release').GlobalConfig} */
+export default {
+    branches: ['main', { name: 'beta', prerelease: true }],
+    plugins: [
+        '@semantic-release/commit-analyzer',
+        '@semantic-release/release-notes-generator',
+        [
+            'semantic-release-replace-plugin',
+            {
+                replacements: [
+                    {
+                        files: ['RimObs.Library/BuildInfo.cs'],
+                        from: 'Revision = ".*"',
+                        to: 'Revision = "${nextRelease.version}"',
+                        results: [{ file: 'RimObs.Library/BuildInfo.cs', hasChanged: true, numMatches: 1, numReplacements: 1 }],
+                        countMatches: true,
+                    },
+                    {
+                        files: ['RimObs.Library/BuildInfo.cs'],
+                        from: 'BuildTime = ".*"',
+                        to: () => `BuildTime = "${new Date().toISOString()}"`,
+                        results: [{ file: 'RimObs.Library/BuildInfo.cs', hasChanged: true, numMatches: 1, numReplacements: 1 }],
+                        countMatches: true,
+                    },
+                    {
+                        files: ['RimObs.Collector/BuildInfo.cs'],
+                        from: 'Revision = ".*"',
+                        to: 'Revision = "${nextRelease.version}"',
+                        results: [{ file: 'RimObs.Collector/BuildInfo.cs', hasChanged: true, numMatches: 1, numReplacements: 1 }],
+                        countMatches: true,
+                    },
+                    {
+                        files: ['RimObs.Collector/BuildInfo.cs'],
+                        from: 'BuildTime = ".*"',
+                        to: () => `BuildTime = "${new Date().toISOString()}"`,
+                        results: [{ file: 'RimObs.Collector/BuildInfo.cs', hasChanged: true, numMatches: 1, numReplacements: 1 }],
+                        countMatches: true,
+                    },
+                ],
+            },
+        ],
+        '@semantic-release/github',
+        [
+            '@semantic-release/git',
+            {
+                assets: ['RimObs.Library/BuildInfo.cs', 'RimObs.Collector/BuildInfo.cs'],
+                message: 'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',
+            },
+        ],
+    ],
+};
