@@ -12,4 +12,7 @@ public sealed class SectionBatch {
 
     [Key(2)]
     public long[] StartTimestamps { get; set; } = [];
+
+    [Key(3)]
+    public int[] ParentIds { get; set; } = [];
 }

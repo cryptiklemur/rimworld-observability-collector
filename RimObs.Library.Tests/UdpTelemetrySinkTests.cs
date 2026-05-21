@@ -41,7 +41,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable {
         using UdpTelemetrySink sink = new(ownerId: "test.owner", port: GetFreePort());
 
         for (int i = 0; i < 32; i++)
-            sink.RecordSection(sectionId: i, startTimestamp: i * 100L, elapsedTicks: 50L);
+            sink.RecordSection(sectionId: i, parentId: -1, startTimestamp: i * 100L, elapsedTicks: 50L);
 
         // No exception means the ring buffer absorbed the writes even with no sender thread running.
         sink.SamplesSent.Should().Be(0);
@@ -60,7 +60,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable {
 
         SectionHandle handle = SectionRegistry.Register("test.section");
         for (int i = 0; i < 8; i++)
-            sink.RecordSection(handle.Id, startTimestamp: i, elapsedTicks: 100);
+            sink.RecordSection(handle.Id, parentId: -1, startTimestamp: i, elapsedTicks: 100);
 
         bool sawSection = false;
         DateTime deadline = DateTime.UtcNow.AddSeconds(3);
@@ -89,7 +89,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable {
         using UdpTelemetrySink sink = new(ownerId: "test.owner", port: port);
         sink.Start();
 
-        sink.RecordSection(sectionId: 0, startTimestamp: 0L, elapsedTicks: 1L);
+        sink.RecordSection(sectionId: 0, parentId: -1, startTimestamp: 0L, elapsedTicks: 1L);
 
         // No receiver bound; on most OSes loopback UDP swallows silently, but the send loop
         // should still drain the ring buffer without leaking exceptions.
