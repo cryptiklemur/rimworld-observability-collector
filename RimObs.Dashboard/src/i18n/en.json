@@ -1,15 +1,5 @@
 {
     "app.title": "RimWorld Observability",
     "status.loading": "loading",
-    "status.unknown": "unknown",
-    "nav.overview": "Overview",
-    "nav.hotspots": "Hotspots",
-    "nav.sessions": "Sessions",
-    "nav.calltree": "Call tree",
-    "nav.memory": "Memory & GC",
-    "nav.incidents": "Incidents",
-    "nav.errors": "Errors",
-    "nav.comparison": "Comparison",
-    "nav.panels": "Panels",
-    "nav.settings": "Settings"
+    "status.unknown": "unknown"
 }
