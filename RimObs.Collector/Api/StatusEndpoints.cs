@@ -9,8 +9,9 @@ namespace Cryptiklemur.RimObs.Collector.Api;
 
 public static class StatusEndpoints {
     public static IEndpointRouteBuilder MapStatusEndpoints(this IEndpointRouteBuilder endpoints) {
-        endpoints.MapGet("/api/v1/status", (SessionAggregator aggregator) => {
+        endpoints.MapGet("/api/v1/status", (SessionAggregator aggregator, Update.UpdateState updateState) => {
             SessionMeta? meta = aggregator.Meta;
+            Update.ReleaseInfo? latest = updateState.Latest;
             return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
                 status = "running",
@@ -28,6 +29,11 @@ public static class StatusEndpoints {
                     section_count = aggregator.SectionCount,
                     total_gc_events = aggregator.TotalGcEvents,
                     total_allocations = aggregator.TotalAllocations,
+                },
+                update = new {
+                    available = latest is not null,
+                    latest_version = latest?.TagName,
+                    url = latest?.HtmlUrl,
                 },
             });
         });
