@@ -67,6 +67,8 @@ public sealed class SessionAggregatorTests {
         public void WriteSectionsSnapshot(string sessionId, IReadOnlyCollection<Cryptiklemur.RimObs.Collector.Aggregation.SectionStats> sections) => WrittenSections.Add((sessionId, sections));
         public void WriteMetricsSnapshot(string sessionId, IReadOnlyCollection<Cryptiklemur.RimObs.Collector.Aggregation.MetricStats> metrics) => WrittenMetrics.Add((sessionId, metrics));
         public void ReplaceGcEventsSnapshot(string sessionId, Cryptiklemur.RimObs.Collector.Aggregation.GcEventRecord[] events) => WrittenGc.Add((sessionId, events));
+        public List<(string id, IReadOnlyCollection<Cryptiklemur.RimObs.Collector.Aggregation.CallEdgeStats> edges)> WrittenCallTree { get; } = [];
+        public void WriteCallTreeSnapshot(string sessionId, IReadOnlyCollection<Cryptiklemur.RimObs.Collector.Aggregation.CallEdgeStats> edges) => WrittenCallTree.Add((sessionId, edges));
         public void Dispose() { }
     }
 
@@ -116,6 +118,45 @@ public sealed class SessionAggregatorTests {
         stats.MinElapsedTicks.Should().Be(20);
         stats.MaxElapsedTicks.Should().Be(100);
         stats.LastStartTimestamp.Should().Be(300);
+    }
+
+    [Fact]
+    public void OnSectionBatch_accumulates_call_edges_from_parent_ids() {
+        SessionAggregator agg = new();
+        SectionBatch batch = new() {
+            SectionIds = [1, 2, 2],
+            ParentIds = [CallTreeBuilder.NoParent, 1, 1],
+            StartTimestamps = [100, 110, 200],
+            ElapsedTicks = [500, 30, 70],
+        };
+
+        agg.OnSectionBatch(batch);
+
+        CallEdgeStats root = agg.CallEdges.Single(e => e.SectionId == 1 && e.ParentId == CallTreeBuilder.NoParent);
+        root.CallCount.Should().Be(1);
+        root.TotalElapsedTicks.Should().Be(500);
+
+        CallEdgeStats childEdge = agg.CallEdges.Single(e => e.SectionId == 2 && e.ParentId == 1);
+        childEdge.CallCount.Should().Be(2);
+        childEdge.TotalElapsedTicks.Should().Be(100);
+    }
+
+    [Fact]
+    public void OnSectionBatch_defaults_missing_parent_ids_to_no_parent() {
+        SessionAggregator agg = new();
+        SectionBatch batch = new() {
+            SectionIds = [5, 5],
+            StartTimestamps = [1, 2],
+            ElapsedTicks = [10, 20],
+        };
+
+        agg.OnSectionBatch(batch);
+
+        CallEdgeStats edge = agg.CallEdges.Single();
+        edge.SectionId.Should().Be(5);
+        edge.ParentId.Should().Be(CallTreeBuilder.NoParent);
+        edge.CallCount.Should().Be(2);
+        edge.TotalElapsedTicks.Should().Be(30);
     }
 
     [Fact]

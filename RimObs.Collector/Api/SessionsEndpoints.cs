@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
 using System.Threading;
@@ -15,6 +16,8 @@ public static class SessionsEndpoints {
     private const int MaxHotspotLimit = 500;
     private const int DefaultGcEventLimit = 100;
     private const int MaxGcEventLimit = 1024;
+    private const int MaxCallTreeDepth = 64;
+    private const int MaxCallTreeTopN = 256;
 
     public static IEndpointRouteBuilder MapSessionsEndpoints(this IEndpointRouteBuilder endpoints) {
         endpoints.MapGet("/api/v1/sessions/current/sections", (SessionAggregator aggregator) => {
@@ -91,6 +94,34 @@ public static class SessionsEndpoints {
             });
         });
 
+        endpoints.MapGet("/api/v1/sessions/current/call_tree", (SessionAggregator aggregator, int? depth, int? top) => {
+            long freq = aggregator.Meta?.StopwatchFrequency ?? Stopwatch.Frequency;
+            double nsPerTick = 1_000_000_000.0 / freq;
+            int depthCap = depth is int d && d > 0 ? Math.Min(d, MaxCallTreeDepth) : CallTreeBuilder.DefaultDepthCap;
+            int topN = top is int t && t > 0 ? Math.Min(t, MaxCallTreeTopN) : CallTreeBuilder.DefaultTopN;
+
+            Dictionary<int, string> names = aggregator.Sections.ToDictionary(s => s.SectionId, s => s.Name);
+            IReadOnlyList<CallTreeNode> roots = CallTreeBuilder.Build(aggregator.CallEdges, names, nsPerTick, depthCap, topN);
+
+            return Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                depth_cap = depthCap,
+                top_n = topN,
+                roots = roots.Select(MapCallNode).ToArray(),
+            });
+        });
+
         return endpoints;
+    }
+
+    private static object MapCallNode(CallTreeNode node) {
+        return new {
+            id = node.SectionId,
+            name = node.Name,
+            call_count = node.CallCount,
+            total_ns = node.TotalNs,
+            is_other = node.IsOther,
+            children = node.Children.Select(MapCallNode).ToArray(),
+        };
     }
 }

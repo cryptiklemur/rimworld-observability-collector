@@ -9,6 +9,7 @@ public sealed class SessionAggregator {
 
     private readonly ConcurrentDictionary<int, SectionStats> _sections = new();
     private readonly ConcurrentDictionary<int, MetricStats> _metrics = new();
+    private readonly ConcurrentDictionary<long, CallEdgeStats> _callEdges = new();
     private readonly BoundedRecordRing<GcEventRecord> _gcEvents = new(GcEventRingCapacity);
     private readonly ISessionPersister? _persister;
     private SessionMeta? _meta;
@@ -42,6 +43,7 @@ public sealed class SessionAggregator {
 
     public IReadOnlyCollection<SectionStats> Sections => _sections.Values.ToArray();
     public IReadOnlyCollection<MetricStats> Metrics => _metrics.Values.ToArray();
+    public IReadOnlyCollection<CallEdgeStats> CallEdges => _callEdges.Values.ToArray();
 
     public GcEventRecord[] SnapshotGcEvents(int limit) => _gcEvents.SnapshotNewestFirst(limit);
 
@@ -129,6 +131,7 @@ public sealed class SessionAggregator {
 
     public void OnSectionBatch(SectionBatch batch) {
         int n = Math.Min(batch.SectionIds.Length, Math.Min(batch.ElapsedTicks.Length, batch.StartTimestamps.Length));
+        int parentLen = batch.ParentIds.Length;
         for (int i = 0; i < n; i++) {
             int id = batch.SectionIds[i];
             long elapsed = batch.ElapsedTicks[i];
@@ -139,6 +142,12 @@ public sealed class SessionAggregator {
             stats.LastStartTimestamp = start;
             UpdateMin(ref stats.MinElapsedTicks, elapsed);
             UpdateMax(ref stats.MaxElapsedTicks, elapsed);
+
+            int parentId = i < parentLen ? batch.ParentIds[i] : CallTreeBuilder.NoParent;
+            long edgeKey = ((long)(uint)parentId << 32) | (uint)id;
+            CallEdgeStats edge = _callEdges.GetOrAdd(edgeKey, _ => new CallEdgeStats { ParentId = parentId, SectionId = id });
+            Interlocked.Increment(ref edge.CallCount);
+            Interlocked.Add(ref edge.TotalElapsedTicks, elapsed);
         }
         Interlocked.Add(ref _totalSamples, n);
     }
