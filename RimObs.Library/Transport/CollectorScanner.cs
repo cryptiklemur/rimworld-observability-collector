@@ -1,0 +1,71 @@
+using System.Collections.Generic;
+using System.IO;
+
+namespace Cryptiklemur.RimObs.Transport;
+
+public static class CollectorScanner
+{
+    public const string CollectorDirName = "Collector";
+    public const string ManifestFileName = "Collector.version";
+    public const string ExecutableName = "Collector";
+    public const string WindowsExecutableName = "Collector.exe";
+
+    public static IReadOnlyList<CollectorCandidate> Scan(string modsRoot)
+    {
+        List<CollectorCandidate> results = new List<CollectorCandidate>();
+        if (string.IsNullOrWhiteSpace(modsRoot) || !Directory.Exists(modsRoot))
+            return results;
+
+        foreach (string modDir in Directory.EnumerateDirectories(modsRoot))
+        {
+            string collectorDir = Path.Combine(modDir, "Assemblies", CollectorDirName);
+            if (!Directory.Exists(collectorDir))
+                continue;
+
+            CollectorCandidate? candidate = TryReadCandidate(collectorDir);
+            if (candidate != null)
+                results.Add(candidate);
+        }
+
+        return results;
+    }
+
+    internal static CollectorCandidate? TryReadCandidate(string collectorDir)
+    {
+        if (string.IsNullOrWhiteSpace(collectorDir))
+            return null;
+
+        string manifestPath = Path.Combine(collectorDir, ManifestFileName);
+        CollectorManifest? manifest = CollectorManifest.TryReadFile(manifestPath);
+        if (manifest is null || string.IsNullOrEmpty(manifest.Version))
+            return null;
+
+        string? executable = FindExecutable(collectorDir);
+        if (executable is null)
+            return null;
+
+        try
+        {
+            return CollectorCandidate.Parse(executable, manifest.Version!);
+        }
+        catch (System.ArgumentException)
+        {
+            return null;
+        }
+        catch (System.FormatException)
+        {
+            return null;
+        }
+    }
+
+    private static string? FindExecutable(string collectorDir)
+    {
+        string windowsPath = Path.Combine(collectorDir, WindowsExecutableName);
+        if (File.Exists(windowsPath))
+            return windowsPath;
+        string barePath = Path.Combine(collectorDir, ExecutableName);
+        if (File.Exists(barePath))
+            return barePath;
+        return null;
+    }
+}
