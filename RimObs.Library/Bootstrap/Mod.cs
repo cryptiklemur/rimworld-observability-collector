@@ -79,6 +79,35 @@ public sealed class RimObsMod : Mod
                 OwnerRegistry.RegisterMod(asm, packageId);
             }
         }
+
+        OwnerRegistry.SetLateResolver(ResolvePackageIdFromLoadedMods);
+    }
+
+    private static string? ResolvePackageIdFromLoadedMods(System.Reflection.Assembly assembly)
+    {
+        if (assembly == null)
+            return null;
+
+        System.Collections.Generic.List<ModContentPack>? mods = LoadedModManager.RunningModsListForReading;
+        if (mods == null)
+            return null;
+
+        for (int i = 0; i < mods.Count; i++)
+        {
+            ModContentPack pack = mods[i];
+            string packageId = pack.PackageId;
+            if (string.IsNullOrEmpty(packageId))
+                continue;
+
+            System.Collections.Generic.List<System.Reflection.Assembly> assemblies = pack.assemblies.loadedAssemblies;
+            for (int j = 0; j < assemblies.Count; j++)
+            {
+                if (ReferenceEquals(assemblies[j], assembly))
+                    return packageId;
+            }
+        }
+
+        return null;
     }
 
     private static ProfilingXmlLoader.LoadResult LoadDeclaredProfiling()
