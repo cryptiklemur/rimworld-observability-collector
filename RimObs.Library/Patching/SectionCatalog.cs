@@ -151,6 +151,18 @@ public static class SectionCatalog
 
     private static MethodInfo? ResolveMethod(Type type, string methodName, string[]? paramTypeNames)
     {
+        List<MethodInfo> byName = GetMethodsByName(type, methodName);
+        if (byName.Count == 0)
+            return null;
+
+        if (paramTypeNames == null || paramTypeNames.Length == 0)
+            return ResolveByNameOnly(byName);
+
+        return ResolveByParamTypes(byName, paramTypeNames);
+    }
+
+    private static List<MethodInfo> GetMethodsByName(Type type, string methodName)
+    {
         const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
 
         MethodInfo[] candidates = type.GetMethods(Flags);
@@ -160,29 +172,35 @@ public static class SectionCatalog
             if (candidates[i].Name == methodName)
                 byName.Add(candidates[i]);
         }
+        return byName;
+    }
 
-        if (byName.Count == 0)
-            return null;
+    // When the catalog entry only specifies a method name (no param types), we deliberately
+    // pick the widest overload. RimWorld's vanilla methods that mods want to instrument
+    // (FindPath, FindPathNow, MapPreTick, ...) are typically the canonical highest-arity
+    // form; the lower-arity overloads are usually thin convenience wrappers that delegate
+    // to the wide one, so patching the wide overload covers both call paths.
+    private static MethodInfo? ResolveByNameOnly(List<MethodInfo> byName)
+    {
+        if (byName.Count == 1)
+            return byName[0];
 
-        if (paramTypeNames == null || paramTypeNames.Length == 0)
+        MethodInfo best = byName[0];
+        int bestArity = best.GetParameters().Length;
+        for (int i = 1; i < byName.Count; i++)
         {
-            if (byName.Count == 1)
-                return byName[0];
-
-            MethodInfo best = byName[0];
-            int bestArity = best.GetParameters().Length;
-            for (int i = 1; i < byName.Count; i++)
+            int arity = byName[i].GetParameters().Length;
+            if (arity > bestArity)
             {
-                int arity = byName[i].GetParameters().Length;
-                if (arity > bestArity)
-                {
-                    best = byName[i];
-                    bestArity = arity;
-                }
+                best = byName[i];
+                bestArity = arity;
             }
-            return best;
         }
+        return best;
+    }
 
+    private static MethodInfo? ResolveByParamTypes(List<MethodInfo> byName, string[] paramTypeNames)
+    {
         foreach (MethodInfo m in byName)
         {
             ParameterInfo[] ps = m.GetParameters();
