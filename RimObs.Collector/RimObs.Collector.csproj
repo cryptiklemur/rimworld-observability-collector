@@ -28,16 +28,13 @@
 
     <ItemGroup>
         <ProjectReference Include="..\RimObs.Wire\RimObs.Wire.csproj"/>
+        <InternalsVisibleTo Include="RimObs.Collector.Tests"/>
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="MessagePack" Version="2.5.187"/>
-        <PackageReference Include="Microsoft.Data.Sqlite" Version="9.0.0"/>
-        <PackageReference Include="HdrHistogram" Version="2.5.0"/>
-        <PackageReference Include="Serilog.AspNetCore" Version="8.0.3"/>
-        <PackageReference Include="Serilog.Sinks.File" Version="6.0.0"/>
-        <PackageReference Include="Serilog.Sinks.Console" Version="6.0.0"/>
-        <PackageReference Include="Serilog.Formatting.Compact" Version="3.0.0"/>
+        <PackageReference Include="Serilog.AspNetCore" Version="10.0.0"/>
+        <PackageReference Include="Serilog.Sinks.Console" Version="6.1.1"/>
     </ItemGroup>
 
     <ItemGroup>

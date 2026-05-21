@@ -23,6 +23,29 @@ public static class SectionCatalog
         }
     }
 
+    private static readonly (string Name, string TypeName, string MethodName)[] s_CorePackSections =
+    [
+        ("Verse.TickManager.DoSingleTick", "Verse.TickManager", "DoSingleTick"),
+        ("Verse.Map.MapPreTick", "Verse.Map", "MapPreTick"),
+        ("Verse.Map.MapPostTick", "Verse.Map", "MapPostTick"),
+        ("RimWorld.Planet.World.WorldTick", "RimWorld.Planet.World", "WorldTick"),
+        ("Verse.GameComponentUtility.GameComponentTick", "Verse.GameComponentUtility", "GameComponentTick"),
+        ("RimWorld.Storyteller.StorytellerTick", "RimWorld.Storyteller", "StorytellerTick"),
+        ("RimWorld.History.HistoryTick", "RimWorld.History", "HistoryTick"),
+        ("RimWorld.FilthMonitor.FilthMonitorTick", "RimWorld.FilthMonitor", "FilthMonitorTick"),
+        ("RimWorld.DateNotifier.DateNotifierTick", "RimWorld.DateNotifier", "DateNotifierTick"),
+        ("Verse.AI.Pawn_JobTracker.DetermineNextJob", "Verse.AI.Pawn_JobTracker", "DetermineNextJob"),
+        ("Verse.AI.PathFinder.FindPathNow", "Verse.PathFinder", "FindPathNow"),
+        ("Verse.AI.Pawn_PathFollower.PatherTick", "Verse.AI.Pawn_PathFollower", "PatherTick"),
+        ("RimWorld.MapInterface.MapInterfaceUpdate", "RimWorld.MapInterface", "MapInterfaceUpdate"),
+        ("Verse.UIRoot.UIRootOnGUI", "Verse.UIRoot", "UIRootOnGUI"),
+        ("Verse.WindowStack.WindowStackOnGUI", "Verse.WindowStack", "WindowStackOnGUI"),
+        ("RimWorld.Alert.Recalculate", "RimWorld.Alert", "Recalculate"),
+        ("RimWorld.Pawn_NeedsTracker.NeedsTrackerTickInterval", "RimWorld.Pawn_NeedsTracker", "NeedsTrackerTickInterval"),
+        ("RimWorld.Planet.WorldPawns.WorldPawnsTick", "RimWorld.Planet.WorldPawns", "WorldPawnsTick"),
+        ("Verse.Root_Play.Update", "Verse.Root_Play", "Update"),
+    ];
+
     public static void RegisterCorePack()
     {
         lock (s_Lock)
@@ -31,25 +54,11 @@ public static class SectionCatalog
                 return;
             s_CorePackRegistered = true;
 
-            Register("Verse.TickManager.DoSingleTick", "Verse.TickManager", "DoSingleTick", null);
-            Register("Verse.Map.MapPreTick", "Verse.Map", "MapPreTick", null);
-            Register("Verse.Map.MapPostTick", "Verse.Map", "MapPostTick", null);
-            Register("RimWorld.Planet.World.WorldTick", "RimWorld.Planet.World", "WorldTick", null);
-            Register("Verse.GameComponentUtility.GameComponentTick", "Verse.GameComponentUtility", "GameComponentTick", null);
-            Register("RimWorld.Storyteller.StorytellerTick", "RimWorld.Storyteller", "StorytellerTick", null);
-            Register("RimWorld.History.HistoryTick", "RimWorld.History", "HistoryTick", null);
-            Register("RimWorld.FilthMonitor.FilthMonitorTick", "RimWorld.FilthMonitor", "FilthMonitorTick", null);
-            Register("RimWorld.DateNotifier.DateNotifierTick", "RimWorld.DateNotifier", "DateNotifierTick", null);
-            Register("Verse.AI.Pawn_JobTracker.DetermineNextJob", "Verse.AI.Pawn_JobTracker", "DetermineNextJob", null);
-            Register("Verse.AI.PathFinder.FindPathNow", "Verse.PathFinder", "FindPathNow", null);
-            Register("Verse.AI.Pawn_PathFollower.PatherTick", "Verse.AI.Pawn_PathFollower", "PatherTick", null);
-            Register("RimWorld.MapInterface.MapInterfaceUpdate", "RimWorld.MapInterface", "MapInterfaceUpdate", null);
-            Register("Verse.UIRoot.UIRootOnGUI", "Verse.UIRoot", "UIRootOnGUI", null);
-            Register("Verse.WindowStack.WindowStackOnGUI", "Verse.WindowStack", "WindowStackOnGUI", null);
-            Register("RimWorld.Alert.Recalculate", "RimWorld.Alert", "Recalculate", null);
-            Register("RimWorld.Pawn_NeedsTracker.NeedsTrackerTickInterval", "RimWorld.Pawn_NeedsTracker", "NeedsTrackerTickInterval", null);
-            Register("RimWorld.Planet.WorldPawns.WorldPawnsTick", "RimWorld.Planet.WorldPawns", "WorldPawnsTick", null);
-            Register("Verse.Root_Play.Update", "Verse.Root_Play", "Update", null);
+            for (int i = 0; i < s_CorePackSections.Length; i++)
+            {
+                (string name, string typeName, string methodName) = s_CorePackSections[i];
+                Register(name, typeName, methodName, null);
+            }
         }
     }
 

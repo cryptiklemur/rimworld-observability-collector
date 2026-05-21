@@ -1,4 +1,4 @@
-namespace Cryptiklemur.RimObs;
+namespace Cryptiklemur.RimObs.Wire;
 
 public static class BuildInfo
 {

@@ -27,30 +27,10 @@ public static class CardinalityGuard
         return key + "=" + (value ?? string.Empty);
     }
 
-    public static string Canonicalize(string k1, string? v1, string k2, string? v2)
-    {
-        StringBuilder sb = new(k1.Length + (v1?.Length ?? 0) + k2.Length + (v2?.Length ?? 0) + 3);
-        AppendPair(sb, k1, v1);
-        sb.Append(',');
-        AppendPair(sb, k2, v2);
-        return sb.ToString();
-    }
-
-    public static string Canonicalize(string k1, string? v1, string k2, string? v2, string k3, string? v3)
-    {
-        StringBuilder sb = new(k1.Length + (v1?.Length ?? 0) + k2.Length + (v2?.Length ?? 0) + k3.Length + (v3?.Length ?? 0) + 5);
-        AppendPair(sb, k1, v1);
-        sb.Append(',');
-        AppendPair(sb, k2, v2);
-        sb.Append(',');
-        AppendPair(sb, k3, v3);
-        return sb.ToString();
-    }
-
     public static string Canonicalize(params (string Key, string Value)[] labels)
     {
         if (labels == null || labels.Length == 0)
-            return string.Empty;
+            throw new ArgumentException("At least one label is required.", nameof(labels));
 
         int capacity = 0;
         for (int i = 0; i < labels.Length; i++)

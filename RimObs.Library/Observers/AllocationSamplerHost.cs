@@ -7,8 +7,7 @@ public static class AllocationSamplerHost
 {
     private static readonly object s_Lock = new();
     private static AllocationSampler? s_Instance;
-    private static Thread? s_PollThread;
-    private static volatile bool s_Stop;
+    private static PollerThread? s_Poller;
     private static readonly List<AllocationSample> s_RecentSamples = new(capacity: 64);
     private static IAllocationSink? s_Sink;
     private const int MaxRecentSamples = 64;
@@ -35,16 +34,7 @@ public static class AllocationSamplerHost
         }
     }
 
-    public static bool IsRunning
-    {
-        get
-        {
-            lock (s_Lock)
-            {
-                return s_PollThread != null;
-            }
-        }
-    }
+    public static bool IsRunning => s_Poller?.IsRunning ?? false;
 
     public static long WindowDurationMs
     {
@@ -79,31 +69,23 @@ public static class AllocationSamplerHost
     {
         lock (s_Lock)
         {
-            if (s_PollThread != null)
+            if (s_Poller?.IsRunning == true)
                 return;
-
             s_Instance ??= new AllocationSampler();
-            s_Stop = false;
-            s_PollThread = new Thread(PollLoop)
-            {
-                Name = "RimObs.AllocationSampler",
-                IsBackground = true,
-                Priority = ThreadPriority.BelowNormal,
-            };
-            s_PollThread.Start();
+            s_Poller = new PollerThread("RimObs.AllocationSampler", PollTick, PollIntervalMs);
+            s_Poller.Start();
         }
     }
 
     public static void Stop()
     {
-        Thread? thread;
+        PollerThread? poller;
         lock (s_Lock)
         {
-            thread = s_PollThread;
-            s_PollThread = null;
-            s_Stop = true;
+            poller = s_Poller;
+            s_Poller = null;
         }
-        thread?.Join(2000);
+        poller?.Stop();
     }
 
     public static void ClearRecentSamples()
@@ -137,12 +119,5 @@ public static class AllocationSamplerHost
         return true;
     }
 
-    private static void PollLoop()
-    {
-        while (!s_Stop)
-        {
-            PollOnce();
-            Thread.Sleep(PollIntervalMs);
-        }
-    }
+    private static void PollTick() => PollOnce();
 }

@@ -1,3 +1,4 @@
+using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
 using Xunit;
 

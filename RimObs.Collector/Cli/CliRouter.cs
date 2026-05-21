@@ -14,7 +14,7 @@ public static class CliRouter
 
         if (args[0] == "version" || args[0] == "--version")
         {
-            Console.WriteLine($"{BuildInfo.Revision} (built {BuildInfo.BuildTime})");
+            Console.WriteLine($"{Wire.BuildInfo.Revision} (built {Wire.BuildInfo.BuildTime})");
             return 0;
         }
 

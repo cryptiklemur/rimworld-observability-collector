@@ -13,10 +13,10 @@ public static class SessionAnchor
 
     public static void Initialize(string sessionId)
     {
-        if (IsInitialized)
-            return;
         if (string.IsNullOrEmpty(sessionId))
             throw new ArgumentException("Session id must not be empty.", nameof(sessionId));
+        if (IsInitialized)
+            return;
 
         StartedUtc = DateTime.UtcNow;
         AnchorTimestamp = Stopwatch.GetTimestamp();
