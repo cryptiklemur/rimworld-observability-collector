@@ -61,7 +61,7 @@ public static class Program
             Wire.SessionMeta? meta = agg.Meta;
             return Results.Ok(new
             {
-                schema_version = 1,
+                schema_version = Wire.SchemaVersion.Current,
                 status = "running",
                 version = BuildInfo.Revision,
                 session = meta is null ? null : new
@@ -89,7 +89,7 @@ public static class Program
             double nsPerTick = 1_000_000_000.0 / freq;
             return Results.Ok(new
             {
-                schema_version = 1,
+                schema_version = Wire.SchemaVersion.Current,
                 sections = agg.Sections.Select(s => new
                 {
                     id = s.SectionId,
@@ -104,7 +104,7 @@ public static class Program
 
         app.MapGet("/api/v1/version", () => Results.Ok(new
         {
-            schema_version = 1,
+            schema_version = Wire.SchemaVersion.Current,
             version = BuildInfo.Revision,
             built_at = BuildInfo.BuildTime,
         }));
