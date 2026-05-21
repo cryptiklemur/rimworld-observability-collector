@@ -1,7 +1,6 @@
 namespace Cryptiklemur.RimObs.Wire;
 
-public enum BatchType : byte
-{
+public enum BatchType : byte {
     Sections = 0,
     Metrics = 1,
     MetricRegistrations = 2,

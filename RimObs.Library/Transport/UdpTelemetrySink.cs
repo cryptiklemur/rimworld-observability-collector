@@ -12,8 +12,7 @@ using Cryptiklemur.RimObs.Session;
 
 namespace Cryptiklemur.RimObs.Transport;
 
-internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationSink, IDisposable
-{
+internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationSink, IDisposable {
     public const int DefaultPort = 17654;
     private const int RingCapacity = 16384;
     private const int BatchSize = 256;
@@ -45,13 +44,11 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
     private long _sendErrors;
     private Exception? _lastSendError;
 
-    public UdpTelemetrySink(string ownerId, int port = DefaultPort, string host = "127.0.0.1")
-    {
+    public UdpTelemetrySink(string ownerId, int port = DefaultPort, string host = "127.0.0.1") {
         _ownerId = ownerId ?? throw new ArgumentNullException(nameof(ownerId));
         _client = new UdpClient(AddressFamily.InterNetwork);
         _endpoint = new IPEndPoint(IPAddress.Parse(host), port);
-        _sender = new Thread(SenderLoop)
-        {
+        _sender = new Thread(SenderLoop) {
             Name = "RimObs.UdpSender",
             IsBackground = true,
         };
@@ -65,14 +62,12 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
     public long GcEventsDropped => _gcQueue.Dropped;
     public long AllocationsDropped => _allocQueue.Dropped;
 
-    public void Start()
-    {
+    public void Start() {
         _sender.Start();
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void RecordSection(int sectionId, long startTimestamp, long elapsedTicks)
-    {
+    public void RecordSection(int sectionId, long startTimestamp, long elapsedTicks) {
         _ring.TryWrite(sectionId, startTimestamp, elapsedTicks);
     }
 
@@ -80,14 +75,10 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
 
     public void RecordAllocation(in AllocationSample sample) => _allocQueue.TryEnqueue(sample);
 
-    private void SenderLoop()
-    {
-        while (!_stop.IsSet)
-        {
-            try
-            {
-                if (!_metaSent && SessionAnchor.IsInitialized)
-                {
+    private void SenderLoop() {
+        while (!_stop.IsSet) {
+            try {
+                if (!_metaSent && SessionAnchor.IsInitialized) {
                     SendSessionMeta();
                     _metaSent = true;
                 }
@@ -97,8 +88,7 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
                 FlushGcEvents();
                 FlushAllocations();
             }
-            catch (Exception ex) when (ex is SocketException or ObjectDisposedException or InvalidOperationException)
-            {
+            catch (Exception ex) when (ex is SocketException or ObjectDisposedException or InvalidOperationException) {
                 // Expected when the collector is absent or the socket has been torn down.
                 Interlocked.Increment(ref _sendErrors);
                 Volatile.Write(ref _lastSendError, ex);
@@ -107,10 +97,8 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
         }
     }
 
-    private void SendSessionMeta()
-    {
-        SessionMeta meta = new()
-        {
+    private void SendSessionMeta() {
+        SessionMeta meta = new() {
             SessionId = SessionAnchor.SessionId,
             StartedUtcTicks = SessionAnchor.StartedUtc.Ticks,
             StopwatchFrequency = SessionAnchor.StopwatchFrequency,
@@ -121,29 +109,24 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
         SendBatch(BatchType.SessionMeta, meta);
     }
 
-    private void FlushRegistrations()
-    {
+    private void FlushRegistrations() {
         int n = SectionRegistry.DrainPendingRegistrations(_registrationIds, _registrationNames);
         if (n == 0)
             return;
-        SectionRegistrationsBatch batch = new()
-        {
+        SectionRegistrationsBatch batch = new() {
             SectionIds = Slice(_registrationIds, n),
             Names = Slice(_registrationNames, n),
         };
         SendBatch(BatchType.SectionRegistrations, batch);
     }
 
-    private void FlushSamples()
-    {
-        while (true)
-        {
+    private void FlushSamples() {
+        while (true) {
             int n = _ring.Drain(_sectionIds, _startTimestamps, _elapsedTicks, BatchSize);
             if (n == 0)
                 return;
 
-            SectionBatch batch = new()
-            {
+            SectionBatch batch = new() {
                 SectionIds = Slice(_sectionIds, n),
                 StartTimestamps = Slice(_startTimestamps, n),
                 ElapsedTicks = Slice(_elapsedTicks, n),
@@ -153,14 +136,12 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
         }
     }
 
-    private void FlushGcEvents()
-    {
+    private void FlushGcEvents() {
         int n = _gcQueue.DrainSnapshot(_gcSnapshot);
         if (n == 0)
             return;
 
-        GcEventsBatch batch = new()
-        {
+        GcEventsBatch batch = new() {
             Generations = new byte[n],
             PauseTypes = new byte[n],
             HeapBefore = new long[n],
@@ -169,8 +150,7 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
             Ticks = new long[n],
             AllocationRateBytesPerMinute = new long[n],
         };
-        for (int i = 0; i < n; i++)
-        {
+        for (int i = 0; i < n; i++) {
             GcEventSample s = _gcSnapshot[i];
             batch.Generations[i] = s.Generation;
             batch.PauseTypes[i] = (byte)s.PauseType;
@@ -183,21 +163,18 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
         SendBatch(BatchType.GcEvents, batch);
     }
 
-    private void FlushAllocations()
-    {
+    private void FlushAllocations() {
         int n = _allocQueue.DrainSnapshot(_allocSnapshot);
         if (n == 0)
             return;
 
-        AllocationsBatch batch = new()
-        {
+        AllocationsBatch batch = new() {
             WindowStartTimestamps = new long[n],
             WindowDurationsMs = new long[n],
             BytesAllocated = new long[n],
             SamplesCount = new long[n],
         };
-        for (int i = 0; i < n; i++)
-        {
+        for (int i = 0; i < n; i++) {
             AllocationSample s = _allocSnapshot[i];
             batch.WindowStartTimestamps[i] = s.WindowStartTimestamp;
             batch.WindowDurationsMs[i] = s.WindowDurationMs;
@@ -207,16 +184,13 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
         SendBatch(BatchType.Allocations, batch);
     }
 
-    private void SendBatch<TBatch>(BatchType type, TBatch batch)
-    {
+    private void SendBatch<TBatch>(BatchType type, TBatch batch) {
         byte[] payload = MessagePackSerializer.Serialize(batch);
         SendBatch(type, payload);
     }
 
-    private void SendBatch(BatchType type, byte[] payload)
-    {
-        TelemetryBatch envelope = new()
-        {
+    private void SendBatch(BatchType type, byte[] payload) {
+        TelemetryBatch envelope = new() {
             SchemaVersion = SchemaVersion.Current,
             Sequence = ++_sequence,
             OwnerId = _ownerId,
@@ -228,22 +202,18 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
         Interlocked.Add(ref _bytesSent, bytes.Length);
     }
 
-    private static T[] Slice<T>(T[] src, int n)
-    {
+    private static T[] Slice<T>(T[] src, int n) {
         T[] dst = new T[n];
         Array.Copy(src, 0, dst, 0, n);
         return dst;
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         _stop.Set();
-        try
-        {
+        try {
             _sender.Join(1000);
         }
-        catch (ThreadStateException)
-        {
+        catch (ThreadStateException) {
             // Thread was never started; nothing to join.
         }
         _client.Dispose();

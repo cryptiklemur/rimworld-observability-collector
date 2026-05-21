@@ -1,7 +1,6 @@
 namespace Cryptiklemur.RimObs.Collector.Aggregation;
 
-public sealed class SectionStats
-{
+public sealed class SectionStats {
     public int SectionId { get; init; }
     public string Name { get; set; } = string.Empty;
     public long SampleCount;

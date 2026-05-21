@@ -3,8 +3,7 @@ using System.Threading;
 
 namespace Cryptiklemur.RimObs.Observers;
 
-internal sealed class PollerThread
-{
+internal sealed class PollerThread {
     private readonly object _lock = new();
     private readonly string _name;
     private readonly Action _tick;
@@ -12,8 +11,7 @@ internal sealed class PollerThread
     private Thread? _thread;
     private volatile bool _stop;
 
-    public PollerThread(string name, Action tick, int intervalMs)
-    {
+    public PollerThread(string name, Action tick, int intervalMs) {
         if (string.IsNullOrEmpty(name))
             throw new ArgumentException("Thread name must not be empty.", nameof(name));
         if (tick == null)
@@ -25,26 +23,20 @@ internal sealed class PollerThread
         _intervalMs = intervalMs;
     }
 
-    public bool IsRunning
-    {
-        get
-        {
-            lock (_lock)
-            {
+    public bool IsRunning {
+        get {
+            lock (_lock) {
                 return _thread != null;
             }
         }
     }
 
-    public void Start()
-    {
-        lock (_lock)
-        {
+    public void Start() {
+        lock (_lock) {
             if (_thread != null)
                 return;
             _stop = false;
-            _thread = new Thread(Loop)
-            {
+            _thread = new Thread(Loop) {
                 Name = _name,
                 IsBackground = true,
                 Priority = ThreadPriority.BelowNormal,
@@ -53,11 +45,9 @@ internal sealed class PollerThread
         }
     }
 
-    public void Stop(int joinTimeoutMs = 2000)
-    {
+    public void Stop(int joinTimeoutMs = 2000) {
         Thread? thread;
-        lock (_lock)
-        {
+        lock (_lock) {
             thread = _thread;
             _thread = null;
             _stop = true;
@@ -65,10 +55,8 @@ internal sealed class PollerThread
         thread?.Join(joinTimeoutMs);
     }
 
-    private void Loop()
-    {
-        while (!_stop)
-        {
+    private void Loop() {
+        while (!_stop) {
             _tick();
             Thread.Sleep(_intervalMs);
         }

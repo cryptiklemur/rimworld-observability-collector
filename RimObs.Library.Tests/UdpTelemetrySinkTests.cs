@@ -12,29 +12,24 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class UdpTelemetrySinkTests : IDisposable
-{
-    public void Dispose()
-    {
+public sealed class UdpTelemetrySinkTests : IDisposable {
+    public void Dispose() {
         SectionRegistry.Clear();
     }
 
-    private static int GetFreePort()
-    {
+    private static int GetFreePort() {
         using UdpClient probe = new(new IPEndPoint(IPAddress.Loopback, 0));
         return ((IPEndPoint)probe.Client.LocalEndPoint!).Port;
     }
 
     [Fact]
-    public void Constructor_throws_on_null_owner_id()
-    {
+    public void Constructor_throws_on_null_owner_id() {
         Action act = () => new UdpTelemetrySink(null!);
         act.Should().Throw<ArgumentNullException>();
     }
 
     [Fact]
-    public void SendErrors_starts_at_zero_and_last_error_null()
-    {
+    public void SendErrors_starts_at_zero_and_last_error_null() {
         using UdpTelemetrySink sink = new(ownerId: "test.owner", port: GetFreePort());
 
         sink.SendErrors.Should().Be(0);
@@ -42,8 +37,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable
     }
 
     [Fact]
-    public void RecordSection_buffers_without_throwing_when_no_receiver()
-    {
+    public void RecordSection_buffers_without_throwing_when_no_receiver() {
         using UdpTelemetrySink sink = new(ownerId: "test.owner", port: GetFreePort());
 
         for (int i = 0; i < 32; i++)
@@ -54,8 +48,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable
     }
 
     [Fact]
-    public void Drain_flushes_to_loopback_receiver()
-    {
+    public void Drain_flushes_to_loopback_receiver() {
         int port = GetFreePort();
         SessionAnchor.Initialize("test-session");
 
@@ -72,17 +65,14 @@ public sealed class UdpTelemetrySinkTests : IDisposable
         bool sawSection = false;
         DateTime deadline = DateTime.UtcNow.AddSeconds(3);
         IPEndPoint any = new(IPAddress.Any, 0);
-        while (DateTime.UtcNow < deadline && !sawSection)
-        {
-            try
-            {
+        while (DateTime.UtcNow < deadline && !sawSection) {
+            try {
                 byte[] bytes = receiver.Receive(ref any);
                 TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(bytes);
                 if (envelope.BatchType == BatchType.Sections)
                     sawSection = true;
             }
-            catch (SocketException)
-            {
+            catch (SocketException) {
                 break;
             }
         }
@@ -92,8 +82,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable
     }
 
     [Fact]
-    public void Send_to_unbound_port_records_socket_error()
-    {
+    public void Send_to_unbound_port_records_socket_error() {
         int port = GetFreePort();
         SessionAnchor.Initialize("test-session");
 
@@ -111,8 +100,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable
 
 
     [Fact]
-    public void Profiler_routed_through_setsink_reaches_loopback_receiver()
-    {
+    public void Profiler_routed_through_setsink_reaches_loopback_receiver() {
         int port = GetFreePort();
         SessionAnchor.Initialize("test-session");
 
@@ -124,11 +112,9 @@ public sealed class UdpTelemetrySinkTests : IDisposable
         bool priorEnabled = Profiler.Enabled;
         Profiler.SetSink(sink);
         Profiler.Enabled = true;
-        try
-        {
+        try {
             SectionHandle handle = SectionRegistry.Register("test.bootstrap_smoke");
-            for (int i = 0; i < 4; i++)
-            {
+            for (int i = 0; i < 4; i++) {
                 long token = Profiler.StartById(handle.Id);
                 Profiler.StopById(handle.Id, token);
             }
@@ -136,17 +122,14 @@ public sealed class UdpTelemetrySinkTests : IDisposable
             bool sawSection = false;
             DateTime deadline = DateTime.UtcNow.AddSeconds(3);
             IPEndPoint any = new(IPAddress.Any, 0);
-            while (DateTime.UtcNow < deadline && !sawSection)
-            {
-                try
-                {
+            while (DateTime.UtcNow < deadline && !sawSection) {
+                try {
                     byte[] bytes = receiver.Receive(ref any);
                     TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(bytes);
                     if (envelope.BatchType == BatchType.Sections)
                         sawSection = true;
                 }
-                catch (SocketException)
-                {
+                catch (SocketException) {
                     break;
                 }
             }
@@ -154,8 +137,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable
             sawSection.Should().BeTrue("Profiler samples should reach the sink set via Profiler.SetSink and flush over loopback");
             sink.SamplesSent.Should().BeGreaterThan(0);
         }
-        finally
-        {
+        finally {
             Profiler.SetSink(null);
             Profiler.Enabled = priorEnabled;
         }

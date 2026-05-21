@@ -4,21 +4,18 @@ using Cryptiklemur.RimObs.Profile;
 
 namespace Cryptiklemur.RimObs.Api;
 
-public readonly struct MeasureScope : IDisposable
-{
+public readonly struct MeasureScope : IDisposable {
     private readonly int _sectionId;
     private readonly long _token;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    internal MeasureScope(int sectionId, long token)
-    {
+    internal MeasureScope(int sectionId, long token) {
         _sectionId = sectionId;
         _token = token;
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void Dispose()
-    {
+    public void Dispose() {
         Profiler.StopById(_sectionId, _token);
     }
 }

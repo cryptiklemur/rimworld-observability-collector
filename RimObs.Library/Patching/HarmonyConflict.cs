@@ -2,8 +2,7 @@ using HarmonyLib;
 
 namespace Cryptiklemur.RimObs.Patching;
 
-internal sealed class HarmonyConflict
-{
+internal sealed class HarmonyConflict {
     public HarmonyConflict(
         string sectionName,
         string targetMethod,
@@ -11,8 +10,7 @@ internal sealed class HarmonyConflict
         HarmonyPatchType patchType,
         int priority,
         string patchMethod
-    )
-    {
+    ) {
         SectionName = sectionName;
         TargetMethod = targetMethod;
         OtherOwner = otherOwner;

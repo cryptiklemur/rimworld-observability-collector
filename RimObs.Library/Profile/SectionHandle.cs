@@ -2,17 +2,14 @@ using System.Runtime.CompilerServices;
 
 namespace Cryptiklemur.RimObs.Profile;
 
-public readonly struct SectionHandle
-{
+public readonly struct SectionHandle {
     public readonly int Id;
 
-    internal SectionHandle(int id)
-    {
+    internal SectionHandle(int id) {
         Id = id;
     }
 
-    public bool IsValid
-    {
+    public bool IsValid {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => Id >= 0;
     }

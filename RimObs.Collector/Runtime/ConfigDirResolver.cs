@@ -1,12 +1,10 @@
 namespace Cryptiklemur.RimObs.Collector.Runtime;
 
-public static class ConfigDirResolver
-{
+public static class ConfigDirResolver {
     public const string EnvVarName = "RIMOBS_CONFIG_DIR";
     private const string DefaultSubdir = "cryptiklemur.rimobs";
 
-    public static string Resolve(string? explicitOverride = null)
-    {
+    public static string Resolve(string? explicitOverride = null) {
         if (!string.IsNullOrWhiteSpace(explicitOverride))
             return explicitOverride;
 

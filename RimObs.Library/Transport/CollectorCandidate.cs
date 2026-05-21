@@ -2,10 +2,8 @@ using System;
 
 namespace Cryptiklemur.RimObs.Transport;
 
-public sealed class CollectorCandidate
-{
-    public CollectorCandidate(string executablePath, Version version, string? rid = null, string? prerelease = null)
-    {
+public sealed class CollectorCandidate {
+    public CollectorCandidate(string executablePath, Version version, string? rid = null, string? prerelease = null) {
         if (string.IsNullOrWhiteSpace(executablePath))
             throw new ArgumentException("executablePath must be provided", nameof(executablePath));
         if (version is null)
@@ -22,13 +20,11 @@ public sealed class CollectorCandidate
     public string? Prerelease { get; }
     public bool IsPrerelease => Prerelease != null;
 
-    public static CollectorCandidate Parse(string executablePath, string versionString, string? rid = null)
-    {
+    public static CollectorCandidate Parse(string executablePath, string versionString, string? rid = null) {
         return new CollectorCandidate(executablePath, ParseLooseSemver(versionString), rid, ExtractPrerelease(versionString));
     }
 
-    public static Version ParseLooseSemver(string s)
-    {
+    public static Version ParseLooseSemver(string s) {
         if (string.IsNullOrWhiteSpace(s))
             throw new ArgumentException("version string must be provided", nameof(s));
         int dash = s.IndexOf('-');
@@ -40,8 +36,7 @@ public sealed class CollectorCandidate
         return Version.Parse(core);
     }
 
-    internal static string? ExtractPrerelease(string s)
-    {
+    internal static string? ExtractPrerelease(string s) {
         if (string.IsNullOrWhiteSpace(s))
             return null;
         int dash = s.IndexOf('-');
@@ -52,8 +47,7 @@ public sealed class CollectorCandidate
         return s.Substring(dash + 1, end - dash - 1);
     }
 
-    internal static int Compare(CollectorCandidate a, CollectorCandidate b)
-    {
+    internal static int Compare(CollectorCandidate a, CollectorCandidate b) {
         int core = a.Version.CompareTo(b.Version);
         if (core != 0)
             return core;

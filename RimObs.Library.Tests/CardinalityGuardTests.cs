@@ -7,26 +7,22 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class CardinalityGuardTests : IDisposable
-{
+public sealed class CardinalityGuardTests : IDisposable {
     private const string TestPackageId = "com.cryptiklemur.rimobs.tests";
 
-    public CardinalityGuardTests()
-    {
+    public CardinalityGuardTests() {
         OwnerRegistry.Clear();
         MetricRegistry.Clear();
         OwnerRegistry.RegisterMod(typeof(CardinalityGuardTests).Assembly, TestPackageId);
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         OwnerRegistry.Clear();
         MetricRegistry.Clear();
     }
 
     [Fact]
-    public void Single_label_creates_separate_entries_per_value()
-    {
+    public void Single_label_creates_separate_entries_per_value() {
         CounterHandle handle = Obs.Metrics.RegisterCounter("requests");
 
         Obs.Metrics.Add(handle, 1, "outcome", "ok");
@@ -39,8 +35,7 @@ public sealed class CardinalityGuardTests : IDisposable
     }
 
     [Fact]
-    public void Multi_label_tuples_canonicalize_consistently()
-    {
+    public void Multi_label_tuples_canonicalize_consistently() {
         CounterHandle handle = Obs.Metrics.RegisterCounter("events");
 
         Obs.Metrics.Add(handle, 1, ("phase", "init"), ("outcome", "ok"));
@@ -51,8 +46,7 @@ public sealed class CardinalityGuardTests : IDisposable
     }
 
     [Fact]
-    public void Excess_label_values_collapse_to_overflow()
-    {
+    public void Excess_label_values_collapse_to_overflow() {
         CounterHandle handle = Obs.Metrics.RegisterCounter("noisy", cardinalityLimit: 3);
 
         Obs.Metrics.Add(handle, 1, "id", "a");
@@ -71,8 +65,7 @@ public sealed class CardinalityGuardTests : IDisposable
     }
 
     [Fact]
-    public void Known_labels_after_overflow_still_increment_normally()
-    {
+    public void Known_labels_after_overflow_still_increment_normally() {
         CounterHandle handle = Obs.Metrics.RegisterCounter("mixed", cardinalityLimit: 2);
 
         Obs.Metrics.Add(handle, 1, "id", "a");
@@ -88,8 +81,7 @@ public sealed class CardinalityGuardTests : IDisposable
     }
 
     [Fact]
-    public void Labeled_gauge_set_replaces_per_label_value()
-    {
+    public void Labeled_gauge_set_replaces_per_label_value() {
         GaugeHandle handle = Obs.Metrics.RegisterGauge("temp");
 
         Obs.Metrics.Set(handle, 10, "room", "kitchen");
@@ -102,8 +94,7 @@ public sealed class CardinalityGuardTests : IDisposable
     }
 
     [Fact]
-    public void Labeled_histogram_observe_counts_per_label_value()
-    {
+    public void Labeled_histogram_observe_counts_per_label_value() {
         HistogramHandle handle = Obs.Metrics.RegisterHistogram("latency");
 
         Obs.Metrics.Observe(handle, 100, "route", "/api/v1");
@@ -116,23 +107,20 @@ public sealed class CardinalityGuardTests : IDisposable
     }
 
     [Fact]
-    public void Canonicalize_empty_label_value_renders_key_equals_empty()
-    {
+    public void Canonicalize_empty_label_value_renders_key_equals_empty() {
         CardinalityGuard.Canonicalize("k", "").Should().Be("k=");
         CardinalityGuard.Canonicalize("k", null).Should().Be("k=");
     }
 
     [Fact]
-    public void Canonicalize_throws_when_label_key_empty()
-    {
+    public void Canonicalize_throws_when_label_key_empty() {
         Action act = () => CardinalityGuard.Canonicalize("", "v");
 
         act.Should().Throw<ArgumentException>().WithMessage("Label key must not be empty.*");
     }
 
     [Fact]
-    public void Canonicalize_params_throws_on_empty_label_set()
-    {
+    public void Canonicalize_params_throws_on_empty_label_set() {
         Action act = () => CardinalityGuard.Canonicalize(System.Array.Empty<(string, string)>());
 
         act.Should().Throw<ArgumentException>()
@@ -141,8 +129,7 @@ public sealed class CardinalityGuardTests : IDisposable
     }
 
     [Fact]
-    public void Canonicalize_params_throws_on_null_label_set()
-    {
+    public void Canonicalize_params_throws_on_null_label_set() {
         Action act = () => CardinalityGuard.Canonicalize(null!);
 
         act.Should().Throw<ArgumentException>()
@@ -151,8 +138,7 @@ public sealed class CardinalityGuardTests : IDisposable
     }
 
     [Fact]
-    public void Custom_cardinality_limit_on_registration_is_honored()
-    {
+    public void Custom_cardinality_limit_on_registration_is_honored() {
         CounterHandle handle = Obs.Metrics.RegisterCounter("strict", cardinalityLimit: 1);
 
         Obs.Metrics.Add(handle, 1, "k", "a");

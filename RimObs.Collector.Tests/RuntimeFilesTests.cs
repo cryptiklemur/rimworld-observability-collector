@@ -5,24 +5,20 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
-public sealed class RuntimeFilesTests : IDisposable
-{
+public sealed class RuntimeFilesTests : IDisposable {
     private readonly string _tempDir;
 
-    public RuntimeFilesTests()
-    {
+    public RuntimeFilesTests() {
         _tempDir = Path.Combine(Path.GetTempPath(), "rimobs-runtime-files-" + Guid.NewGuid().ToString("N"));
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         if (Directory.Exists(_tempDir))
             Directory.Delete(_tempDir, recursive: true);
     }
 
     [Fact]
-    public void WriteAll_creates_directory_and_writes_token_and_port()
-    {
+    public void WriteAll_creates_directory_and_writes_token_and_port() {
         CollectorToken token = CollectorToken.FromExplicitValue("my-secret-token");
         RuntimeFiles.WriteAll(_tempDir, token, port: 17654);
 
@@ -36,8 +32,7 @@ public sealed class RuntimeFilesTests : IDisposable
     }
 
     [Fact]
-    public void WriteAll_overwrites_existing_files()
-    {
+    public void WriteAll_overwrites_existing_files() {
         Directory.CreateDirectory(_tempDir);
         string tokenPath = Path.Combine(_tempDir, RuntimeFiles.TokenFileName);
         File.WriteAllText(tokenPath, "stale-token-from-previous-run");
@@ -49,16 +44,14 @@ public sealed class RuntimeFilesTests : IDisposable
     }
 
     [Fact]
-    public void WriteAll_rejects_empty_directory()
-    {
+    public void WriteAll_rejects_empty_directory() {
         CollectorToken token = CollectorToken.FromExplicitValue("any");
         Action act = () => RuntimeFiles.WriteAll("   ", token, port: 17654);
         act.Should().Throw<ArgumentException>();
     }
 
     [Fact]
-    public void WriteAll_sets_owner_only_permissions_on_unix()
-    {
+    public void WriteAll_sets_owner_only_permissions_on_unix() {
         if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
             return;
 

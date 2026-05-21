@@ -3,8 +3,7 @@ using MessagePack;
 namespace Cryptiklemur.RimObs.Wire;
 
 [MessagePackObject]
-public sealed class SessionMeta
-{
+public sealed class SessionMeta {
     [Key(0)]
     public string SessionId { get; set; } = string.Empty;
 

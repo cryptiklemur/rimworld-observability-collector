@@ -8,11 +8,9 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
-public sealed class UdpReceiverDispatchTests
-{
+public sealed class UdpReceiverDispatchTests {
     [Fact]
-    public void Dispatch_drops_payload_with_wrong_schema_version_without_aggregating()
-    {
+    public void Dispatch_drops_payload_with_wrong_schema_version_without_aggregating() {
         SessionAggregator agg = new();
         UdpReceiver receiver = NewReceiver(agg);
         byte[] bytes = SerializeEnvelope(BatchType.SessionMeta, [], schemaVersion: SchemaVersion.Current + 1);
@@ -24,8 +22,7 @@ public sealed class UdpReceiverDispatchTests
     }
 
     [Fact]
-    public void Dispatch_drops_malformed_envelope_bytes_without_aggregating()
-    {
+    public void Dispatch_drops_malformed_envelope_bytes_without_aggregating() {
         SessionAggregator agg = new();
         UdpReceiver receiver = NewReceiver(agg);
         byte[] bytes = [0xFF, 0xFE, 0xFD, 0xFC];
@@ -36,12 +33,10 @@ public sealed class UdpReceiverDispatchTests
     }
 
     [Fact]
-    public void Dispatch_session_meta_routes_to_aggregator_meta()
-    {
+    public void Dispatch_session_meta_routes_to_aggregator_meta() {
         SessionAggregator agg = new();
         UdpReceiver receiver = NewReceiver(agg);
-        SessionMeta meta = new()
-        {
+        SessionMeta meta = new() {
             SessionId = "abc",
             StartedUtcTicks = 1,
             StopwatchFrequency = 10_000_000,
@@ -60,12 +55,10 @@ public sealed class UdpReceiverDispatchTests
     }
 
     [Fact]
-    public void Dispatch_section_batch_routes_to_aggregator_section_handler()
-    {
+    public void Dispatch_section_batch_routes_to_aggregator_section_handler() {
         SessionAggregator agg = new();
         UdpReceiver receiver = NewReceiver(agg);
-        SectionBatch batch = new()
-        {
+        SectionBatch batch = new() {
             SectionIds = [9],
             StartTimestamps = [10],
             ElapsedTicks = [100],
@@ -79,8 +72,7 @@ public sealed class UdpReceiverDispatchTests
     }
 
     [Fact]
-    public void Dispatch_section_batch_with_corrupt_payload_does_not_crash_or_increment_samples()
-    {
+    public void Dispatch_section_batch_with_corrupt_payload_does_not_crash_or_increment_samples() {
         SessionAggregator agg = new();
         UdpReceiver receiver = NewReceiver(agg);
         byte[] bytes = SerializeEnvelope(BatchType.Sections, [0xFF, 0xFF]);
@@ -92,8 +84,7 @@ public sealed class UdpReceiverDispatchTests
     }
 
     [Fact]
-    public void Dispatch_ping_batch_increments_batches_without_throwing()
-    {
+    public void Dispatch_ping_batch_increments_batches_without_throwing() {
         SessionAggregator agg = new();
         UdpReceiver receiver = NewReceiver(agg);
         byte[] bytes = SerializeEnvelope(BatchType.Ping, []);
@@ -105,8 +96,7 @@ public sealed class UdpReceiverDispatchTests
 
 
     [Fact]
-    public void Dispatch_ping_with_payload_returns_pong_envelope_with_echoed_owner_and_collector_version()
-    {
+    public void Dispatch_ping_with_payload_returns_pong_envelope_with_echoed_owner_and_collector_version() {
         SessionAggregator agg = new();
         UdpReceiver receiver = NewReceiver(agg);
         PingMessage ping = new() { OwnerId = "test.owner", SentAtUtcTicks = 1234567 };
@@ -125,11 +115,9 @@ public sealed class UdpReceiverDispatchTests
     }
 
     [Fact]
-    public void Dispatch_ping_after_session_meta_includes_session_id_in_pong()
-    {
+    public void Dispatch_ping_after_session_meta_includes_session_id_in_pong() {
         SessionAggregator agg = new();
-        agg.OnSessionMeta(new SessionMeta
-        {
+        agg.OnSessionMeta(new SessionMeta {
             SessionId = "live-session-42",
             StartedUtcTicks = DateTime.UtcNow.Ticks,
             StopwatchFrequency = 10_000_000,
@@ -149,12 +137,10 @@ public sealed class UdpReceiverDispatchTests
     }
 
     [Fact]
-    public void Dispatch_non_ping_batch_returns_null()
-    {
+    public void Dispatch_non_ping_batch_returns_null() {
         SessionAggregator agg = new();
         UdpReceiver receiver = NewReceiver(agg);
-        byte[] envelope = SerializeEnvelope(BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta
-        {
+        byte[] envelope = SerializeEnvelope(BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
             SessionId = "s",
             StartedUtcTicks = 0,
             StopwatchFrequency = 1,
@@ -168,15 +154,12 @@ public sealed class UdpReceiverDispatchTests
         response.Should().BeNull();
     }
 
-    private static UdpReceiver NewReceiver(SessionAggregator agg)
-    {
+    private static UdpReceiver NewReceiver(SessionAggregator agg) {
         return new UdpReceiver(agg, NullLogger<UdpReceiver>.Instance, port: 0);
     }
 
-    private static byte[] SerializeEnvelope(BatchType batchType, byte[] payload, int? schemaVersion = null)
-    {
-        TelemetryBatch envelope = new()
-        {
+    private static byte[] SerializeEnvelope(BatchType batchType, byte[] payload, int? schemaVersion = null) {
+        TelemetryBatch envelope = new() {
             SchemaVersion = schemaVersion ?? SchemaVersion.Current,
             BatchType = batchType,
             Payload = payload,

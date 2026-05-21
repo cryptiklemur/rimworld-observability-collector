@@ -3,8 +3,7 @@ using MessagePack;
 namespace Cryptiklemur.RimObs.Wire;
 
 [MessagePackObject]
-public sealed class SectionBatch
-{
+public sealed class SectionBatch {
     [Key(0)]
     public int[] SectionIds { get; set; } = [];
 

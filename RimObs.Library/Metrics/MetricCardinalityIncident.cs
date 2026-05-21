@@ -1,9 +1,7 @@
 namespace Cryptiklemur.RimObs.Metrics;
 
-public readonly struct MetricCardinalityIncident
-{
-    public MetricCardinalityIncident(string metricName, string ownerPackageId, int cardinalityLimit, long incidentCount)
-    {
+public readonly struct MetricCardinalityIncident {
+    public MetricCardinalityIncident(string metricName, string ownerPackageId, int cardinalityLimit, long incidentCount) {
         MetricName = metricName;
         OwnerPackageId = ownerPackageId;
         CardinalityLimit = cardinalityLimit;

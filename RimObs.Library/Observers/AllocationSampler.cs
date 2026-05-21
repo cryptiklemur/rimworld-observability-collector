@@ -4,8 +4,7 @@ using System.Threading;
 
 namespace Cryptiklemur.RimObs.Observers;
 
-internal sealed class AllocationSampler
-{
+internal sealed class AllocationSampler {
     private static readonly long TimestampTicksPerSecond = Stopwatch.Frequency;
 
     private long _lastHeapBytes;
@@ -14,8 +13,7 @@ internal sealed class AllocationSampler
     private long _windowSamplesAccumulator;
     private long _totalSamplesEmitted;
 
-    public AllocationSampler()
-    {
+    public AllocationSampler() {
         long now = Stopwatch.GetTimestamp();
         _lastHeapBytes = GC.GetTotalMemory(forceFullCollection: false);
         _windowStartTimestamp = now;
@@ -23,22 +21,19 @@ internal sealed class AllocationSampler
 
     public long TotalSamplesEmitted => Interlocked.Read(ref _totalSamplesEmitted);
 
-    public bool TryPollWindow(long windowDurationMs, out AllocationSample sample)
-    {
+    public bool TryPollWindow(long windowDurationMs, out AllocationSample sample) {
         long now = Stopwatch.GetTimestamp();
         long heapNow = GC.GetTotalMemory(forceFullCollection: false);
 
         long heapDelta = heapNow - _lastHeapBytes;
-        if (heapDelta > 0)
-        {
+        if (heapDelta > 0) {
             _windowBytesAccumulator += heapDelta;
             _windowSamplesAccumulator++;
         }
         _lastHeapBytes = heapNow;
 
         long elapsedMs = (now - _windowStartTimestamp) * 1000L / TimestampTicksPerSecond;
-        if (elapsedMs < windowDurationMs)
-        {
+        if (elapsedMs < windowDurationMs) {
             sample = default;
             return false;
         }

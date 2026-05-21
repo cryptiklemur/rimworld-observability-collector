@@ -3,8 +3,7 @@ using MessagePack;
 namespace Cryptiklemur.RimObs.Wire;
 
 [MessagePackObject]
-public sealed class PongMessage
-{
+public sealed class PongMessage {
     [Key(0)]
     public string OwnerId { get; set; } = string.Empty;
 

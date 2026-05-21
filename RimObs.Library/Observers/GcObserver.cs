@@ -4,8 +4,7 @@ using System.Threading;
 
 namespace Cryptiklemur.RimObs.Observers;
 
-internal sealed class GcObserver
-{
+internal sealed class GcObserver {
     private static readonly long TimestampTicksPerSecond = Stopwatch.Frequency;
     private const long MicrosPerSecond = 1_000_000L;
 
@@ -17,8 +16,7 @@ internal sealed class GcObserver
     private long _allocationRateBytesPerMinute;
     private long _eventsObserved;
 
-    public GcObserver()
-    {
+    public GcObserver() {
         _maxGeneration = GC.MaxGeneration;
         _lastCounts = new int[_maxGeneration + 1];
         for (int gen = 0; gen <= _maxGeneration; gen++)
@@ -33,25 +31,21 @@ internal sealed class GcObserver
 
     public long AllocationRateBytesPerMinute => Interlocked.Read(ref _allocationRateBytesPerMinute);
 
-    public bool TryPoll(long currentTick, out GcEventSample sample)
-    {
+    public bool TryPoll(long currentTick, out GcEventSample sample) {
         long heapNow = GC.GetTotalMemory(forceFullCollection: false);
         long timestampNow = Stopwatch.GetTimestamp();
 
         long heapDelta = heapNow - _lastHeapBytes;
         long elapsedTimestampTicks = timestampNow - _lastHeapTimestamp;
-        if (heapDelta > 0 && elapsedTimestampTicks > 0)
-        {
+        if (heapDelta > 0 && elapsedTimestampTicks > 0) {
             long bytesPerSecond = heapDelta * TimestampTicksPerSecond / elapsedTimestampTicks;
             Interlocked.Exchange(ref _allocationRateBytesPerMinute, bytesPerSecond * 60);
         }
 
         int detectedGeneration = -1;
-        for (int gen = _maxGeneration; gen >= 0; gen--)
-        {
+        for (int gen = _maxGeneration; gen >= 0; gen--) {
             int current = GC.CollectionCount(gen);
-            if (current != _lastCounts[gen])
-            {
+            if (current != _lastCounts[gen]) {
                 if (detectedGeneration == -1)
                     detectedGeneration = gen;
                 _lastCounts[gen] = current;
@@ -60,8 +54,7 @@ internal sealed class GcObserver
 
         _lastHeapTimestamp = timestampNow;
 
-        if (detectedGeneration < 0)
-        {
+        if (detectedGeneration < 0) {
             _lastHeapBytes = heapNow;
             sample = default;
             return false;

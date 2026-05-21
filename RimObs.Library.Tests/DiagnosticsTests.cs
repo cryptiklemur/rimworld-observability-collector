@@ -7,34 +7,29 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class DiagnosticsTests : IDisposable
-{
+public sealed class DiagnosticsTests : IDisposable {
     private const string TestPackageId = "com.cryptiklemur.rimobs.tests";
 
-    public DiagnosticsTests()
-    {
+    public DiagnosticsTests() {
         OwnerRegistry.Clear();
         MetricRegistry.Clear();
         Diagnostics.Reset();
         OwnerRegistry.RegisterMod(typeof(DiagnosticsTests).Assembly, TestPackageId);
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         OwnerRegistry.Clear();
         MetricRegistry.Clear();
         Diagnostics.Reset();
     }
 
     [Fact]
-    public void SamplesDroppedExternal_starts_at_zero()
-    {
+    public void SamplesDroppedExternal_starts_at_zero() {
         Diagnostics.SamplesDroppedExternal.Should().Be(0);
     }
 
     [Fact]
-    public void IncrementSamplesDropped_default_adds_one()
-    {
+    public void IncrementSamplesDropped_default_adds_one() {
         Diagnostics.IncrementSamplesDropped();
         Diagnostics.IncrementSamplesDropped();
         Diagnostics.IncrementSamplesDropped();
@@ -43,8 +38,7 @@ public sealed class DiagnosticsTests : IDisposable
     }
 
     [Fact]
-    public void IncrementSamplesDropped_with_count_adds_that_amount()
-    {
+    public void IncrementSamplesDropped_with_count_adds_that_amount() {
         Diagnostics.IncrementSamplesDropped(50);
         Diagnostics.IncrementSamplesDropped(25);
 
@@ -52,8 +46,7 @@ public sealed class DiagnosticsTests : IDisposable
     }
 
     [Fact]
-    public void Reset_zeros_samples_dropped()
-    {
+    public void Reset_zeros_samples_dropped() {
         Diagnostics.IncrementSamplesDropped(100);
 
         Diagnostics.Reset();
@@ -62,14 +55,12 @@ public sealed class DiagnosticsTests : IDisposable
     }
 
     [Fact]
-    public void CardinalityIncidentsTotal_is_zero_when_no_metrics()
-    {
+    public void CardinalityIncidentsTotal_is_zero_when_no_metrics() {
         Diagnostics.CardinalityIncidentsTotal.Should().Be(0);
     }
 
     [Fact]
-    public void CardinalityIncidentsTotal_is_zero_when_metrics_under_limit()
-    {
+    public void CardinalityIncidentsTotal_is_zero_when_metrics_under_limit() {
         CounterHandle handle = Obs.Metrics.RegisterCounter("under_limit");
         Obs.Metrics.Add(handle, 1, "k", "a");
         Obs.Metrics.Add(handle, 1, "k", "b");
@@ -78,8 +69,7 @@ public sealed class DiagnosticsTests : IDisposable
     }
 
     [Fact]
-    public void CardinalityIncidentsTotal_sums_incidents_across_metrics()
-    {
+    public void CardinalityIncidentsTotal_sums_incidents_across_metrics() {
         CounterHandle h1 = Obs.Metrics.RegisterCounter("noisy1", cardinalityLimit: 1);
         CounterHandle h2 = Obs.Metrics.RegisterCounter("noisy2", cardinalityLimit: 1);
 
@@ -94,8 +84,7 @@ public sealed class DiagnosticsTests : IDisposable
     }
 
     [Fact]
-    public void GetMetricsWithIncidents_returns_empty_when_no_incidents()
-    {
+    public void GetMetricsWithIncidents_returns_empty_when_no_incidents() {
         CounterHandle handle = Obs.Metrics.RegisterCounter("clean");
         Obs.Metrics.Add(handle, 1, "k", "a");
 
@@ -103,8 +92,7 @@ public sealed class DiagnosticsTests : IDisposable
     }
 
     [Fact]
-    public void GetMetricsWithIncidents_lists_only_metrics_with_incidents()
-    {
+    public void GetMetricsWithIncidents_lists_only_metrics_with_incidents() {
         CounterHandle clean = Obs.Metrics.RegisterCounter("clean");
         CounterHandle noisy = Obs.Metrics.RegisterCounter("noisy", cardinalityLimit: 1);
 
@@ -123,8 +111,7 @@ public sealed class DiagnosticsTests : IDisposable
     }
 
     [Fact]
-    public void Reset_zeros_cardinality_incidents()
-    {
+    public void Reset_zeros_cardinality_incidents() {
         CounterHandle handle = Obs.Metrics.RegisterCounter("noisy", cardinalityLimit: 1);
         Obs.Metrics.Add(handle, 1, "k", "a");
         Obs.Metrics.Add(handle, 1, "k", "b");

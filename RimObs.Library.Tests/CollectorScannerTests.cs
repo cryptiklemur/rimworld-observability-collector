@@ -7,18 +7,15 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class CollectorScannerTests
-{
+public sealed class CollectorScannerTests {
     [Fact]
-    public void Scan_returns_empty_when_root_missing_or_blank()
-    {
+    public void Scan_returns_empty_when_root_missing_or_blank() {
         CollectorScanner.Scan("").Should().BeEmpty();
         CollectorScanner.Scan(Path.Combine(Path.GetTempPath(), "rimobs-no-such-dir-" + Guid.NewGuid().ToString("N"))).Should().BeEmpty();
     }
 
     [Fact]
-    public void Scan_finds_candidate_in_well_formed_mod()
-    {
+    public void Scan_finds_candidate_in_well_formed_mod() {
         using TempDirectory root = new TempDirectory();
         WriteMod(root.Path, "alpha", "1.2.3", windows: true);
 
@@ -30,8 +27,7 @@ public sealed class CollectorScannerTests
     }
 
     [Fact]
-    public void Scan_skips_mods_without_manifest_or_executable()
-    {
+    public void Scan_skips_mods_without_manifest_or_executable() {
         using TempDirectory root = new TempDirectory();
         WriteMod(root.Path, "good", "2.0.0", windows: true);
 
@@ -50,8 +46,7 @@ public sealed class CollectorScannerTests
     }
 
     [Fact]
-    public void Scan_accepts_unix_executable_without_exe_extension()
-    {
+    public void Scan_accepts_unix_executable_without_exe_extension() {
         using TempDirectory root = new TempDirectory();
         WriteMod(root.Path, "unix-mod", "3.1.0", windows: false);
 
@@ -63,8 +58,7 @@ public sealed class CollectorScannerTests
     }
 
     [Fact]
-    public void Scan_skips_mods_with_corrupt_manifest()
-    {
+    public void Scan_skips_mods_with_corrupt_manifest() {
         using TempDirectory root = new TempDirectory();
         string badDir = Path.Combine(root.Path, "broken", "Assemblies", "Collector");
         Directory.CreateDirectory(badDir);
@@ -75,8 +69,7 @@ public sealed class CollectorScannerTests
     }
 
     [Fact]
-    public void Scan_then_select_highest_picks_newest_across_mods()
-    {
+    public void Scan_then_select_highest_picks_newest_across_mods() {
         using TempDirectory root = new TempDirectory();
         WriteMod(root.Path, "old", "1.0.0", windows: true);
         WriteMod(root.Path, "newest", "2.5.0", windows: true);
@@ -92,8 +85,7 @@ public sealed class CollectorScannerTests
             new[] { new Version(1, 0, 0), new Version(2, 5, 0), new Version(2, 5, 1) });
     }
 
-    private static void WriteMod(string root, string modId, string version, bool windows)
-    {
+    private static void WriteMod(string root, string modId, string version, bool windows) {
         string collectorDir = Path.Combine(root, modId, "Assemblies", "Collector");
         Directory.CreateDirectory(collectorDir);
         File.WriteAllText(Path.Combine(collectorDir, "Collector.version"), Manifest(version));
@@ -110,25 +102,20 @@ public sealed class CollectorScannerTests
         }
         """;
 
-    private sealed class TempDirectory : IDisposable
-    {
-        public TempDirectory()
-        {
+    private sealed class TempDirectory : IDisposable {
+        public TempDirectory() {
             Path = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"rimobs-scan-{Guid.NewGuid():N}");
             Directory.CreateDirectory(Path);
         }
 
         public string Path { get; }
 
-        public void Dispose()
-        {
-            try
-            {
+        public void Dispose() {
+            try {
                 if (Directory.Exists(Path))
                     Directory.Delete(Path, recursive: true);
             }
-            catch (IOException)
-            {
+            catch (IOException) {
             }
         }
     }

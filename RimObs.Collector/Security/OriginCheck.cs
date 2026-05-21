@@ -1,9 +1,7 @@
 namespace Cryptiklemur.RimObs.Collector.Security;
 
-internal static class OriginCheck
-{
-    public static bool RequiresCheck(string method)
-    {
+internal static class OriginCheck {
+    public static bool RequiresCheck(string method) {
         if (string.IsNullOrEmpty(method))
             return false;
         return method.Equals("POST", StringComparison.OrdinalIgnoreCase)
@@ -12,8 +10,7 @@ internal static class OriginCheck
             || method.Equals("DELETE", StringComparison.OrdinalIgnoreCase);
     }
 
-    public static bool IsAllowedOrigin(string? origin, int port)
-    {
+    public static bool IsAllowedOrigin(string? origin, int port) {
         if (string.IsNullOrEmpty(origin))
             return false;
         string loopback = $"http://127.0.0.1:{port}";

@@ -7,8 +7,7 @@ using HarmonyLib;
 
 namespace Cryptiklemur.RimObs.Patching;
 
-internal static class MethodTransplanter
-{
+internal static class MethodTransplanter {
     private static readonly MethodInfo StartByIdMethod = typeof(Profiler).GetMethod(
         nameof(Profiler.StartById),
         BindingFlags.Public | BindingFlags.Static
@@ -28,10 +27,8 @@ internal static class MethodTransplanter
         IEnumerable<CodeInstruction> instructions,
         ILGenerator generator,
         MethodBase __originalMethod
-    )
-    {
-        if (!SectionCatalog.TryGetSectionId(__originalMethod, out int sectionId))
-        {
+    ) {
+        if (!SectionCatalog.TryGetSectionId(__originalMethod, out int sectionId)) {
             foreach (CodeInstruction inst in instructions)
                 yield return inst;
             yield break;
@@ -49,22 +46,18 @@ internal static class MethodTransplanter
         yield return new CodeInstruction(OpCodes.Stloc, tokenLocal);
 
         List<CodeInstruction> body = new(instructions);
-        if (body.Count == 0)
-        {
+        if (body.Count == 0) {
             yield return new CodeInstruction(OpCodes.Ldc_I4, sectionId);
             yield return new CodeInstruction(OpCodes.Ldloc, tokenLocal);
             yield return new CodeInstruction(OpCodes.Call, StopByIdMethod);
-            if (hasReturn)
-            {
-                if (returnType.IsValueType)
-                {
+            if (hasReturn) {
+                if (returnType.IsValueType) {
                     LocalBuilder defaultLocal = generator.DeclareLocal(returnType);
                     yield return new CodeInstruction(OpCodes.Ldloca, defaultLocal);
                     yield return new CodeInstruction(OpCodes.Initobj, returnType);
                     yield return new CodeInstruction(OpCodes.Ldloc, defaultLocal);
                 }
-                else
-                {
+                else {
                     yield return new CodeInstruction(OpCodes.Ldnull);
                 }
             }
@@ -74,29 +67,24 @@ internal static class MethodTransplanter
 
         body[0].blocks.Insert(0, new ExceptionBlock(ExceptionBlockType.BeginExceptionBlock));
 
-        for (int i = 0; i < body.Count; i++)
-        {
+        for (int i = 0; i < body.Count; i++) {
             CodeInstruction inst = body[i];
-            if (inst.opcode == OpCodes.Ret)
-            {
-                if (hasReturn)
-                {
+            if (inst.opcode == OpCodes.Ret) {
+                if (hasReturn) {
                     CodeInstruction stloc = new(OpCodes.Stloc, returnLocal!);
                     stloc.labels.AddRange(inst.labels);
                     stloc.blocks.AddRange(inst.blocks);
                     yield return stloc;
                     yield return new CodeInstruction(OpCodes.Leave, endLabel);
                 }
-                else
-                {
+                else {
                     CodeInstruction leave = new(OpCodes.Leave, endLabel);
                     leave.labels.AddRange(inst.labels);
                     leave.blocks.AddRange(inst.blocks);
                     yield return leave;
                 }
             }
-            else
-            {
+            else {
                 yield return inst;
             }
         }
@@ -111,15 +99,13 @@ internal static class MethodTransplanter
         endFinally.blocks.Add(new ExceptionBlock(ExceptionBlockType.EndExceptionBlock));
         yield return endFinally;
 
-        if (hasReturn)
-        {
+        if (hasReturn) {
             CodeInstruction ldlocRet = new(OpCodes.Ldloc, returnLocal!);
             ldlocRet.labels.Add(endLabel);
             yield return ldlocRet;
             yield return new CodeInstruction(OpCodes.Ret);
         }
-        else
-        {
+        else {
             CodeInstruction ret = new(OpCodes.Ret);
             ret.labels.Add(endLabel);
             yield return ret;

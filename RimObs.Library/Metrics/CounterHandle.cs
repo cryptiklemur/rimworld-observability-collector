@@ -2,17 +2,14 @@ using System.Runtime.CompilerServices;
 
 namespace Cryptiklemur.RimObs.Metrics;
 
-public readonly struct CounterHandle
-{
+public readonly struct CounterHandle {
     public readonly int Id;
 
-    internal CounterHandle(int id)
-    {
+    internal CounterHandle(int id) {
         Id = id;
     }
 
-    public bool IsValid
-    {
+    public bool IsValid {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => Id >= 0;
     }

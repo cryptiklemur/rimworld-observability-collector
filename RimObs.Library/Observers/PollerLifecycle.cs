@@ -2,16 +2,14 @@ using System;
 
 namespace Cryptiklemur.RimObs.Observers;
 
-internal sealed class PollerLifecycle
-{
+internal sealed class PollerLifecycle {
     private readonly object _lock = new();
     private readonly string _name;
     private readonly Action _tick;
     private readonly int _intervalMs;
     private PollerThread? _poller;
 
-    public PollerLifecycle(string name, Action tick, int intervalMs)
-    {
+    public PollerLifecycle(string name, Action tick, int intervalMs) {
         if (string.IsNullOrEmpty(name))
             throw new ArgumentException("Thread name must not be empty.", nameof(name));
         if (tick == null)
@@ -23,21 +21,16 @@ internal sealed class PollerLifecycle
         _intervalMs = intervalMs;
     }
 
-    public bool IsRunning
-    {
-        get
-        {
-            lock (_lock)
-            {
+    public bool IsRunning {
+        get {
+            lock (_lock) {
                 return _poller?.IsRunning == true;
             }
         }
     }
 
-    public bool TryStart()
-    {
-        lock (_lock)
-        {
+    public bool TryStart() {
+        lock (_lock) {
             if (_poller?.IsRunning == true)
                 return false;
             _poller = new PollerThread(_name, _tick, _intervalMs);
@@ -46,11 +39,9 @@ internal sealed class PollerLifecycle
         }
     }
 
-    public void Stop()
-    {
+    public void Stop() {
         PollerThread? poller;
-        lock (_lock)
-        {
+        lock (_lock) {
             poller = _poller;
             _poller = null;
         }

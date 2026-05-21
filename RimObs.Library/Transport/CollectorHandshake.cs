@@ -6,10 +6,8 @@ using MessagePack;
 
 namespace Cryptiklemur.RimObs.Transport;
 
-public static class CollectorHandshake
-{
-    public static PongMessage? TryPing(string host, int port, string ownerId, TimeSpan timeout)
-    {
+public static class CollectorHandshake {
+    public static PongMessage? TryPing(string host, int port, string ownerId, TimeSpan timeout) {
         if (string.IsNullOrEmpty(host))
             throw new ArgumentException("host must be provided", nameof(host));
         if (port <= 0 || port > 65535)
@@ -19,11 +17,9 @@ public static class CollectorHandshake
 
         byte[] datagram = BuildPingEnvelope(ownerId);
 
-        using (UdpClient client = new UdpClient(AddressFamily.InterNetwork))
-        {
+        using (UdpClient client = new UdpClient(AddressFamily.InterNetwork)) {
             client.Client.ReceiveTimeout = (int)Math.Min(timeout.TotalMilliseconds, int.MaxValue);
-            try
-            {
+            try {
                 client.Connect(host, port);
                 client.Send(datagram, datagram.Length);
 
@@ -31,23 +27,19 @@ public static class CollectorHandshake
                 byte[] response = client.Receive(ref remote);
                 return ParsePong(response);
             }
-            catch (SocketException)
-            {
+            catch (SocketException) {
                 return null;
             }
         }
     }
 
-    internal static byte[] BuildPingEnvelope(string ownerId)
-    {
+    internal static byte[] BuildPingEnvelope(string ownerId) {
         string owner = ownerId ?? string.Empty;
-        PingMessage ping = new PingMessage
-        {
+        PingMessage ping = new PingMessage {
             OwnerId = owner,
             SentAtUtcTicks = DateTime.UtcNow.Ticks,
         };
-        TelemetryBatch envelope = new TelemetryBatch
-        {
+        TelemetryBatch envelope = new TelemetryBatch {
             SchemaVersion = SchemaVersion.Current,
             Sequence = 0,
             OwnerId = owner,
@@ -57,17 +49,14 @@ public static class CollectorHandshake
         return MessagePackSerializer.Serialize(envelope);
     }
 
-    internal static PongMessage? ParsePong(byte[] datagram)
-    {
-        try
-        {
+    internal static PongMessage? ParsePong(byte[] datagram) {
+        try {
             TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(datagram);
             if (envelope.BatchType != BatchType.Pong)
                 return null;
             return MessagePackSerializer.Deserialize<PongMessage>(envelope.Payload);
         }
-        catch (MessagePackSerializationException)
-        {
+        catch (MessagePackSerializationException) {
             return null;
         }
     }

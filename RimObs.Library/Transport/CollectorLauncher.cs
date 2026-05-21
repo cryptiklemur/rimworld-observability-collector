@@ -6,10 +6,8 @@ using Cryptiklemur.RimObs.Wire;
 
 namespace Cryptiklemur.RimObs.Transport;
 
-public sealed class CollectorLaunchResult
-{
-    public CollectorLaunchResult(bool isRunning, PongMessage? pong, CollectorCandidate? selected, bool launchAttempted)
-    {
+public sealed class CollectorLaunchResult {
+    public CollectorLaunchResult(bool isRunning, PongMessage? pong, CollectorCandidate? selected, bool launchAttempted) {
         IsRunning = isRunning;
         Pong = pong;
         SelectedCandidate = selected;
@@ -22,8 +20,7 @@ public sealed class CollectorLaunchResult
     public bool LaunchAttempted { get; }
 }
 
-public static class CollectorLauncher
-{
+public static class CollectorLauncher {
     public static readonly TimeSpan DefaultProbeTimeout = TimeSpan.FromMilliseconds(250);
     public static readonly TimeSpan DefaultLaunchTimeout = TimeSpan.FromSeconds(10);
     public static readonly TimeSpan PollInterval = TimeSpan.FromMilliseconds(150);
@@ -35,8 +32,7 @@ public static class CollectorLauncher
         string ownerId,
         TimeSpan probeTimeout,
         TimeSpan launchTimeout,
-        Action<CollectorCandidate>? launchAction = null)
-    {
+        Action<CollectorCandidate>? launchAction = null) {
         if (string.IsNullOrEmpty(host))
             throw new ArgumentException("host must be provided", nameof(host));
         if (port <= 0 || port > 65535)
@@ -55,18 +51,15 @@ public static class CollectorLauncher
             return new CollectorLaunchResult(false, null, null, false);
 
         Action<CollectorCandidate> launch = launchAction ?? DefaultLaunch;
-        try
-        {
+        try {
             launch(best);
         }
-        catch
-        {
+        catch {
             return new CollectorLaunchResult(false, null, best, true);
         }
 
         DateTime deadline = DateTime.UtcNow + launchTimeout;
-        while (DateTime.UtcNow < deadline)
-        {
+        while (DateTime.UtcNow < deadline) {
             pong = CollectorHandshake.TryPing(host, port, ownerId, probeTimeout);
             if (pong != null)
                 return new CollectorLaunchResult(true, pong, best, true);
@@ -76,10 +69,8 @@ public static class CollectorLauncher
         return new CollectorLaunchResult(false, null, best, true);
     }
 
-    private static void DefaultLaunch(CollectorCandidate candidate)
-    {
-        ProcessStartInfo psi = new ProcessStartInfo(candidate.ExecutablePath, "serve")
-        {
+    private static void DefaultLaunch(CollectorCandidate candidate) {
+        ProcessStartInfo psi = new ProcessStartInfo(candidate.ExecutablePath, "serve") {
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = false,

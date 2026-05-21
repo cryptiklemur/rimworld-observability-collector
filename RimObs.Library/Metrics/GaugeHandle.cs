@@ -2,17 +2,14 @@ using System.Runtime.CompilerServices;
 
 namespace Cryptiklemur.RimObs.Metrics;
 
-public readonly struct GaugeHandle
-{
+public readonly struct GaugeHandle {
     public readonly int Id;
 
-    internal GaugeHandle(int id)
-    {
+    internal GaugeHandle(int id) {
         Id = id;
     }
 
-    public bool IsValid
-    {
+    public bool IsValid {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => Id >= 0;
     }

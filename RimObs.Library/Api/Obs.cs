@@ -6,18 +6,14 @@ using Cryptiklemur.RimObs.Profile;
 
 namespace Cryptiklemur.RimObs.Api;
 
-public static class Obs
-{
-    public static class Profile
-    {
+public static class Obs {
+    public static class Profile {
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static SectionHandle RegisterSection(string name, string? subsystem = null, string? unit = null)
-        {
+        public static SectionHandle RegisterSection(string name, string? subsystem = null, string? unit = null) {
             return RegisterSectionForAssembly(Assembly.GetCallingAssembly(), name, subsystem, unit);
         }
 
-        internal static SectionHandle RegisterSectionForAssembly(Assembly owner, string name, string? subsystem, string? unit)
-        {
+        internal static SectionHandle RegisterSectionForAssembly(Assembly owner, string name, string? subsystem, string? unit) {
             NameValidator.ValidateBareName(name, nameof(name));
             string packageId = OwnerRegistry.ResolveOrThrow(owner);
             string fullName = packageId + "." + name;
@@ -25,39 +21,33 @@ public static class Obs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static MeasureScope Measure(SectionHandle handle)
-        {
+        public static MeasureScope Measure(SectionHandle handle) {
             long token = Profiler.StartById(handle.Id);
             return new MeasureScope(handle.Id, token);
         }
 
     }
 
-    public static class Metrics
-    {
+    public static class Metrics {
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static CounterHandle RegisterCounter(string name, string? subsystem = null, string? unit = null, int cardinalityLimit = MetricDescriptor.DefaultCardinalityLimit)
-        {
+        public static CounterHandle RegisterCounter(string name, string? subsystem = null, string? unit = null, int cardinalityLimit = MetricDescriptor.DefaultCardinalityLimit) {
             MetricDescriptor descriptor = RegisterMetricForAssembly(Assembly.GetCallingAssembly(), name, MetricKind.Counter, subsystem, unit, cardinalityLimit);
             return new CounterHandle(descriptor.Id);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static GaugeHandle RegisterGauge(string name, string? subsystem = null, string? unit = null, int cardinalityLimit = MetricDescriptor.DefaultCardinalityLimit)
-        {
+        public static GaugeHandle RegisterGauge(string name, string? subsystem = null, string? unit = null, int cardinalityLimit = MetricDescriptor.DefaultCardinalityLimit) {
             MetricDescriptor descriptor = RegisterMetricForAssembly(Assembly.GetCallingAssembly(), name, MetricKind.Gauge, subsystem, unit, cardinalityLimit);
             return new GaugeHandle(descriptor.Id);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static HistogramHandle RegisterHistogram(string name, string? subsystem = null, string? unit = null, int cardinalityLimit = MetricDescriptor.DefaultCardinalityLimit)
-        {
+        public static HistogramHandle RegisterHistogram(string name, string? subsystem = null, string? unit = null, int cardinalityLimit = MetricDescriptor.DefaultCardinalityLimit) {
             MetricDescriptor descriptor = RegisterMetricForAssembly(Assembly.GetCallingAssembly(), name, MetricKind.Histogram, subsystem, unit, cardinalityLimit);
             return new HistogramHandle(descriptor.Id);
         }
 
-        internal static MetricDescriptor RegisterMetricForAssembly(Assembly owner, string name, MetricKind kind, string? subsystem, string? unit, int cardinalityLimit = MetricDescriptor.DefaultCardinalityLimit)
-        {
+        internal static MetricDescriptor RegisterMetricForAssembly(Assembly owner, string name, MetricKind kind, string? subsystem, string? unit, int cardinalityLimit = MetricDescriptor.DefaultCardinalityLimit) {
             NameValidator.ValidateBareName(name, nameof(name));
             string packageId = OwnerRegistry.ResolveOrThrow(owner);
             string fullName = packageId + "." + name;
@@ -65,16 +55,14 @@ public static class Obs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Add(CounterHandle handle, long delta)
-        {
+        public static void Add(CounterHandle handle, long delta) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;
             Interlocked.Add(ref descriptor.CounterTotal, delta);
         }
 
-        public static void Add(CounterHandle handle, long delta, string labelKey, string labelValue)
-        {
+        public static void Add(CounterHandle handle, long delta, string labelKey, string labelValue) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;
@@ -83,8 +71,7 @@ public static class Obs
             Interlocked.Add(ref entry.CounterTotal, delta);
         }
 
-        public static void Add(CounterHandle handle, long delta, params (string Key, string Value)[] labels)
-        {
+        public static void Add(CounterHandle handle, long delta, params (string Key, string Value)[] labels) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;
@@ -94,16 +81,14 @@ public static class Obs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Set(GaugeHandle handle, long value)
-        {
+        public static void Set(GaugeHandle handle, long value) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;
             Interlocked.Exchange(ref descriptor.GaugeValue, value);
         }
 
-        public static void Set(GaugeHandle handle, long value, string labelKey, string labelValue)
-        {
+        public static void Set(GaugeHandle handle, long value, string labelKey, string labelValue) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;
@@ -112,8 +97,7 @@ public static class Obs
             Interlocked.Exchange(ref entry.GaugeValue, value);
         }
 
-        public static void Set(GaugeHandle handle, long value, params (string Key, string Value)[] labels)
-        {
+        public static void Set(GaugeHandle handle, long value, params (string Key, string Value)[] labels) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;
@@ -123,8 +107,7 @@ public static class Obs
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Observe(HistogramHandle handle, long value)
-        {
+        public static void Observe(HistogramHandle handle, long value) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;
@@ -132,8 +115,7 @@ public static class Obs
             Interlocked.Add(ref descriptor.HistogramSum, value);
         }
 
-        public static void Observe(HistogramHandle handle, long value, string labelKey, string labelValue)
-        {
+        public static void Observe(HistogramHandle handle, long value, string labelKey, string labelValue) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;
@@ -143,8 +125,7 @@ public static class Obs
             Interlocked.Add(ref entry.HistogramSum, value);
         }
 
-        public static void Observe(HistogramHandle handle, long value, params (string Key, string Value)[] labels)
-        {
+        public static void Observe(HistogramHandle handle, long value, params (string Key, string Value)[] labels) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;

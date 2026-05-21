@@ -1,6 +1,5 @@
 namespace Cryptiklemur.RimObs.Observers;
 
-internal interface IGcEventSink
-{
+internal interface IGcEventSink {
     void RecordGcEvent(in GcEventSample sample);
 }

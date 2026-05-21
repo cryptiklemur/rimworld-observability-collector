@@ -3,8 +3,7 @@ using MessagePack;
 namespace Cryptiklemur.RimObs.Wire;
 
 [MessagePackObject]
-public sealed class GcEventsBatch
-{
+public sealed class GcEventsBatch {
     [Key(0)]
     public byte[] Generations { get; set; } = [];
 

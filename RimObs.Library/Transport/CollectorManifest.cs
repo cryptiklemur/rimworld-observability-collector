@@ -8,8 +8,7 @@ using System.Xml;
 namespace Cryptiklemur.RimObs.Transport;
 
 [DataContract]
-public sealed class CollectorManifest
-{
+public sealed class CollectorManifest {
     [DataMember(Name = "schema_version")]
     public int SchemaVersion { get; set; }
 
@@ -19,45 +18,36 @@ public sealed class CollectorManifest
     [DataMember(Name = "library_schema_compat")]
     public CollectorSchemaCompat? LibrarySchemaCompat { get; set; }
 
-    public static CollectorManifest? TryParse(string json)
-    {
+    public static CollectorManifest? TryParse(string json) {
         if (string.IsNullOrWhiteSpace(json))
             return null;
-        try
-        {
+        try {
             byte[] bytes = Encoding.UTF8.GetBytes(json);
-            using (MemoryStream stream = new MemoryStream(bytes))
-            {
+            using (MemoryStream stream = new MemoryStream(bytes)) {
                 DataContractJsonSerializer serializer = new DataContractJsonSerializer(typeof(CollectorManifest));
                 return serializer.ReadObject(stream) as CollectorManifest;
             }
         }
-        catch (SerializationException)
-        {
+        catch (SerializationException) {
             return null;
         }
-        catch (XmlException)
-        {
+        catch (XmlException) {
             return null;
         }
     }
 
-    public static CollectorManifest? TryReadFile(string path)
-    {
+    public static CollectorManifest? TryReadFile(string path) {
         if (string.IsNullOrWhiteSpace(path))
             return null;
-        try
-        {
+        try {
             if (!File.Exists(path))
                 return null;
             return TryParse(File.ReadAllText(path));
         }
-        catch (IOException)
-        {
+        catch (IOException) {
             return null;
         }
-        catch (UnauthorizedAccessException)
-        {
+        catch (UnauthorizedAccessException) {
             return null;
         }
     }

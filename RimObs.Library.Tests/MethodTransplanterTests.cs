@@ -10,37 +10,30 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class MethodTransplanterTests : IDisposable
-{
+public sealed class MethodTransplanterTests : IDisposable {
     private readonly RecordingSink _sink;
     private readonly Harmony _harmony;
     private readonly List<MethodBase> _patched = new();
 
-    public MethodTransplanterTests()
-    {
+    public MethodTransplanterTests() {
         _sink = new RecordingSink();
         Profiler.SetSink(_sink);
         Profiler.Enabled = true;
         _harmony = new Harmony($"cryptiklemur.rimobs.tests.{Guid.NewGuid():N}");
     }
 
-    public void Dispose()
-    {
-        foreach (MethodBase m in _patched)
-        {
-            try
-            {
+    public void Dispose() {
+        foreach (MethodBase m in _patched) {
+            try {
                 _harmony.Unpatch(m, HarmonyPatchType.All, _harmony.Id);
             }
-            catch
-            {
+            catch {
             }
         }
         Profiler.SetSink(null);
     }
 
-    private void Patch(MethodInfo target, string sectionName)
-    {
+    private void Patch(MethodInfo target, string sectionName) {
         SectionCatalog.RegisterDirect(sectionName, target);
         HarmonyMethod transpiler = new(MethodTransplanter.TranspilerMethod);
         _harmony.Patch(target, transpiler: transpiler);
@@ -48,8 +41,7 @@ public sealed class MethodTransplanterTests : IDisposable
     }
 
     [Fact]
-    public void Patches_void_method_and_records_one_sample()
-    {
+    public void Patches_void_method_and_records_one_sample() {
         Patch(typeof(Targets).GetMethod(nameof(Targets.VoidNoOp))!, "test.void_noop");
 
         Targets.VoidNoOp();
@@ -60,8 +52,7 @@ public sealed class MethodTransplanterTests : IDisposable
     }
 
     [Fact]
-    public void Patches_returning_method_and_preserves_return_value()
-    {
+    public void Patches_returning_method_and_preserves_return_value() {
         Patch(typeof(Targets).GetMethod(nameof(Targets.Add))!, "test.add");
 
         int result = Targets.Add(7, 35);
@@ -71,8 +62,7 @@ public sealed class MethodTransplanterTests : IDisposable
     }
 
     [Fact]
-    public void Records_sample_even_when_method_throws()
-    {
+    public void Records_sample_even_when_method_throws() {
         Patch(typeof(Targets).GetMethod(nameof(Targets.ThrowsAlways))!, "test.throws");
 
         Action act = () => Targets.ThrowsAlways();
@@ -82,8 +72,7 @@ public sealed class MethodTransplanterTests : IDisposable
     }
 
     [Fact]
-    public void Inactive_section_does_not_record_sample()
-    {
+    public void Inactive_section_does_not_record_sample() {
         MethodInfo target = typeof(Targets).GetMethod(nameof(Targets.ReturnsConst))!;
         CatalogEntry entry = SectionCatalog.RegisterDirect("test.const_inactive", target);
         SectionRegistry.SetActive(entry.SectionId, false);
@@ -99,8 +88,7 @@ public sealed class MethodTransplanterTests : IDisposable
     }
 
     [Fact]
-    public void Empty_body_emits_paired_start_and_stop_with_ret()
-    {
+    public void Empty_body_emits_paired_start_and_stop_with_ret() {
         MethodInfo target = typeof(Targets).GetMethod(nameof(Targets.VoidNoOp))!;
         SectionCatalog.RegisterDirect("test.empty_body", target);
 
@@ -126,10 +114,8 @@ public sealed class MethodTransplanterTests : IDisposable
 
         int startCalls = 0;
         int stopCalls = 0;
-        foreach (CodeInstruction inst in emitted)
-        {
-            if (inst.opcode == System.Reflection.Emit.OpCodes.Call && inst.operand is MethodInfo m)
-            {
+        foreach (CodeInstruction inst in emitted) {
+            if (inst.opcode == System.Reflection.Emit.OpCodes.Call && inst.operand is MethodInfo m) {
                 if (ReferenceEquals(m, startById))
                     startCalls++;
                 else if (ReferenceEquals(m, stopById))
@@ -142,8 +128,7 @@ public sealed class MethodTransplanterTests : IDisposable
     }
 
     [Fact]
-    public void Branchy_method_with_multiple_returns_still_records_once()
-    {
+    public void Branchy_method_with_multiple_returns_still_records_once() {
         Patch(typeof(Targets).GetMethod(nameof(Targets.MultipleReturns))!, "test.multi_returns");
 
         Targets.MultipleReturns(0).Should().Be("zero");
@@ -154,37 +139,31 @@ public sealed class MethodTransplanterTests : IDisposable
         _sink.Samples.Should().HaveCount(4);
     }
 
-    public static class Targets
-    {
+    public static class Targets {
         public static int Counter;
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void VoidNoOp()
-        {
+        public static void VoidNoOp() {
             Counter++;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static int Add(int a, int b)
-        {
+        public static int Add(int a, int b) {
             return a + b;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static int ReturnsConst()
-        {
+        public static int ReturnsConst() {
             return 99;
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static void ThrowsAlways()
-        {
+        public static void ThrowsAlways() {
             throw new InvalidOperationException("nope");
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        public static string MultipleReturns(int x)
-        {
+        public static string MultipleReturns(int x) {
             if (x == 0)
                 return "zero";
             if (x == 1)
@@ -195,15 +174,12 @@ public sealed class MethodTransplanterTests : IDisposable
         }
     }
 
-    private sealed class RecordingSink : ISampleSink
-    {
+    private sealed class RecordingSink : ISampleSink {
         public readonly List<Sample> Samples = new();
         private readonly object _lock = new();
 
-        public void RecordSection(int sectionId, long startTimestamp, long elapsedTicks)
-        {
-            lock (_lock)
-            {
+        public void RecordSection(int sectionId, long startTimestamp, long elapsedTicks) {
+            lock (_lock) {
                 Samples.Add(new Sample(sectionId, startTimestamp, elapsedTicks));
             }
         }

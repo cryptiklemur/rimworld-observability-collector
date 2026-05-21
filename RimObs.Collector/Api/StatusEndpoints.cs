@@ -7,26 +7,20 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Cryptiklemur.RimObs.Collector.Api;
 
-public static class StatusEndpoints
-{
-    public static IEndpointRouteBuilder MapStatusEndpoints(this IEndpointRouteBuilder endpoints)
-    {
-        endpoints.MapGet("/api/v1/status", (SessionAggregator aggregator) =>
-        {
+public static class StatusEndpoints {
+    public static IEndpointRouteBuilder MapStatusEndpoints(this IEndpointRouteBuilder endpoints) {
+        endpoints.MapGet("/api/v1/status", (SessionAggregator aggregator) => {
             SessionMeta? meta = aggregator.Meta;
-            return Results.Ok(new
-            {
+            return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
                 status = "running",
                 version = BuildInfo.Revision,
-                session = meta is null ? null : new
-                {
+                session = meta is null ? null : new {
                     id = meta.SessionId,
                     started_utc = new DateTime(meta.StartedUtcTicks, DateTimeKind.Utc),
                     library_version = meta.LibraryVersion,
                 },
-                receive = new
-                {
+                receive = new {
                     total_batches = aggregator.TotalBatches,
                     total_samples = aggregator.TotalSamples,
                     total_bytes = aggregator.TotalBytes,

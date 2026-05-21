@@ -7,11 +7,9 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class AllocationSamplerTests
-{
+public sealed class AllocationSamplerTests {
     [Fact]
-    public void Initial_poll_returns_false_when_window_not_elapsed()
-    {
+    public void Initial_poll_returns_false_when_window_not_elapsed() {
         AllocationSampler sampler = new();
 
         bool got = sampler.TryPollWindow(windowDurationMs: 60_000, out _);
@@ -21,8 +19,7 @@ public sealed class AllocationSamplerTests
     }
 
     [Fact]
-    public void Window_emits_after_duration_elapsed()
-    {
+    public void Window_emits_after_duration_elapsed() {
         AllocationSampler sampler = new();
 
         Thread.Sleep(20);
@@ -36,8 +33,7 @@ public sealed class AllocationSamplerTests
     }
 
     [Fact]
-    public void Bytes_accumulator_resets_each_window()
-    {
+    public void Bytes_accumulator_resets_each_window() {
         AllocationSampler sampler = new();
 
         byte[]? big1 = new byte[500_000];
@@ -61,8 +57,7 @@ public sealed class AllocationSamplerTests
     }
 
     [Fact]
-    public void AllocationSample_carries_fields()
-    {
+    public void AllocationSample_carries_fields() {
         AllocationSample s = new(windowStartTimestamp: 100, windowDurationMs: 60_000, bytesAllocated: 12345, samplesCount: 60);
 
         s.WindowStartTimestamp.Should().Be(100);
@@ -72,18 +67,15 @@ public sealed class AllocationSamplerTests
     }
 }
 
-public sealed class AllocationSamplerHostTests : IDisposable
-{
-    public AllocationSamplerHostTests()
-    {
+public sealed class AllocationSamplerHostTests : IDisposable {
+    public AllocationSamplerHostTests() {
         AllocationSamplerHost.Stop();
         AllocationSamplerHost.ClearRecentSamples();
         AllocationSamplerHost.WindowDurationMs = 60_000;
         AllocationSamplerHost.SetSink(null);
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         AllocationSamplerHost.Stop();
         AllocationSamplerHost.ClearRecentSamples();
         AllocationSamplerHost.WindowDurationMs = 60_000;
@@ -91,8 +83,7 @@ public sealed class AllocationSamplerHostTests : IDisposable
     }
 
     [Fact]
-    public void Instance_returns_singleton()
-    {
+    public void Instance_returns_singleton() {
         AllocationSampler a = AllocationSamplerHost.Instance;
         AllocationSampler b = AllocationSamplerHost.Instance;
 
@@ -100,14 +91,12 @@ public sealed class AllocationSamplerHostTests : IDisposable
     }
 
     [Fact]
-    public void Default_state_is_not_running()
-    {
+    public void Default_state_is_not_running() {
         AllocationSamplerHost.IsRunning.Should().BeFalse();
     }
 
     [Fact]
-    public void Start_and_Stop_round_trip()
-    {
+    public void Start_and_Stop_round_trip() {
         AllocationSamplerHost.Start();
         AllocationSamplerHost.IsRunning.Should().BeTrue();
 
@@ -116,8 +105,7 @@ public sealed class AllocationSamplerHostTests : IDisposable
     }
 
     [Fact]
-    public void PollOnce_does_not_emit_until_window_elapsed()
-    {
+    public void PollOnce_does_not_emit_until_window_elapsed() {
         AllocationSamplerHost.WindowDurationMs = 60_000;
 
         bool got = AllocationSamplerHost.PollOnce();
@@ -127,8 +115,7 @@ public sealed class AllocationSamplerHostTests : IDisposable
     }
 
     [Fact]
-    public void PollOnce_appends_sample_when_window_elapses()
-    {
+    public void PollOnce_appends_sample_when_window_elapses() {
         AllocationSamplerHost.WindowDurationMs = 10;
         Thread.Sleep(15);
 
@@ -139,8 +126,7 @@ public sealed class AllocationSamplerHostTests : IDisposable
     }
 
     [Fact]
-    public void Start_is_idempotent()
-    {
+    public void Start_is_idempotent() {
         AllocationSamplerHost.Start();
         AllocationSamplerHost.Start();
 
@@ -148,8 +134,7 @@ public sealed class AllocationSamplerHostTests : IDisposable
     }
 
     [Fact]
-    public void PollOnce_forwards_samples_to_attached_sink()
-    {
+    public void PollOnce_forwards_samples_to_attached_sink() {
         RecordingAllocSink sink = new();
         AllocationSamplerHost.SetSink(sink);
         AllocationSamplerHost.WindowDurationMs = 10;
@@ -162,8 +147,7 @@ public sealed class AllocationSamplerHostTests : IDisposable
     }
 
     [Fact]
-    public void SetSink_null_detaches_sink()
-    {
+    public void SetSink_null_detaches_sink() {
         RecordingAllocSink sink = new();
         AllocationSamplerHost.SetSink(sink);
         AllocationSamplerHost.SetSink(null);
@@ -175,12 +159,10 @@ public sealed class AllocationSamplerHostTests : IDisposable
         sink.Received.Should().BeEmpty();
     }
 
-    private sealed class RecordingAllocSink : IAllocationSink
-    {
+    private sealed class RecordingAllocSink : IAllocationSink {
         public List<AllocationSample> Received { get; } = new();
 
-        public void RecordAllocation(in AllocationSample sample)
-        {
+        public void RecordAllocation(in AllocationSample sample) {
             Received.Add(sample);
         }
     }

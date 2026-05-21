@@ -9,15 +9,12 @@ using Verse;
 
 namespace Cryptiklemur.RimObs.Bootstrap;
 
-public sealed class RimObsMod : Mod
-{
+public sealed class RimObsMod : Mod {
     private const string FrameworkOwnerId = "cryptiklemur.rimobs";
     private static UdpTelemetrySink? s_Sink;
 
-    public RimObsMod(ModContentPack content) : base(content)
-    {
-        try
-        {
+    public RimObsMod(ModContentPack content) : base(content) {
+        try {
             SessionAnchor.Initialize(System.Guid.NewGuid().ToString("N"));
             WireTelemetrySink(content);
             PopulateOwnerRegistry();
@@ -31,14 +28,12 @@ public sealed class RimObsMod : Mod
             // is a soft cost on every poll.
             LogBootstrapSummary(declared);
         }
-        catch (System.Exception ex)
-        {
+        catch (System.Exception ex) {
             Log.Error($"[RimObs] Bootstrap failed: {ex}");
         }
     }
 
-    private static void WireTelemetrySink(ModContentPack content)
-    {
+    private static void WireTelemetrySink(ModContentPack content) {
         if (s_Sink != null)
             return;
         string ownerId = string.IsNullOrEmpty(content?.PackageId) ? FrameworkOwnerId : content!.PackageId;
@@ -50,22 +45,18 @@ public sealed class RimObsMod : Mod
         s_Sink = sink;
     }
 
-    private static void LogBootstrapSummary(ProfilingXmlLoader.LoadResult declared)
-    {
+    private static void LogBootstrapSummary(ProfilingXmlLoader.LoadResult declared) {
         int coreCount = 0;
         int declaredCount = 0;
         int coreInstalled = 0;
         int declaredInstalled = 0;
-        foreach (CatalogEntry entry in SectionCatalog.Entries)
-        {
-            if (entry.Declared)
-            {
+        foreach (CatalogEntry entry in SectionCatalog.Entries) {
+            if (entry.Declared) {
                 declaredCount++;
                 if (entry.Installed)
                     declaredInstalled++;
             }
-            else
-            {
+            else {
                 coreCount++;
                 if (entry.Installed)
                     coreInstalled++;
@@ -82,8 +73,7 @@ public sealed class RimObsMod : Mod
         foreach (string warning in declared.Warnings)
             Log.Warning($"[RimObs] profiling.xml: {warning}");
 
-        foreach (CatalogEntry entry in SectionCatalog.Entries)
-        {
+        foreach (CatalogEntry entry in SectionCatalog.Entries) {
             if (!entry.Installed && entry.ResolutionError != null)
                 Log.Warning($"[RimObs] Section '{entry.Name}' unresolved: {entry.ResolutionError.Message}");
             else if (entry.InstallError != null)
@@ -91,16 +81,13 @@ public sealed class RimObsMod : Mod
         }
     }
 
-    private static void PopulateOwnerRegistry()
-    {
-        foreach (ModContentPack pack in LoadedModManager.RunningModsListForReading)
-        {
+    private static void PopulateOwnerRegistry() {
+        foreach (ModContentPack pack in LoadedModManager.RunningModsListForReading) {
             string packageId = pack.PackageId;
             if (string.IsNullOrEmpty(packageId))
                 continue;
 
-            foreach (System.Reflection.Assembly asm in pack.assemblies.loadedAssemblies)
-            {
+            foreach (System.Reflection.Assembly asm in pack.assemblies.loadedAssemblies) {
                 OwnerRegistry.RegisterMod(asm, packageId);
             }
         }
@@ -108,8 +95,7 @@ public sealed class RimObsMod : Mod
         OwnerRegistry.SetLateResolver(ResolvePackageIdFromLoadedMods);
     }
 
-    private static string? ResolvePackageIdFromLoadedMods(System.Reflection.Assembly assembly)
-    {
+    private static string? ResolvePackageIdFromLoadedMods(System.Reflection.Assembly assembly) {
         if (assembly == null)
             return null;
 
@@ -117,16 +103,14 @@ public sealed class RimObsMod : Mod
         if (mods == null)
             return null;
 
-        for (int i = 0; i < mods.Count; i++)
-        {
+        for (int i = 0; i < mods.Count; i++) {
             ModContentPack pack = mods[i];
             string packageId = pack.PackageId;
             if (string.IsNullOrEmpty(packageId))
                 continue;
 
             System.Collections.Generic.List<System.Reflection.Assembly> assemblies = pack.assemblies.loadedAssemblies;
-            for (int j = 0; j < assemblies.Count; j++)
-            {
+            for (int j = 0; j < assemblies.Count; j++) {
                 if (ReferenceEquals(assemblies[j], assembly))
                     return packageId;
             }
@@ -135,11 +119,9 @@ public sealed class RimObsMod : Mod
         return null;
     }
 
-    private static ProfilingXmlLoader.LoadResult LoadDeclaredProfiling()
-    {
+    private static ProfilingXmlLoader.LoadResult LoadDeclaredProfiling() {
         System.Collections.Generic.List<(string, string)> mods = new();
-        foreach (ModContentPack pack in LoadedModManager.RunningModsListForReading)
-        {
+        foreach (ModContentPack pack in LoadedModManager.RunningModsListForReading) {
             string packageId = pack.PackageId;
             if (string.IsNullOrEmpty(packageId))
                 continue;

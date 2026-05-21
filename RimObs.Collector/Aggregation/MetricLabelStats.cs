@@ -1,9 +1,7 @@
 namespace Cryptiklemur.RimObs.Collector.Aggregation;
 
-public sealed class MetricLabelStats
-{
-    public MetricLabelStats(string canonical)
-    {
+public sealed class MetricLabelStats {
+    public MetricLabelStats(string canonical) {
         Canonical = canonical;
     }
 

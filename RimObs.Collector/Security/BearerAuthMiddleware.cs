@@ -3,15 +3,11 @@ using Microsoft.AspNetCore.Http;
 
 namespace Cryptiklemur.RimObs.Collector.Security;
 
-internal static class BearerAuthMiddleware
-{
-    public static IApplicationBuilder UseBearerAuth(this IApplicationBuilder app, CollectorToken token)
-    {
-        return app.Use(async (HttpContext ctx, RequestDelegate next) =>
-        {
+internal static class BearerAuthMiddleware {
+    public static IApplicationBuilder UseBearerAuth(this IApplicationBuilder app, CollectorToken token) {
+        return app.Use(async (HttpContext ctx, RequestDelegate next) => {
             string method = ctx.Request.Method;
-            if (!OriginCheck.RequiresCheck(method))
-            {
+            if (!OriginCheck.RequiresCheck(method)) {
                 await next(ctx);
                 return;
             }
@@ -20,8 +16,7 @@ internal static class BearerAuthMiddleware
                 ? ctx.Request.Headers.Authorization.ToString()
                 : null;
             string? presented = BearerHeader.ExtractToken(authHeader);
-            if (!token.Matches(presented))
-            {
+            if (!token.Matches(presented)) {
                 ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
                 ctx.Response.Headers.WWWAuthenticate = "Bearer";
                 await ctx.Response.WriteAsync("Unauthorized: Bearer token required for state-changing requests.");

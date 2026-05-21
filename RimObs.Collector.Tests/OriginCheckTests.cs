@@ -4,8 +4,7 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
-public sealed class OriginCheckTests
-{
+public sealed class OriginCheckTests {
     [Theory]
     [InlineData("POST", true)]
     [InlineData("PUT", true)]
@@ -17,8 +16,7 @@ public sealed class OriginCheckTests
     [InlineData("HEAD", false)]
     [InlineData("OPTIONS", false)]
     [InlineData("", false)]
-    public void RequiresCheck_returns_true_only_for_state_changing_methods(string method, bool expected)
-    {
+    public void RequiresCheck_returns_true_only_for_state_changing_methods(string method, bool expected) {
         OriginCheck.RequiresCheck(method).Should().Be(expected);
     }
 
@@ -32,8 +30,7 @@ public sealed class OriginCheckTests
     [InlineData("http://evil.example.com", 17654, false)]
     [InlineData("", 17654, false)]
     [InlineData(null, 17654, false)]
-    public void IsAllowedOrigin_accepts_only_loopback_with_matching_port(string? origin, int port, bool expected)
-    {
+    public void IsAllowedOrigin_accepts_only_loopback_with_matching_port(string? origin, int port, bool expected) {
         OriginCheck.IsAllowedOrigin(origin, port).Should().Be(expected);
     }
 }

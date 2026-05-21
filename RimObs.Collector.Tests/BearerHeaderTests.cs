@@ -4,8 +4,7 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
-public sealed class BearerHeaderTests
-{
+public sealed class BearerHeaderTests {
     [Theory]
     [InlineData("Bearer abc123", "abc123")]
     [InlineData("bearer abc123", "abc123")]
@@ -16,8 +15,7 @@ public sealed class BearerHeaderTests
     [InlineData("Basic abc123", null)]
     [InlineData("", null)]
     [InlineData(null, null)]
-    public void ExtractToken_pulls_value_only_for_bearer_scheme(string? header, string? expected)
-    {
+    public void ExtractToken_pulls_value_only_for_bearer_scheme(string? header, string? expected) {
         BearerHeader.ExtractToken(header).Should().Be(expected);
     }
 }

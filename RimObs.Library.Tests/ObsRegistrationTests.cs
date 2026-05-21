@@ -8,28 +8,24 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class ObsRegistrationTests : IDisposable
-{
+public sealed class ObsRegistrationTests : IDisposable {
     private const string TestPackageId = "com.cryptiklemur.rimobs.tests";
     private readonly Assembly _self;
 
-    public ObsRegistrationTests()
-    {
+    public ObsRegistrationTests() {
         OwnerRegistry.Clear();
         MetricRegistry.Clear();
         _self = typeof(ObsRegistrationTests).Assembly;
         OwnerRegistry.RegisterMod(_self, TestPackageId);
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         OwnerRegistry.Clear();
         MetricRegistry.Clear();
     }
 
     [Fact]
-    public void RegisterSection_auto_prefixes_packageId()
-    {
+    public void RegisterSection_auto_prefixes_packageId() {
         SectionHandle handle = Obs.Profile.RegisterSection("pawn_scan");
 
         handle.IsValid.Should().BeTrue();
@@ -37,8 +33,7 @@ public sealed class ObsRegistrationTests : IDisposable
     }
 
     [Fact]
-    public void RegisterCounter_auto_prefixes_and_returns_handle()
-    {
+    public void RegisterCounter_auto_prefixes_and_returns_handle() {
         CounterHandle handle = Obs.Metrics.RegisterCounter("cache_hits", subsystem: "jobs", unit: "count");
 
         handle.IsValid.Should().BeTrue();
@@ -51,8 +46,7 @@ public sealed class ObsRegistrationTests : IDisposable
     }
 
     [Fact]
-    public void RegisterGauge_returns_gauge_handle()
-    {
+    public void RegisterGauge_returns_gauge_handle() {
         GaugeHandle handle = Obs.Metrics.RegisterGauge("pending_jobs");
 
         handle.IsValid.Should().BeTrue();
@@ -60,8 +54,7 @@ public sealed class ObsRegistrationTests : IDisposable
     }
 
     [Fact]
-    public void RegisterHistogram_returns_histogram_handle()
-    {
+    public void RegisterHistogram_returns_histogram_handle() {
         HistogramHandle handle = Obs.Metrics.RegisterHistogram("search_duration_us", unit: "us");
 
         handle.IsValid.Should().BeTrue();
@@ -71,8 +64,7 @@ public sealed class ObsRegistrationTests : IDisposable
     }
 
     [Fact]
-    public void Registration_throws_when_assembly_unregistered()
-    {
+    public void Registration_throws_when_assembly_unregistered() {
         OwnerRegistry.Clear();
 
         Action act = () => Obs.Profile.RegisterSection("foo");
@@ -81,8 +73,7 @@ public sealed class ObsRegistrationTests : IDisposable
     }
 
     [Fact]
-    public void Re_registering_same_name_returns_same_descriptor()
-    {
+    public void Re_registering_same_name_returns_same_descriptor() {
         CounterHandle a = Obs.Metrics.RegisterCounter("counter1");
         CounterHandle b = Obs.Metrics.RegisterCounter("counter1");
 
@@ -90,8 +81,7 @@ public sealed class ObsRegistrationTests : IDisposable
     }
 
     [Fact]
-    public void Re_registering_same_name_with_different_kind_throws()
-    {
+    public void Re_registering_same_name_with_different_kind_throws() {
         Obs.Metrics.RegisterCounter("conflict");
 
         Action act = () => Obs.Metrics.RegisterGauge("conflict");
@@ -106,8 +96,7 @@ public sealed class ObsRegistrationTests : IDisposable
     [InlineData("foo-bar")]
     [InlineData("foo.bar")]
     [InlineData("foo bar")]
-    public void RegisterSection_rejects_invalid_bare_names(string bad)
-    {
+    public void RegisterSection_rejects_invalid_bare_names(string bad) {
         Action act = () => Obs.Profile.RegisterSection(bad);
 
         act.Should().Throw<ArgumentException>();
@@ -118,16 +107,14 @@ public sealed class ObsRegistrationTests : IDisposable
     [InlineData("foo_bar")]
     [InlineData("foo123")]
     [InlineData("a")]
-    public void RegisterSection_accepts_valid_bare_names(string good)
-    {
+    public void RegisterSection_accepts_valid_bare_names(string good) {
         Action act = () => Obs.Profile.RegisterSection(good);
 
         act.Should().NotThrow();
     }
 
     [Fact]
-    public void Counter_add_increments_total()
-    {
+    public void Counter_add_increments_total() {
         CounterHandle handle = Obs.Metrics.RegisterCounter("hits");
 
         Obs.Metrics.Add(handle, 5);
@@ -137,8 +124,7 @@ public sealed class ObsRegistrationTests : IDisposable
     }
 
     [Fact]
-    public void Gauge_set_replaces_value()
-    {
+    public void Gauge_set_replaces_value() {
         GaugeHandle handle = Obs.Metrics.RegisterGauge("level");
 
         Obs.Metrics.Set(handle, 10);
@@ -148,8 +134,7 @@ public sealed class ObsRegistrationTests : IDisposable
     }
 
     [Fact]
-    public void Histogram_observe_increments_observation_count()
-    {
+    public void Histogram_observe_increments_observation_count() {
         HistogramHandle handle = Obs.Metrics.RegisterHistogram("durations");
 
         Obs.Metrics.Observe(handle, 100);
@@ -160,34 +145,28 @@ public sealed class ObsRegistrationTests : IDisposable
     }
 
     [Fact]
-    public void Measure_scope_dispose_records_sample_for_active_section()
-    {
+    public void Measure_scope_dispose_records_sample_for_active_section() {
         RecordingSink sink = new();
         Profiler.SetSink(sink);
         Profiler.Enabled = true;
-        try
-        {
+        try {
             SectionHandle handle = Obs.Profile.RegisterSection("scoped_op");
             SectionRegistry.SetActive(handle.Id, true);
 
-            using (Obs.Profile.Measure(handle))
-            {
+            using (Obs.Profile.Measure(handle)) {
             }
 
             sink.Count.Should().Be(1);
         }
-        finally
-        {
+        finally {
             Profiler.SetSink(null);
         }
     }
 
-    private sealed class RecordingSink : ISampleSink
-    {
+    private sealed class RecordingSink : ISampleSink {
         public int Count;
 
-        public void RecordSection(int sectionId, long startTimestamp, long elapsedTicks)
-        {
+        public void RecordSection(int sectionId, long startTimestamp, long elapsedTicks) {
             Count++;
         }
     }
