@@ -5,11 +5,9 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
-public sealed class SessionAggregatorTests
-{
+public sealed class SessionAggregatorTests {
     [Fact]
-    public void OnBatchReceived_increments_counters()
-    {
+    public void OnBatchReceived_increments_counters() {
         SessionAggregator agg = new();
 
         agg.OnBatchReceived(128);
@@ -21,11 +19,9 @@ public sealed class SessionAggregatorTests
     }
 
     [Fact]
-    public void OnSessionMeta_stores_meta()
-    {
+    public void OnSessionMeta_stores_meta() {
         SessionAggregator agg = new();
-        SessionMeta meta = new()
-        {
+        SessionMeta meta = new() {
             SessionId = "test-session",
             StartedUtcTicks = 123456,
             StopwatchFrequency = 10_000_000,
@@ -43,8 +39,7 @@ public sealed class SessionAggregatorTests
 
 
     [Fact]
-    public void OnSessionMeta_forwards_to_persister_when_configured()
-    {
+    public void OnSessionMeta_forwards_to_persister_when_configured() {
         FakePersister persister = new();
         SessionAggregator agg = new(persister);
         SessionMeta meta = new() { SessionId = "persisted", LibraryVersion = "0.1" };
@@ -56,26 +51,29 @@ public sealed class SessionAggregatorTests
     }
 
     [Fact]
-    public void OnSessionMeta_without_persister_does_not_throw()
-    {
+    public void OnSessionMeta_without_persister_does_not_throw() {
         SessionAggregator agg = new(persister: null);
         Action act = () => agg.OnSessionMeta(new SessionMeta { SessionId = "x" });
         act.Should().NotThrow();
     }
 
-    private sealed class FakePersister : Cryptiklemur.RimObs.Collector.Storage.ISessionPersister
-    {
+    private sealed class FakePersister : Cryptiklemur.RimObs.Collector.Storage.ISessionPersister {
         public List<SessionMeta> WrittenMetas { get; } = [];
+        public List<(string id, IReadOnlyCollection<Cryptiklemur.RimObs.Collector.Aggregation.SectionStats> sections)> WrittenSections { get; } = [];
+        public List<(string id, IReadOnlyCollection<Cryptiklemur.RimObs.Collector.Aggregation.MetricStats> metrics)> WrittenMetrics { get; } = [];
+        public List<(string id, Cryptiklemur.RimObs.Collector.Aggregation.GcEventRecord[] events)> WrittenGc { get; } = [];
+
         public void WriteSessionMeta(SessionMeta meta) => WrittenMetas.Add(meta);
+        public void WriteSectionsSnapshot(string sessionId, IReadOnlyCollection<Cryptiklemur.RimObs.Collector.Aggregation.SectionStats> sections) => WrittenSections.Add((sessionId, sections));
+        public void WriteMetricsSnapshot(string sessionId, IReadOnlyCollection<Cryptiklemur.RimObs.Collector.Aggregation.MetricStats> metrics) => WrittenMetrics.Add((sessionId, metrics));
+        public void ReplaceGcEventsSnapshot(string sessionId, Cryptiklemur.RimObs.Collector.Aggregation.GcEventRecord[] events) => WrittenGc.Add((sessionId, events));
         public void Dispose() { }
     }
 
     [Fact]
-    public void OnSectionRegistrations_records_name_and_id()
-    {
+    public void OnSectionRegistrations_records_name_and_id() {
         SessionAggregator agg = new();
-        SectionRegistrationsBatch batch = new()
-        {
+        SectionRegistrationsBatch batch = new() {
             SectionIds = [1, 2, 3],
             Names = ["alpha", "bravo", "charlie"],
         };
@@ -88,11 +86,9 @@ public sealed class SessionAggregatorTests
     }
 
     [Fact]
-    public void OnSectionRegistrations_tolerates_length_mismatch_by_truncating()
-    {
+    public void OnSectionRegistrations_tolerates_length_mismatch_by_truncating() {
         SessionAggregator agg = new();
-        SectionRegistrationsBatch batch = new()
-        {
+        SectionRegistrationsBatch batch = new() {
             SectionIds = [1, 2, 3],
             Names = ["alpha", "bravo"],
         };
@@ -103,11 +99,9 @@ public sealed class SessionAggregatorTests
     }
 
     [Fact]
-    public void OnSectionBatch_accumulates_sample_stats()
-    {
+    public void OnSectionBatch_accumulates_sample_stats() {
         SessionAggregator agg = new();
-        SectionBatch batch = new()
-        {
+        SectionBatch batch = new() {
             SectionIds = [1, 1, 1],
             StartTimestamps = [100, 200, 300],
             ElapsedTicks = [50, 20, 100],
@@ -125,23 +119,19 @@ public sealed class SessionAggregatorTests
     }
 
     [Fact]
-    public void OnSectionBatch_updates_min_and_max_across_multiple_batches()
-    {
+    public void OnSectionBatch_updates_min_and_max_across_multiple_batches() {
         SessionAggregator agg = new();
-        agg.OnSectionBatch(new()
-        {
+        agg.OnSectionBatch(new() {
             SectionIds = [1],
             StartTimestamps = [100],
             ElapsedTicks = [500],
         });
-        agg.OnSectionBatch(new()
-        {
+        agg.OnSectionBatch(new() {
             SectionIds = [1],
             StartTimestamps = [200],
             ElapsedTicks = [10],
         });
-        agg.OnSectionBatch(new()
-        {
+        agg.OnSectionBatch(new() {
             SectionIds = [1],
             StartTimestamps = [300],
             ElapsedTicks = [1000],
@@ -153,11 +143,9 @@ public sealed class SessionAggregatorTests
     }
 
     [Fact]
-    public void OnGcEvents_increments_total_count_by_batch_size()
-    {
+    public void OnGcEvents_increments_total_count_by_batch_size() {
         SessionAggregator agg = new();
-        GcEventsBatch batch = new()
-        {
+        GcEventsBatch batch = new() {
             Generations = new byte[] { 0, 1, 2 },
             PauseTypes = new byte[3],
             HeapBefore = new long[3],
@@ -174,11 +162,9 @@ public sealed class SessionAggregatorTests
     }
 
     [Fact]
-    public void OnAllocations_increments_total_count_by_window_count()
-    {
+    public void OnAllocations_increments_total_count_by_window_count() {
         SessionAggregator agg = new();
-        AllocationsBatch batch = new()
-        {
+        AllocationsBatch batch = new() {
             WindowStartTimestamps = new long[] { 1, 2 },
             WindowDurationsMs = new long[2],
             BytesAllocated = new long[2],
@@ -192,11 +178,9 @@ public sealed class SessionAggregatorTests
 
 
     [Fact]
-    public void OnMetricRegistrations_records_name_kind_and_unit()
-    {
+    public void OnMetricRegistrations_records_name_kind_and_unit() {
         SessionAggregator agg = new();
-        MetricRegistrationsBatch batch = new()
-        {
+        MetricRegistrationsBatch batch = new() {
             MetricIds = [10, 11],
             Names = ["my.mod.frames_drawn", "my.mod.heap_used"],
             Kinds = [0, 1],
@@ -217,27 +201,23 @@ public sealed class SessionAggregatorTests
     }
 
     [Fact]
-    public void OnMetrics_accumulates_latest_value_and_total_samples_per_label()
-    {
+    public void OnMetrics_accumulates_latest_value_and_total_samples_per_label() {
         SessionAggregator agg = new();
-        agg.OnMetricRegistrations(new MetricRegistrationsBatch
-        {
+        agg.OnMetricRegistrations(new MetricRegistrationsBatch {
             MetricIds = [10],
             Names = ["my.mod.frames"],
             Kinds = [0],
             Units = ["count"],
         });
 
-        agg.OnMetrics(new MetricsBatch
-        {
+        agg.OnMetrics(new MetricsBatch {
             MetricIds = [10, 10],
             LabelCanonicals = ["scene=map", "scene=ui"],
             Kinds = [0, 0],
             Values = [42, 17],
             SampleCounts = [1, 1],
         });
-        agg.OnMetrics(new MetricsBatch
-        {
+        agg.OnMetrics(new MetricsBatch {
             MetricIds = [10],
             LabelCanonicals = ["scene=map"],
             Kinds = [0],
@@ -256,11 +236,9 @@ public sealed class SessionAggregatorTests
     }
 
     [Fact]
-    public void OnMetrics_creates_placeholder_metric_when_registration_missing()
-    {
+    public void OnMetrics_creates_placeholder_metric_when_registration_missing() {
         SessionAggregator agg = new();
-        agg.OnMetrics(new MetricsBatch
-        {
+        agg.OnMetrics(new MetricsBatch {
             MetricIds = [99],
             LabelCanonicals = [""],
             Kinds = [2],
@@ -275,17 +253,14 @@ public sealed class SessionAggregatorTests
     }
 
     [Fact]
-    public void Section_registered_after_samples_keeps_name_and_sample_counts()
-    {
+    public void Section_registered_after_samples_keeps_name_and_sample_counts() {
         SessionAggregator agg = new();
-        agg.OnSectionBatch(new()
-        {
+        agg.OnSectionBatch(new() {
             SectionIds = [42],
             StartTimestamps = [100],
             ElapsedTicks = [200],
         });
-        agg.OnSectionRegistrations(new()
-        {
+        agg.OnSectionRegistrations(new() {
             SectionIds = [42],
             Names = ["late.name"],
         });

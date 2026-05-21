@@ -1,16 +1,15 @@
 using System.Collections.Concurrent;
+using Cryptiklemur.RimObs.Collector.Aggregation;
 using Cryptiklemur.RimObs.Wire;
 
 namespace Cryptiklemur.RimObs.Collector.Storage;
 
-public sealed class SqliteSessionPersister : ISessionPersister
-{
+public sealed class SqliteSessionPersister : ISessionPersister {
     private readonly string _sessionsDir;
     private readonly ConcurrentDictionary<string, SessionStore> _stores = new(StringComparer.Ordinal);
     private bool _disposed;
 
-    public SqliteSessionPersister(string sessionsDir)
-    {
+    public SqliteSessionPersister(string sessionsDir) {
         if (string.IsNullOrWhiteSpace(sessionsDir))
             throw new ArgumentException("sessionsDir must be non-empty", nameof(sessionsDir));
 
@@ -20,8 +19,7 @@ public sealed class SqliteSessionPersister : ISessionPersister
 
     public string SessionsDirectory => _sessionsDir;
 
-    public void WriteSessionMeta(SessionMeta meta)
-    {
+    public void WriteSessionMeta(SessionMeta meta) {
         ArgumentNullException.ThrowIfNull(meta);
         if (string.IsNullOrWhiteSpace(meta.SessionId))
             throw new ArgumentException("SessionMeta.SessionId must be non-empty", nameof(meta));
@@ -31,8 +29,39 @@ public sealed class SqliteSessionPersister : ISessionPersister
         store.WriteSessionMeta(meta);
     }
 
-    public void Dispose()
-    {
+
+    public void WriteSectionsSnapshot(string sessionId, IReadOnlyCollection<SectionStats> sections) {
+        ArgumentNullException.ThrowIfNull(sections);
+        ValidateSessionId(sessionId);
+        if (sections.Count == 0)
+            return;
+        ThrowIfDisposed();
+
+        SessionStore store = GetOrOpen(sessionId);
+        store.WriteSectionsSnapshot(sections);
+    }
+
+    public void WriteMetricsSnapshot(string sessionId, IReadOnlyCollection<MetricStats> metrics) {
+        ArgumentNullException.ThrowIfNull(metrics);
+        ValidateSessionId(sessionId);
+        if (metrics.Count == 0)
+            return;
+        ThrowIfDisposed();
+
+        SessionStore store = GetOrOpen(sessionId);
+        store.WriteMetricsSnapshot(metrics);
+    }
+
+    public void ReplaceGcEventsSnapshot(string sessionId, GcEventRecord[] events) {
+        ArgumentNullException.ThrowIfNull(events);
+        ValidateSessionId(sessionId);
+        ThrowIfDisposed();
+
+        SessionStore store = GetOrOpen(sessionId);
+        store.ReplaceGcEventsSnapshot(events);
+    }
+
+    public void Dispose() {
         if (_disposed)
             return;
         _disposed = true;
@@ -41,23 +70,25 @@ public sealed class SqliteSessionPersister : ISessionPersister
         _stores.Clear();
     }
 
-    private SessionStore GetOrOpen(string sessionId)
-    {
-        return _stores.GetOrAdd(sessionId, id =>
-        {
+    private SessionStore GetOrOpen(string sessionId) {
+        return _stores.GetOrAdd(sessionId, id => {
             string dbPath = Path.Combine(_sessionsDir, SanitizeFileName(id) + ".db");
             return SessionStore.Open(dbPath);
         });
     }
 
-    private void ThrowIfDisposed()
-    {
+    private void ThrowIfDisposed() {
         if (_disposed)
             throw new ObjectDisposedException(nameof(SqliteSessionPersister));
     }
 
-    private static string SanitizeFileName(string raw)
-    {
+
+    private static void ValidateSessionId(string sessionId) {
+        if (string.IsNullOrWhiteSpace(sessionId))
+            throw new ArgumentException("sessionId must be non-empty", nameof(sessionId));
+    }
+
+    private static string SanitizeFileName(string raw) {
         char[] invalid = Path.GetInvalidFileNameChars();
         string sanitized = raw;
         foreach (char ch in invalid)

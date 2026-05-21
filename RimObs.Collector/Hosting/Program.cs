@@ -8,12 +8,9 @@ using Serilog;
 
 namespace Cryptiklemur.RimObs.Collector.Hosting;
 
-public static class Program
-{
-    public static int Main(string[] args)
-    {
-        if (args.Length > 0 && args[0] != "serve")
-        {
+public static class Program {
+    public static int Main(string[] args) {
+        if (args.Length > 0 && args[0] != "serve") {
             return Cli.CliRouter.Run(args);
         }
 
@@ -23,17 +20,14 @@ public static class Program
             .CreateLogger();
 
         const int port = 17654;
-        try
-        {
+        try {
             CollectorToken token = CollectorToken.CreateFromEnvOrGenerate();
             string configDir = ConfigDirResolver.Resolve();
-            try
-            {
+            try {
                 RuntimeFiles.WriteAll(configDir, token, port);
                 Log.Information("Wrote discovery files to {ConfigDir} (token source: {Source})", configDir, token.FromEnv ? "env" : "generated");
             }
-            catch (System.Exception ex)
-            {
+            catch (System.Exception ex) {
                 Log.Warning(ex, "Failed to write discovery files to {ConfigDir}", configDir);
             }
 
@@ -42,37 +36,32 @@ public static class Program
             app.Run();
             return 0;
         }
-        catch (System.Exception ex)
-        {
+        catch (System.Exception ex) {
             Log.Fatal(ex, "Collector terminated unexpectedly");
             return 1;
         }
-        finally
-        {
+        finally {
             Log.CloseAndFlush();
         }
     }
 
-    public static WebApplication BuildApp(string[] args, int port)
-    {
+    public static WebApplication BuildApp(string[] args, int port) {
         return BuildApp(args, port, CollectorToken.CreateFromEnvOrGenerate(), sessionsDir: null);
     }
 
-    public static WebApplication BuildApp(string[] args, int port, CollectorToken token)
-    {
+    public static WebApplication BuildApp(string[] args, int port, CollectorToken token) {
         return BuildApp(args, port, token, sessionsDir: null);
     }
 
-    public static WebApplication BuildApp(string[] args, int port, CollectorToken token, string? sessionsDir)
-    {
+    public static WebApplication BuildApp(string[] args, int port, CollectorToken token, string? sessionsDir) {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
         builder.Host.UseSerilog();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
 
         builder.Services.AddSingleton(token);
-        if (!string.IsNullOrWhiteSpace(sessionsDir))
-        {
-            builder.Services.AddSingleton<Storage.ISessionPersister>(_ => new Storage.SqliteSessionPersister(sessionsDir));
+        bool hasPersister = !string.IsNullOrWhiteSpace(sessionsDir);
+        if (hasPersister) {
+            builder.Services.AddSingleton<Storage.ISessionPersister>(_ => new Storage.SqliteSessionPersister(sessionsDir!));
         }
         builder.Services.AddSingleton<Aggregation.SessionAggregator>();
         builder.Services.AddSingleton<Receive.UdpReceiver>(sp =>
@@ -82,6 +71,9 @@ public static class Program
                 port
             ));
         builder.Services.AddHostedService(sp => sp.GetRequiredService<Receive.UdpReceiver>());
+        if (hasPersister) {
+            builder.Services.AddHostedService<Storage.PersistenceFlusher>();
+        }
 
         WebApplication app = builder.Build();
         app.UseOriginCheck(port);
@@ -90,8 +82,7 @@ public static class Program
         return app;
     }
 
-    public static void MapApiEndpoints(WebApplication app)
-    {
+    public static void MapApiEndpoints(WebApplication app) {
         app.MapStatusEndpoints();
         app.MapSessionsEndpoints();
         app.MapVersionEndpoints();
