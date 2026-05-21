@@ -4,7 +4,7 @@ namespace Cryptiklemur.RimObs.Transport;
 
 public sealed class CollectorCandidate
 {
-    public CollectorCandidate(string executablePath, Version version, string? rid = null)
+    public CollectorCandidate(string executablePath, Version version, string? rid = null, string? prerelease = null)
     {
         if (string.IsNullOrWhiteSpace(executablePath))
             throw new ArgumentException("executablePath must be provided", nameof(executablePath));
@@ -13,11 +13,19 @@ public sealed class CollectorCandidate
         ExecutablePath = executablePath;
         Version = version;
         Rid = rid;
+        Prerelease = string.IsNullOrEmpty(prerelease) ? null : prerelease;
     }
 
     public string ExecutablePath { get; }
     public Version Version { get; }
     public string? Rid { get; }
+    public string? Prerelease { get; }
+    public bool IsPrerelease => Prerelease != null;
+
+    public static CollectorCandidate Parse(string executablePath, string versionString, string? rid = null)
+    {
+        return new CollectorCandidate(executablePath, ParseLooseSemver(versionString), rid, ExtractPrerelease(versionString));
+    }
 
     public static Version ParseLooseSemver(string s)
     {
@@ -30,5 +38,29 @@ public sealed class CollectorCandidate
         if (plus >= 0 && (cut < 0 || plus < cut)) cut = plus;
         string core = cut < 0 ? s : s.Substring(0, cut);
         return Version.Parse(core);
+    }
+
+    internal static string? ExtractPrerelease(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s))
+            return null;
+        int dash = s.IndexOf('-');
+        if (dash < 0)
+            return null;
+        int plus = s.IndexOf('+');
+        int end = plus > dash ? plus : s.Length;
+        return s.Substring(dash + 1, end - dash - 1);
+    }
+
+    internal static int Compare(CollectorCandidate a, CollectorCandidate b)
+    {
+        int core = a.Version.CompareTo(b.Version);
+        if (core != 0)
+            return core;
+        if (a.IsPrerelease != b.IsPrerelease)
+            return a.IsPrerelease ? -1 : 1;
+        if (!a.IsPrerelease)
+            return 0;
+        return string.CompareOrdinal(a.Prerelease, b.Prerelease);
     }
 }
