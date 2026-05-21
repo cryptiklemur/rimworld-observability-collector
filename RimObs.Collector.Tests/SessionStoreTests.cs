@@ -1,3 +1,4 @@
+using Cryptiklemur.RimObs.Collector.Aggregation;
 using Cryptiklemur.RimObs.Collector.Storage;
 using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
@@ -155,5 +156,154 @@ public sealed class SessionStoreTests : IDisposable
 
         Action act = () => store.WriteSessionMeta(new SessionMeta { SessionId = "x" });
         act.Should().Throw<ObjectDisposedException>();
+    }
+
+
+    [Fact]
+    public void WriteSectionsSnapshot_round_trips_per_section_stats()
+    {
+        SectionStats a = new()
+        {
+            SectionId = 1,
+            Name = "core.tick",
+            SampleCount = 42,
+            TotalElapsedTicks = 12345,
+            MinElapsedTicks = 100,
+            MaxElapsedTicks = 9999,
+            LastStartTimestamp = 77L,
+        };
+        SectionStats b = new()
+        {
+            SectionId = 2,
+            Name = "core.draw",
+            SampleCount = 7,
+            TotalElapsedTicks = 700,
+            MinElapsedTicks = long.MaxValue, // unset min sentinel
+            MaxElapsedTicks = 200,
+            LastStartTimestamp = 88L,
+        };
+
+        using SessionStore store = SessionStore.Open(_dbPath);
+        store.WriteSectionsSnapshot([a, b]);
+
+        store.CountSections().Should().Be(2);
+
+        // Sentinel min should be stored as 0, not long.MaxValue, to keep dashboard math simple.
+        using SqliteConnection probe = new($"Data Source={_dbPath}");
+        probe.Open();
+        using SqliteCommand cmd = probe.CreateCommand();
+        cmd.CommandText = "SELECT min_elapsed_ticks FROM sections WHERE section_id = 2;";
+        Convert.ToInt64(cmd.ExecuteScalar()).Should().Be(0);
+    }
+
+    [Fact]
+    public void WriteSectionsSnapshot_is_idempotent_for_same_section_id()
+    {
+        SectionStats stats = new() { SectionId = 1, Name = "s", SampleCount = 1, TotalElapsedTicks = 100, MinElapsedTicks = 10, MaxElapsedTicks = 100, LastStartTimestamp = 1 };
+
+        using SessionStore store = SessionStore.Open(_dbPath);
+        store.WriteSectionsSnapshot([stats]);
+        stats.SampleCount = 5;
+        stats.TotalElapsedTicks = 555;
+        store.WriteSectionsSnapshot([stats]);
+
+        store.CountSections().Should().Be(1);
+        using SqliteConnection probe = new($"Data Source={_dbPath}");
+        probe.Open();
+        using SqliteCommand cmd = probe.CreateCommand();
+        cmd.CommandText = "SELECT sample_count, total_elapsed_ticks FROM sections WHERE section_id = 1;";
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        reader.Read().Should().BeTrue();
+        reader.GetInt64(0).Should().Be(5);
+        reader.GetInt64(1).Should().Be(555);
+    }
+
+    [Fact]
+    public void WriteMetricsSnapshot_round_trips_metric_and_per_label_rows()
+    {
+        MetricStats m = new(metricId: 10) { Name = "my.mod.frames", Kind = 0, Unit = "count" };
+        m.Labels["scene=map"] = new MetricLabelStats("scene=map") { LatestValue = 99, TotalSampleCount = 4 };
+        m.Labels["scene=ui"] = new MetricLabelStats("scene=ui") { LatestValue = 17, TotalSampleCount = 1 };
+
+        using SessionStore store = SessionStore.Open(_dbPath);
+        store.WriteMetricsSnapshot([m]);
+
+        store.CountMetrics().Should().Be(1);
+        store.CountMetricLabels().Should().Be(2);
+
+        using SqliteConnection probe = new($"Data Source={_dbPath}");
+        probe.Open();
+        using SqliteCommand cmd = probe.CreateCommand();
+        cmd.CommandText = "SELECT canonical, latest_value, total_sample_count FROM metric_labels WHERE metric_id = 10 ORDER BY canonical;";
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        reader.Read().Should().BeTrue();
+        reader.GetString(0).Should().Be("scene=map");
+        reader.GetInt64(1).Should().Be(99);
+        reader.GetInt64(2).Should().Be(4);
+        reader.Read().Should().BeTrue();
+        reader.GetString(0).Should().Be("scene=ui");
+        reader.GetInt64(1).Should().Be(17);
+        reader.GetInt64(2).Should().Be(1);
+    }
+
+    [Fact]
+    public void WriteMetricsSnapshot_is_idempotent_and_updates_latest_value()
+    {
+        MetricStats m = new(metricId: 5) { Name = "g", Kind = 1, Unit = "b" };
+        m.Labels[""] = new MetricLabelStats("") { LatestValue = 10, TotalSampleCount = 1 };
+
+        using SessionStore store = SessionStore.Open(_dbPath);
+        store.WriteMetricsSnapshot([m]);
+        m.Labels[""].LatestValue = 25;
+        m.Labels[""].TotalSampleCount = 3;
+        store.WriteMetricsSnapshot([m]);
+
+        store.CountMetricLabels().Should().Be(1);
+        using SqliteConnection probe = new($"Data Source={_dbPath}");
+        probe.Open();
+        using SqliteCommand cmd = probe.CreateCommand();
+        cmd.CommandText = "SELECT latest_value, total_sample_count FROM metric_labels WHERE metric_id = 5;";
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        reader.Read().Should().BeTrue();
+        reader.GetInt64(0).Should().Be(25);
+        reader.GetInt64(1).Should().Be(3);
+    }
+
+    [Fact]
+    public void ReplaceGcEventsSnapshot_truncates_then_inserts_in_order()
+    {
+        GcEventRecord a = new(generation: 0, pauseType: 1, heapBefore: 1000, heapAfter: 800, durationMicros: 50, ticks: 100, allocationRateBytesPerMinute: 5000);
+        GcEventRecord b = new(generation: 2, pauseType: 0, heapBefore: 5000, heapAfter: 4500, durationMicros: 200, ticks: 200, allocationRateBytesPerMinute: 7500);
+
+        using SessionStore store = SessionStore.Open(_dbPath);
+        store.ReplaceGcEventsSnapshot([a, b]);
+        store.CountGcEvents().Should().Be(2);
+
+        store.ReplaceGcEventsSnapshot([b]);
+        store.CountGcEvents().Should().Be(1);
+
+        using SqliteConnection probe = new($"Data Source={_dbPath}");
+        probe.Open();
+        using SqliteCommand cmd = probe.CreateCommand();
+        cmd.CommandText = "SELECT generation, pause_type, heap_before, heap_after, duration_micros, ticks, allocation_rate_bpm FROM gc_events;";
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        reader.Read().Should().BeTrue();
+        reader.GetInt32(0).Should().Be(2);
+        reader.GetInt32(1).Should().Be(0);
+        reader.GetInt64(2).Should().Be(5000);
+        reader.GetInt64(3).Should().Be(4500);
+        reader.GetInt64(4).Should().Be(200);
+        reader.GetInt64(5).Should().Be(200);
+        reader.GetInt64(6).Should().Be(7500);
+    }
+
+    [Fact]
+    public void ReplaceGcEventsSnapshot_with_empty_array_clears_table()
+    {
+        using SessionStore store = SessionStore.Open(_dbPath);
+        store.ReplaceGcEventsSnapshot([new GcEventRecord(0, 0, 0, 0, 0, 0, 0)]);
+        store.CountGcEvents().Should().Be(1);
+        store.ReplaceGcEventsSnapshot([]);
+        store.CountGcEvents().Should().Be(0);
     }
 }

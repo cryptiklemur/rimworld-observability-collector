@@ -1,4 +1,5 @@
 using System.Globalization;
+using Cryptiklemur.RimObs.Collector.Aggregation;
 using Cryptiklemur.RimObs.Wire;
 using Microsoft.Data.Sqlite;
 
@@ -6,7 +7,7 @@ namespace Cryptiklemur.RimObs.Collector.Storage;
 
 public sealed class SessionStore : IDisposable
 {
-    public const int SchemaVersion = 1;
+    public const int SchemaVersion = 2;
     private const string SchemaVersionPragma = "user_version";
 
     private readonly SqliteConnection _connection;
@@ -103,6 +104,182 @@ FROM session_meta WHERE session_id = $id;
         };
     }
 
+
+    public void WriteSectionsSnapshot(IReadOnlyCollection<SectionStats> sections)
+    {
+        ArgumentNullException.ThrowIfNull(sections);
+        ThrowIfDisposed();
+
+        using SqliteTransaction tx = _connection.BeginTransaction();
+        using SqliteCommand upsert = _connection.CreateCommand();
+        upsert.Transaction = tx;
+        upsert.CommandText = @"
+INSERT INTO sections (section_id, name, sample_count, total_elapsed_ticks, min_elapsed_ticks, max_elapsed_ticks, last_start_timestamp)
+VALUES ($id, $name, $samples, $total, $min, $max, $lastStart)
+ON CONFLICT(section_id) DO UPDATE SET
+    name = excluded.name,
+    sample_count = excluded.sample_count,
+    total_elapsed_ticks = excluded.total_elapsed_ticks,
+    min_elapsed_ticks = excluded.min_elapsed_ticks,
+    max_elapsed_ticks = excluded.max_elapsed_ticks,
+    last_start_timestamp = excluded.last_start_timestamp;
+";
+        SqliteParameter pId = upsert.Parameters.Add("$id", SqliteType.Integer);
+        SqliteParameter pName = upsert.Parameters.Add("$name", SqliteType.Text);
+        SqliteParameter pSamples = upsert.Parameters.Add("$samples", SqliteType.Integer);
+        SqliteParameter pTotal = upsert.Parameters.Add("$total", SqliteType.Integer);
+        SqliteParameter pMin = upsert.Parameters.Add("$min", SqliteType.Integer);
+        SqliteParameter pMax = upsert.Parameters.Add("$max", SqliteType.Integer);
+        SqliteParameter pLast = upsert.Parameters.Add("$lastStart", SqliteType.Integer);
+
+        foreach (SectionStats stats in sections)
+        {
+            pId.Value = stats.SectionId;
+            pName.Value = stats.Name ?? string.Empty;
+            pSamples.Value = Interlocked.Read(ref stats.SampleCount);
+            pTotal.Value = Interlocked.Read(ref stats.TotalElapsedTicks);
+            long min = Interlocked.Read(ref stats.MinElapsedTicks);
+            pMin.Value = min == long.MaxValue ? 0L : min;
+            pMax.Value = Interlocked.Read(ref stats.MaxElapsedTicks);
+            pLast.Value = stats.LastStartTimestamp;
+            upsert.ExecuteNonQuery();
+        }
+        tx.Commit();
+    }
+
+    public void WriteMetricsSnapshot(IReadOnlyCollection<MetricStats> metrics)
+    {
+        ArgumentNullException.ThrowIfNull(metrics);
+        ThrowIfDisposed();
+
+        using SqliteTransaction tx = _connection.BeginTransaction();
+
+        using SqliteCommand upsertMetric = _connection.CreateCommand();
+        upsertMetric.Transaction = tx;
+        upsertMetric.CommandText = @"
+INSERT INTO metrics (metric_id, name, kind, unit)
+VALUES ($id, $name, $kind, $unit)
+ON CONFLICT(metric_id) DO UPDATE SET
+    name = excluded.name,
+    kind = excluded.kind,
+    unit = excluded.unit;
+";
+        SqliteParameter pId = upsertMetric.Parameters.Add("$id", SqliteType.Integer);
+        SqliteParameter pName = upsertMetric.Parameters.Add("$name", SqliteType.Text);
+        SqliteParameter pKind = upsertMetric.Parameters.Add("$kind", SqliteType.Integer);
+        SqliteParameter pUnit = upsertMetric.Parameters.Add("$unit", SqliteType.Text);
+
+        using SqliteCommand upsertLabel = _connection.CreateCommand();
+        upsertLabel.Transaction = tx;
+        upsertLabel.CommandText = @"
+INSERT INTO metric_labels (metric_id, canonical, latest_value, total_sample_count)
+VALUES ($mid, $canon, $latest, $samples)
+ON CONFLICT(metric_id, canonical) DO UPDATE SET
+    latest_value = excluded.latest_value,
+    total_sample_count = excluded.total_sample_count;
+";
+        SqliteParameter lMid = upsertLabel.Parameters.Add("$mid", SqliteType.Integer);
+        SqliteParameter lCanon = upsertLabel.Parameters.Add("$canon", SqliteType.Text);
+        SqliteParameter lLatest = upsertLabel.Parameters.Add("$latest", SqliteType.Integer);
+        SqliteParameter lSamples = upsertLabel.Parameters.Add("$samples", SqliteType.Integer);
+
+        foreach (MetricStats metric in metrics)
+        {
+            pId.Value = metric.MetricId;
+            pName.Value = metric.Name ?? string.Empty;
+            pKind.Value = metric.Kind;
+            pUnit.Value = metric.Unit ?? string.Empty;
+            upsertMetric.ExecuteNonQuery();
+
+            foreach (MetricLabelStats label in metric.Labels.Values)
+            {
+                lMid.Value = metric.MetricId;
+                lCanon.Value = label.Canonical ?? string.Empty;
+                lLatest.Value = Interlocked.Read(ref label.LatestValue);
+                lSamples.Value = Interlocked.Read(ref label.TotalSampleCount);
+                upsertLabel.ExecuteNonQuery();
+            }
+        }
+        tx.Commit();
+    }
+
+    public void ReplaceGcEventsSnapshot(GcEventRecord[] events)
+    {
+        ArgumentNullException.ThrowIfNull(events);
+        ThrowIfDisposed();
+
+        using SqliteTransaction tx = _connection.BeginTransaction();
+
+        using (SqliteCommand truncate = _connection.CreateCommand())
+        {
+            truncate.Transaction = tx;
+            truncate.CommandText = "DELETE FROM gc_events;";
+            truncate.ExecuteNonQuery();
+        }
+
+        if (events.Length > 0)
+        {
+            using SqliteCommand insert = _connection.CreateCommand();
+            insert.Transaction = tx;
+            insert.CommandText = @"
+INSERT INTO gc_events (generation, pause_type, heap_before, heap_after, duration_micros, ticks, allocation_rate_bpm)
+VALUES ($gen, $pause, $hb, $ha, $dur, $ticks, $rate);
+";
+            SqliteParameter pGen = insert.Parameters.Add("$gen", SqliteType.Integer);
+            SqliteParameter pPause = insert.Parameters.Add("$pause", SqliteType.Integer);
+            SqliteParameter pHb = insert.Parameters.Add("$hb", SqliteType.Integer);
+            SqliteParameter pHa = insert.Parameters.Add("$ha", SqliteType.Integer);
+            SqliteParameter pDur = insert.Parameters.Add("$dur", SqliteType.Integer);
+            SqliteParameter pTicks = insert.Parameters.Add("$ticks", SqliteType.Integer);
+            SqliteParameter pRate = insert.Parameters.Add("$rate", SqliteType.Integer);
+
+            foreach (GcEventRecord e in events)
+            {
+                pGen.Value = e.Generation;
+                pPause.Value = e.PauseType;
+                pHb.Value = e.HeapBefore;
+                pHa.Value = e.HeapAfter;
+                pDur.Value = e.DurationMicros;
+                pTicks.Value = e.Ticks;
+                pRate.Value = e.AllocationRateBytesPerMinute;
+                insert.ExecuteNonQuery();
+            }
+        }
+        tx.Commit();
+    }
+
+    public int CountSections()
+    {
+        ThrowIfDisposed();
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM sections;";
+        return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
+    }
+
+    public int CountMetrics()
+    {
+        ThrowIfDisposed();
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM metrics;";
+        return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
+    }
+
+    public int CountMetricLabels()
+    {
+        ThrowIfDisposed();
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM metric_labels;";
+        return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
+    }
+
+    public int CountGcEvents()
+    {
+        ThrowIfDisposed();
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM gc_events;";
+        return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
+    }
+
     public void Dispose()
     {
         if (_disposed)
@@ -176,6 +353,42 @@ CREATE TABLE session_meta (
     library_version TEXT NOT NULL,
     game_version TEXT NOT NULL
 ) WITHOUT ROWID;
+
+CREATE TABLE sections (
+    section_id INTEGER PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    sample_count INTEGER NOT NULL,
+    total_elapsed_ticks INTEGER NOT NULL,
+    min_elapsed_ticks INTEGER NOT NULL,
+    max_elapsed_ticks INTEGER NOT NULL,
+    last_start_timestamp INTEGER NOT NULL
+) WITHOUT ROWID;
+
+CREATE TABLE metrics (
+    metric_id INTEGER PRIMARY KEY NOT NULL,
+    name TEXT NOT NULL,
+    kind INTEGER NOT NULL,
+    unit TEXT NOT NULL
+) WITHOUT ROWID;
+
+CREATE TABLE metric_labels (
+    metric_id INTEGER NOT NULL,
+    canonical TEXT NOT NULL,
+    latest_value INTEGER NOT NULL,
+    total_sample_count INTEGER NOT NULL,
+    PRIMARY KEY (metric_id, canonical)
+) WITHOUT ROWID;
+
+CREATE TABLE gc_events (
+    event_id INTEGER PRIMARY KEY AUTOINCREMENT,
+    generation INTEGER NOT NULL,
+    pause_type INTEGER NOT NULL,
+    heap_before INTEGER NOT NULL,
+    heap_after INTEGER NOT NULL,
+    duration_micros INTEGER NOT NULL,
+    ticks INTEGER NOT NULL,
+    allocation_rate_bpm INTEGER NOT NULL
+);
 ";
         cmd.ExecuteNonQuery();
     }
