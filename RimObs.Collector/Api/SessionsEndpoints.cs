@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 using Cryptiklemur.RimObs.Collector.Aggregation;
 using Cryptiklemur.RimObs.Wire;
 using Microsoft.AspNetCore.Builder;
@@ -79,6 +80,28 @@ public static class SessionsEndpoints
                     duration_micros = e.DurationMicros,
                     ticks = e.Ticks,
                     allocation_rate_bpm = e.AllocationRateBytesPerMinute,
+                }).ToArray(),
+            });
+        });
+
+        endpoints.MapGet("/api/v1/sessions/current/metrics", (SessionAggregator aggregator) =>
+        {
+            return Results.Ok(new
+            {
+                schema_version = SchemaVersion.Current,
+                total_observations = aggregator.TotalMetricObservations,
+                metrics = aggregator.Metrics.Select(m => new
+                {
+                    id = m.MetricId,
+                    name = m.Name,
+                    kind = m.Kind,
+                    unit = m.Unit,
+                    labels = m.Labels.Values.Select(l => new
+                    {
+                        canonical = l.Canonical,
+                        latest_value = Interlocked.Read(ref l.LatestValue),
+                        total_sample_count = Interlocked.Read(ref l.TotalSampleCount),
+                    }).ToArray(),
                 }).ToArray(),
             });
         });

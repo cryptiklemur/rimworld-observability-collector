@@ -161,6 +161,90 @@ public sealed class SessionAggregatorTests
         agg.TotalAllocations.Should().Be(2);
     }
 
+
+    [Fact]
+    public void OnMetricRegistrations_records_name_kind_and_unit()
+    {
+        SessionAggregator agg = new();
+        MetricRegistrationsBatch batch = new()
+        {
+            MetricIds = [10, 11],
+            Names = ["my.mod.frames_drawn", "my.mod.heap_used"],
+            Kinds = [0, 1],
+            Units = ["count", "bytes"],
+        };
+
+        agg.OnMetricRegistrations(batch);
+
+        agg.MetricCount.Should().Be(2);
+        MetricStats m10 = agg.Metrics.Single(m => m.MetricId == 10);
+        m10.Name.Should().Be("my.mod.frames_drawn");
+        m10.Kind.Should().Be((byte)0);
+        m10.Unit.Should().Be("count");
+        MetricStats m11 = agg.Metrics.Single(m => m.MetricId == 11);
+        m11.Name.Should().Be("my.mod.heap_used");
+        m11.Kind.Should().Be((byte)1);
+        m11.Unit.Should().Be("bytes");
+    }
+
+    [Fact]
+    public void OnMetrics_accumulates_latest_value_and_total_samples_per_label()
+    {
+        SessionAggregator agg = new();
+        agg.OnMetricRegistrations(new MetricRegistrationsBatch
+        {
+            MetricIds = [10],
+            Names = ["my.mod.frames"],
+            Kinds = [0],
+            Units = ["count"],
+        });
+
+        agg.OnMetrics(new MetricsBatch
+        {
+            MetricIds = [10, 10],
+            LabelCanonicals = ["scene=map", "scene=ui"],
+            Kinds = [0, 0],
+            Values = [42, 17],
+            SampleCounts = [1, 1],
+        });
+        agg.OnMetrics(new MetricsBatch
+        {
+            MetricIds = [10],
+            LabelCanonicals = ["scene=map"],
+            Kinds = [0],
+            Values = [99],
+            SampleCounts = [3],
+        });
+
+        agg.TotalMetricObservations.Should().Be(3);
+        MetricStats stats = agg.Metrics.Single();
+        MetricLabelStats mapLabel = stats.Labels["scene=map"];
+        mapLabel.LatestValue.Should().Be(99);
+        mapLabel.TotalSampleCount.Should().Be(4);
+        MetricLabelStats uiLabel = stats.Labels["scene=ui"];
+        uiLabel.LatestValue.Should().Be(17);
+        uiLabel.TotalSampleCount.Should().Be(1);
+    }
+
+    [Fact]
+    public void OnMetrics_creates_placeholder_metric_when_registration_missing()
+    {
+        SessionAggregator agg = new();
+        agg.OnMetrics(new MetricsBatch
+        {
+            MetricIds = [99],
+            LabelCanonicals = [""],
+            Kinds = [2],
+            Values = [123],
+            SampleCounts = [1],
+        });
+
+        MetricStats stats = agg.Metrics.Single();
+        stats.MetricId.Should().Be(99);
+        stats.Kind.Should().Be((byte)2);
+        stats.Labels[""].LatestValue.Should().Be(123);
+    }
+
     [Fact]
     public void Section_registered_after_samples_keeps_name_and_sample_counts()
     {
