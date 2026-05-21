@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Threading;
 using Cryptiklemur.RimObs.Observers;
 using FluentAssertions;
@@ -72,6 +73,7 @@ public sealed class AllocationSamplerHostTests : IDisposable
         AllocationSamplerHost.Stop();
         AllocationSamplerHost.ClearRecentSamples();
         AllocationSamplerHost.WindowDurationMs = 60_000;
+        AllocationSamplerHost.SetSink(null);
     }
 
     public void Dispose()
@@ -79,6 +81,7 @@ public sealed class AllocationSamplerHostTests : IDisposable
         AllocationSamplerHost.Stop();
         AllocationSamplerHost.ClearRecentSamples();
         AllocationSamplerHost.WindowDurationMs = 60_000;
+        AllocationSamplerHost.SetSink(null);
     }
 
     [Fact]
@@ -136,5 +139,43 @@ public sealed class AllocationSamplerHostTests : IDisposable
         AllocationSamplerHost.Start();
 
         AllocationSamplerHost.IsRunning.Should().BeTrue();
+    }
+
+    [Fact]
+    public void PollOnce_forwards_samples_to_attached_sink()
+    {
+        RecordingAllocSink sink = new();
+        AllocationSamplerHost.SetSink(sink);
+        AllocationSamplerHost.WindowDurationMs = 10;
+        Thread.Sleep(15);
+
+        bool got = AllocationSamplerHost.PollOnce();
+
+        got.Should().BeTrue();
+        sink.Received.Should().NotBeEmpty();
+    }
+
+    [Fact]
+    public void SetSink_null_detaches_sink()
+    {
+        RecordingAllocSink sink = new();
+        AllocationSamplerHost.SetSink(sink);
+        AllocationSamplerHost.SetSink(null);
+        AllocationSamplerHost.WindowDurationMs = 10;
+        Thread.Sleep(15);
+
+        AllocationSamplerHost.PollOnce();
+
+        sink.Received.Should().BeEmpty();
+    }
+
+    private sealed class RecordingAllocSink : IAllocationSink
+    {
+        public List<AllocationSample> Received { get; } = new();
+
+        public void RecordAllocation(in AllocationSample sample)
+        {
+            Received.Add(sample);
+        }
     }
 }

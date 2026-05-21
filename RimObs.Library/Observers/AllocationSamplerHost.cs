@@ -10,10 +10,19 @@ public static class AllocationSamplerHost
     private static Thread? s_PollThread;
     private static volatile bool s_Stop;
     private static readonly List<AllocationSample> s_RecentSamples = new(capacity: 64);
+    private static IAllocationSink? s_Sink;
     private const int MaxRecentSamples = 64;
     private const int PollIntervalMs = 1000;
     private const long DefaultWindowMs = 60_000L;
     private static long s_WindowDurationMs = DefaultWindowMs;
+
+    public static void SetSink(IAllocationSink? sink)
+    {
+        lock (s_Lock)
+        {
+            s_Sink = sink;
+        }
+    }
 
     public static AllocationSampler Instance
     {
@@ -116,12 +125,15 @@ public static class AllocationSamplerHost
         if (!sampler.TryPollWindow(windowMs, out AllocationSample sample))
             return false;
 
+        IAllocationSink? sink;
         lock (s_Lock)
         {
             if (s_RecentSamples.Count >= MaxRecentSamples)
                 s_RecentSamples.RemoveAt(0);
             s_RecentSamples.Add(sample);
+            sink = s_Sink;
         }
+        sink?.RecordAllocation(sample);
         return true;
     }
 

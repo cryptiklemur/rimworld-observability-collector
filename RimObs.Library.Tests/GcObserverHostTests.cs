@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using Cryptiklemur.RimObs.Observers;
 using FluentAssertions;
 using Xunit;
@@ -11,12 +12,14 @@ public sealed class GcObserverHostTests : IDisposable
     {
         GcObserverHost.Stop();
         GcObserverHost.ClearRecentSamples();
+        GcObserverHost.SetSink(null);
     }
 
     public void Dispose()
     {
         GcObserverHost.Stop();
         GcObserverHost.ClearRecentSamples();
+        GcObserverHost.SetSink(null);
     }
 
     [Fact]
@@ -74,5 +77,43 @@ public sealed class GcObserverHostTests : IDisposable
         GcObserverHost.ClearRecentSamples();
 
         GcObserverHost.RecentSamples.Should().BeEmpty();
+    }
+
+    [Fact]
+    public void PollOnce_forwards_samples_to_attached_sink()
+    {
+        RecordingGcSink sink = new();
+        GcObserverHost.SetSink(sink);
+
+        GcObserverHost.PollOnce(0);
+        GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+        GcObserverHost.PollOnce(99);
+
+        sink.Received.Should().NotBeEmpty();
+        sink.Received[sink.Received.Count - 1].Tick.Should().Be(99);
+    }
+
+    [Fact]
+    public void SetSink_null_detaches_sink()
+    {
+        RecordingGcSink sink = new();
+        GcObserverHost.SetSink(sink);
+        GcObserverHost.SetSink(null);
+
+        GcObserverHost.PollOnce(0);
+        GC.Collect(0, GCCollectionMode.Forced, blocking: true);
+        GcObserverHost.PollOnce(7);
+
+        sink.Received.Should().BeEmpty();
+    }
+
+    private sealed class RecordingGcSink : IGcEventSink
+    {
+        public List<GcEventSample> Received { get; } = new();
+
+        public void RecordGcEvent(in GcEventSample sample)
+        {
+            Received.Add(sample);
+        }
     }
 }
