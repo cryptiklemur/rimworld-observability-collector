@@ -42,12 +42,18 @@ public sealed class AllocationSamplerTests
 
         byte[]? big1 = new byte[500_000];
         big1[0] = 1;
-        Thread.Sleep(15);
 
-        sampler.TryPollWindow(10, out AllocationSample first).Should().BeTrue();
+        // Bank the +500KB heap delta into the accumulator immediately, before a
+        // background Gen0 collection can shrink the heap and turn the delta
+        // negative (the sampler ignores negative deltas, so a late poll could
+        // see 0 bytes and the BytesAllocated.BeGreaterThan(0) assert would flake).
+        sampler.TryPollWindow(10, out _);
         GC.KeepAlive(big1);
 
-        Thread.Sleep(15);
+        Thread.Sleep(20);
+        sampler.TryPollWindow(10, out AllocationSample first).Should().BeTrue();
+
+        Thread.Sleep(20);
         sampler.TryPollWindow(10, out AllocationSample second).Should().BeTrue();
 
         first.BytesAllocated.Should().BeGreaterThan(0);
