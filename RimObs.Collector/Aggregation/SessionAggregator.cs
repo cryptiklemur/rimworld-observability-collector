@@ -5,7 +5,10 @@ namespace Cryptiklemur.RimObs.Collector.Aggregation;
 
 public sealed class SessionAggregator
 {
+    private const int GcEventRingCapacity = 1024;
+
     private readonly ConcurrentDictionary<int, SectionStats> _sections = new();
+    private readonly BoundedRecordRing<GcEventRecord> _gcEvents = new(GcEventRingCapacity);
     private SessionMeta? _meta;
     private long _totalSamples;
     private long _totalBatches;
@@ -24,6 +27,8 @@ public sealed class SessionAggregator
     public long TotalAllocations => Interlocked.Read(ref _totalAllocations);
 
     public IReadOnlyCollection<SectionStats> Sections => _sections.Values.ToArray();
+
+    public GcEventRecord[] SnapshotGcEvents(int limit) => _gcEvents.SnapshotNewestFirst(limit);
 
     public void OnBatchReceived(int byteCount)
     {
@@ -52,6 +57,25 @@ public sealed class SessionAggregator
     public void OnGcEvents(GcEventsBatch batch)
     {
         int n = batch.Generations.Length;
+        int pauseLen = batch.PauseTypes.Length;
+        int heapBeforeLen = batch.HeapBefore.Length;
+        int heapAfterLen = batch.HeapAfter.Length;
+        int durLen = batch.DurationMicros.Length;
+        int tickLen = batch.Ticks.Length;
+        int rateLen = batch.AllocationRateBytesPerMinute.Length;
+        for (int i = 0; i < n; i++)
+        {
+            GcEventRecord record = new(
+                generation: batch.Generations[i],
+                pauseType: i < pauseLen ? batch.PauseTypes[i] : (byte)0,
+                heapBefore: i < heapBeforeLen ? batch.HeapBefore[i] : 0L,
+                heapAfter: i < heapAfterLen ? batch.HeapAfter[i] : 0L,
+                durationMicros: i < durLen ? batch.DurationMicros[i] : 0L,
+                ticks: i < tickLen ? batch.Ticks[i] : 0L,
+                allocationRateBytesPerMinute: i < rateLen ? batch.AllocationRateBytesPerMinute[i] : 0L
+            );
+            _gcEvents.Add(in record);
+        }
         Interlocked.Add(ref _totalGcEvents, n);
     }
 
