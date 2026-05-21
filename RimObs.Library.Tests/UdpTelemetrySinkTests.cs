@@ -108,4 +108,55 @@ public sealed class UdpTelemetrySinkTests : IDisposable
 
         sink.SamplesDropped.Should().Be(0);
     }
+
+
+    [Fact]
+    public void Profiler_routed_through_setsink_reaches_loopback_receiver()
+    {
+        int port = GetFreePort();
+        SessionAnchor.Initialize("test-session");
+
+        using UdpClient receiver = new(new IPEndPoint(IPAddress.Loopback, port));
+        receiver.Client.ReceiveTimeout = 2000;
+
+        using UdpTelemetrySink sink = new(ownerId: "test.owner", port: port);
+        sink.Start();
+        Profiler.SetSink(sink);
+        Profiler.Enabled = true;
+        try
+        {
+            SectionHandle handle = SectionRegistry.Register("test.bootstrap_smoke");
+            for (int i = 0; i < 4; i++)
+            {
+                long token = Profiler.StartById(handle.Id);
+                Profiler.StopById(handle.Id, token);
+            }
+
+            bool sawSection = false;
+            DateTime deadline = DateTime.UtcNow.AddSeconds(3);
+            IPEndPoint any = new(IPAddress.Any, 0);
+            while (DateTime.UtcNow < deadline && !sawSection)
+            {
+                try
+                {
+                    byte[] bytes = receiver.Receive(ref any);
+                    TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(bytes);
+                    if (envelope.BatchType == BatchType.Sections)
+                        sawSection = true;
+                }
+                catch (SocketException)
+                {
+                    break;
+                }
+            }
+
+            sawSection.Should().BeTrue("Profiler samples should reach the sink set via Profiler.SetSink and flush over loopback");
+            sink.SamplesSent.Should().BeGreaterThan(0);
+        }
+        finally
+        {
+            Profiler.SetSink(null);
+            Profiler.Enabled = false;
+        }
+    }
 }
