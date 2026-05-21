@@ -14,15 +14,15 @@ public static class Program {
             return Cli.CliRouter.Run(args);
         }
 
-        Log.Logger = new LoggerConfiguration()
-            .MinimumLevel.Information()
-            .WriteTo.Console()
-            .CreateLogger();
-
         const int port = 17654;
+        Logging.RingBufferLogSink logSink = new();
+        string? logDir = null;
         try {
             CollectorToken token = CollectorToken.CreateFromEnvOrGenerate();
             string configDir = ConfigDirResolver.Resolve();
+            logDir = Path.Combine(configDir, "logs");
+            ConfigureLogger(logSink, logDir);
+
             try {
                 RuntimeFiles.WriteAll(configDir, token, port);
                 Log.Information("Wrote discovery files to {ConfigDir} (token source: {Source})", configDir, token.FromEnv ? "env" : "generated");
@@ -32,17 +32,43 @@ public static class Program {
             }
 
             string sessionsDir = Path.Combine(configDir, "sessions");
-            WebApplication app = BuildApp(args, port, token, sessionsDir);
+            WebApplication app = BuildApp(args, port, token, sessionsDir, logSink);
             app.Run();
             return 0;
         }
         catch (System.Exception ex) {
+            if (Log.Logger is null || ReferenceEquals(Log.Logger, Serilog.Core.Logger.None)) {
+                ConfigureLogger(logSink, logDir);
+            }
             Log.Fatal(ex, "Collector terminated unexpectedly");
             return 1;
         }
         finally {
             Log.CloseAndFlush();
         }
+    }
+
+    internal static void ConfigureLogger(Logging.RingBufferLogSink ringSink, string? logDir) {
+        LoggerConfiguration config = new LoggerConfiguration()
+            .MinimumLevel.Information()
+            .WriteTo.Console()
+            .WriteTo.Sink(ringSink);
+
+        if (!string.IsNullOrWhiteSpace(logDir)) {
+            try {
+                Directory.CreateDirectory(logDir);
+                string path = Path.Combine(logDir, "collector-.log");
+                config = config.WriteTo.File(
+                    path: path,
+                    rollingInterval: RollingInterval.Day,
+                    retainedFileCountLimit: 7);
+            }
+            catch (System.Exception) {
+                // Best-effort: if we cannot create the log directory, continue with console + ring sinks only.
+            }
+        }
+
+        Log.Logger = config.CreateLogger();
     }
 
     public static WebApplication BuildApp(string[] args, int port) {
@@ -54,9 +80,16 @@ public static class Program {
     }
 
     public static WebApplication BuildApp(string[] args, int port, CollectorToken token, string? sessionsDir) {
+        return BuildApp(args, port, token, sessionsDir, logSink: null);
+    }
+
+    public static WebApplication BuildApp(string[] args, int port, CollectorToken token, string? sessionsDir, Logging.RingBufferLogSink? logSink) {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
         builder.Host.UseSerilog();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
+
+        Logging.RingBufferLogSink sink = logSink ?? new Logging.RingBufferLogSink();
+        builder.Services.AddSingleton(sink);
 
         builder.Services.AddSingleton(token);
         bool hasPersister = !string.IsNullOrWhiteSpace(sessionsDir);
@@ -86,5 +119,6 @@ public static class Program {
         app.MapStatusEndpoints();
         app.MapSessionsEndpoints();
         app.MapVersionEndpoints();
+        app.MapLogsEndpoints();
     }
 }
