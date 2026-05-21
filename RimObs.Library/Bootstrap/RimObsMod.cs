@@ -18,9 +18,10 @@ public sealed class RimObsMod : Mod
             ProfilingXmlLoader.LoadResult declared = LoadDeclaredProfiling();
             PatchInstaller.InstallAll();
             GcObserverHost.Start();
-            // AllocationSamplerHost is opt-in (PRD §35.18, §11.2). Mod authors or future
-            // config polling (M1.8) start it via AllocationSamplerHost.Start(). Default off
-            // because the GC.GetTotalMemory delta heuristic is a soft cost on every poll.
+            // AllocationSamplerHost is opt-in and stays inert at bootstrap. Mod authors
+            // call AllocationSamplerHost.Start() themselves when they want it (PRD §35.18,
+            // §11.2). It is off by default because the GC.GetTotalMemory delta heuristic
+            // is a soft cost on every poll.
             LogBootstrapSummary(declared);
         }
         catch (System.Exception ex)
