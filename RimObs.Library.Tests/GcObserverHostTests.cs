@@ -10,13 +10,13 @@ public sealed class GcObserverHostTests : IDisposable
     public GcObserverHostTests()
     {
         GcObserverHost.Stop();
-        GcObserverHost.ClearRecentEvents();
+        GcObserverHost.ClearRecentSamples();
     }
 
     public void Dispose()
     {
         GcObserverHost.Stop();
-        GcObserverHost.ClearRecentEvents();
+        GcObserverHost.ClearRecentSamples();
     }
 
     [Fact]
@@ -38,7 +38,7 @@ public sealed class GcObserverHostTests : IDisposable
         bool detected = GcObserverHost.PollOnce(42);
 
         detected.Should().BeTrue();
-        var events = GcObserverHost.RecentEvents;
+        var events = GcObserverHost.RecentSamples;
         events.Should().NotBeEmpty();
         events[events.Count - 1].Tick.Should().Be(42);
     }
@@ -65,14 +65,14 @@ public sealed class GcObserverHostTests : IDisposable
     }
 
     [Fact]
-    public void ClearRecentEvents_empties_buffer()
+    public void ClearRecentSamples_empties_buffer()
     {
         GcObserverHost.PollOnce(0);
         GC.Collect(0, GCCollectionMode.Forced, blocking: true);
         GcObserverHost.PollOnce(1);
 
-        GcObserverHost.ClearRecentEvents();
+        GcObserverHost.ClearRecentSamples();
 
-        GcObserverHost.RecentEvents.Should().BeEmpty();
+        GcObserverHost.RecentSamples.Should().BeEmpty();
     }
 }
