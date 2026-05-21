@@ -8,6 +8,8 @@ using Cryptiklemur.RimObs.Profile;
 using Cryptiklemur.RimObs.Wire;
 using MessagePack;
 
+using Cryptiklemur.RimObs.Session;
+
 namespace Cryptiklemur.RimObs.Transport;
 
 internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationSink, IDisposable

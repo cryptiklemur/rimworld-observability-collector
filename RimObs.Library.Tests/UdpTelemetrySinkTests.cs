@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading;
 using Cryptiklemur.RimObs.Profile;
+using Cryptiklemur.RimObs.Session;
 using Cryptiklemur.RimObs.Transport;
 using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;

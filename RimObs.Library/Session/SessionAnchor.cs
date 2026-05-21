@@ -1,7 +1,7 @@
 using System;
 using System.Diagnostics;
 
-namespace Cryptiklemur.RimObs.Transport;
+namespace Cryptiklemur.RimObs.Session;
 
 internal static class SessionAnchor
 {
