@@ -161,6 +161,73 @@ public sealed class EndToEndSmokeTests
         }
     }
 
+    [Fact]
+    public async Task Hotspots_endpoint_returns_sections_sorted_by_total_descending_and_honors_limit()
+    {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try
+        {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () =>
+            {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta
+            {
+                SessionId = "hot-session",
+                StartedUtcTicks = DateTime.UtcNow.Ticks,
+                StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                LibraryVersion = "0.0.0-smoke",
+                GameVersion = "1.6",
+            }));
+
+            SendBatch(port, BatchType.SectionRegistrations, MessagePackSerializer.Serialize(new SectionRegistrationsBatch
+            {
+                SectionIds = [10, 20, 30],
+                Names = ["hot.cold", "hot.warm", "hot.peak"],
+            }));
+
+            SendBatch(port, BatchType.Sections, MessagePackSerializer.Serialize(new SectionBatch
+            {
+                SectionIds = [10, 20, 20, 30, 30, 30],
+                StartTimestamps = [1, 2, 3, 4, 5, 6],
+                ElapsedTicks = [100, 500, 500, 1000, 1000, 1000],
+            }));
+
+            await WaitFor(async () =>
+            {
+                string body = await http.GetStringAsync("/api/v1/status");
+                using JsonDocument doc = JsonDocument.Parse(body);
+                int sectionCount = doc.RootElement.GetProperty("receive").GetProperty("section_count").GetInt32();
+                return sectionCount >= 3;
+            }, TimeSpan.FromSeconds(3));
+
+            string hotspotsBody = await http.GetStringAsync("/api/v1/sessions/current/hotspots?limit=2");
+            _out.WriteLine($"hotspots: {hotspotsBody}");
+            using JsonDocument doc = JsonDocument.Parse(hotspotsBody);
+            JsonElement hotspots = doc.RootElement.GetProperty("hotspots");
+
+            hotspots.GetArrayLength().Should().Be(2);
+            hotspots[0].GetProperty("name").GetString().Should().Be("hot.peak");
+            hotspots[1].GetProperty("name").GetString().Should().Be("hot.warm");
+            hotspots[0].GetProperty("total_ns").GetInt64().Should().BeGreaterThan(hotspots[1].GetProperty("total_ns").GetInt64());
+            hotspots[0].GetProperty("mean_ns").GetInt64().Should().BeGreaterThan(0);
+            hotspots[0].GetProperty("sample_count").GetInt32().Should().Be(3);
+            hotspots[1].GetProperty("sample_count").GetInt32().Should().Be(2);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
     private static void SendBatch(int port, BatchType type, byte[] payload)
     {
         TelemetryBatch envelope = new()

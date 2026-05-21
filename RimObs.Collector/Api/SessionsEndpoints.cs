@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Linq;
 using Cryptiklemur.RimObs.Collector.Aggregation;
@@ -10,6 +11,9 @@ namespace Cryptiklemur.RimObs.Collector.Api;
 
 public static class SessionsEndpoints
 {
+    private const int DefaultHotspotLimit = 50;
+    private const int MaxHotspotLimit = 500;
+
     public static IEndpointRouteBuilder MapSessionsEndpoints(this IEndpointRouteBuilder endpoints)
     {
         endpoints.MapGet("/api/v1/sessions/current/sections", (SessionAggregator aggregator) =>
@@ -28,6 +32,31 @@ public static class SessionsEndpoints
                     min_ns = s.MinElapsedTicks == long.MaxValue ? 0 : (long)(s.MinElapsedTicks * nsPerTick),
                     max_ns = (long)(s.MaxElapsedTicks * nsPerTick),
                 }).ToArray(),
+            });
+        });
+
+        endpoints.MapGet("/api/v1/sessions/current/hotspots", (SessionAggregator aggregator, int? limit) =>
+        {
+            long freq = aggregator.Meta?.StopwatchFrequency ?? Stopwatch.Frequency;
+            double nsPerTick = 1_000_000_000.0 / freq;
+            int take = limit is int l && l > 0 ? Math.Min(l, MaxHotspotLimit) : DefaultHotspotLimit;
+            return Results.Ok(new
+            {
+                schema_version = SchemaVersion.Current,
+                hotspots = aggregator.Sections
+                    .OrderByDescending(s => s.TotalElapsedTicks)
+                    .Take(take)
+                    .Select(s => new
+                    {
+                        id = s.SectionId,
+                        name = s.Name,
+                        sample_count = s.SampleCount,
+                        total_ns = (long)(s.TotalElapsedTicks * nsPerTick),
+                        mean_ns = s.SampleCount == 0 ? 0 : (long)(s.TotalElapsedTicks * nsPerTick / s.SampleCount),
+                        min_ns = s.MinElapsedTicks == long.MaxValue ? 0 : (long)(s.MinElapsedTicks * nsPerTick),
+                        max_ns = (long)(s.MaxElapsedTicks * nsPerTick),
+                    })
+                    .ToArray(),
             });
         });
 
