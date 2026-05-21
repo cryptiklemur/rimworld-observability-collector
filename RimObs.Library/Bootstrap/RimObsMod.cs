@@ -2,7 +2,7 @@ using Cryptiklemur.RimObs.Api;
 using Cryptiklemur.RimObs.Config;
 using Cryptiklemur.RimObs.Observers;
 using Cryptiklemur.RimObs.Patching;
-using Cryptiklemur.RimObs.Transport;
+using Cryptiklemur.RimObs.Session;
 using Verse;
 
 namespace Cryptiklemur.RimObs.Bootstrap;
