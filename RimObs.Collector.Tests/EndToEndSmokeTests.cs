@@ -530,6 +530,72 @@ public sealed class EndToEndSmokeTests
         }
     }
 
+
+    [Fact]
+    public async Task Ping_datagram_receives_pong_with_collector_version_and_session()
+    {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try
+        {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            await WaitFor(async () =>
+            {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta
+            {
+                SessionId = "ping-session",
+                StartedUtcTicks = DateTime.UtcNow.Ticks,
+                StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                LibraryVersion = "0.0.0-smoke",
+                GameVersion = "1.6",
+            }));
+
+            await WaitFor(async () =>
+            {
+                string body = await http.GetStringAsync("/api/v1/status");
+                using JsonDocument doc = JsonDocument.Parse(body);
+                return doc.RootElement.GetProperty("session").GetProperty("id").GetString() == "ping-session";
+            }, TimeSpan.FromSeconds(3));
+
+            PingMessage ping = new() { OwnerId = "smoke.owner", SentAtUtcTicks = 999 };
+            TelemetryBatch envelope = new()
+            {
+                SchemaVersion = SchemaVersion.Current,
+                Sequence = 1,
+                OwnerId = "smoke",
+                BatchType = BatchType.Ping,
+                Payload = MessagePackSerializer.Serialize(ping),
+            };
+            byte[] datagram = MessagePackSerializer.Serialize(envelope);
+
+            using UdpClient client = new(AddressFamily.InterNetwork);
+            client.Client.ReceiveTimeout = 2000;
+            client.Connect("127.0.0.1", port);
+            client.Send(datagram, datagram.Length);
+
+            IPEndPoint remote = new(IPAddress.Any, 0);
+            byte[] response = client.Receive(ref remote);
+            TelemetryBatch pongEnvelope = MessagePackSerializer.Deserialize<TelemetryBatch>(response);
+            pongEnvelope.BatchType.Should().Be(BatchType.Pong);
+            PongMessage pong = MessagePackSerializer.Deserialize<PongMessage>(pongEnvelope.Payload);
+            pong.OwnerId.Should().Be("smoke.owner");
+            pong.PingSentAtUtcTicks.Should().Be(999);
+            pong.CollectorVersion.Should().Be(BuildInfo.Revision);
+            pong.SessionId.Should().Be("ping-session");
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
     private static void SendBatch(int port, BatchType type, byte[] payload)
     {
         TelemetryBatch envelope = new()
