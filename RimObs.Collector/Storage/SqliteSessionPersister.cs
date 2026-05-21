@@ -1,0 +1,67 @@
+using System.Collections.Concurrent;
+using Cryptiklemur.RimObs.Wire;
+
+namespace Cryptiklemur.RimObs.Collector.Storage;
+
+public sealed class SqliteSessionPersister : ISessionPersister
+{
+    private readonly string _sessionsDir;
+    private readonly ConcurrentDictionary<string, SessionStore> _stores = new(StringComparer.Ordinal);
+    private bool _disposed;
+
+    public SqliteSessionPersister(string sessionsDir)
+    {
+        if (string.IsNullOrWhiteSpace(sessionsDir))
+            throw new ArgumentException("sessionsDir must be non-empty", nameof(sessionsDir));
+
+        _sessionsDir = sessionsDir;
+        Directory.CreateDirectory(_sessionsDir);
+    }
+
+    public string SessionsDirectory => _sessionsDir;
+
+    public void WriteSessionMeta(SessionMeta meta)
+    {
+        ArgumentNullException.ThrowIfNull(meta);
+        if (string.IsNullOrWhiteSpace(meta.SessionId))
+            throw new ArgumentException("SessionMeta.SessionId must be non-empty", nameof(meta));
+        ThrowIfDisposed();
+
+        SessionStore store = GetOrOpen(meta.SessionId);
+        store.WriteSessionMeta(meta);
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+        _disposed = true;
+        foreach (SessionStore store in _stores.Values)
+            store.Dispose();
+        _stores.Clear();
+    }
+
+    private SessionStore GetOrOpen(string sessionId)
+    {
+        return _stores.GetOrAdd(sessionId, id =>
+        {
+            string dbPath = Path.Combine(_sessionsDir, SanitizeFileName(id) + ".db");
+            return SessionStore.Open(dbPath);
+        });
+    }
+
+    private void ThrowIfDisposed()
+    {
+        if (_disposed)
+            throw new ObjectDisposedException(nameof(SqliteSessionPersister));
+    }
+
+    private static string SanitizeFileName(string raw)
+    {
+        char[] invalid = Path.GetInvalidFileNameChars();
+        string sanitized = raw;
+        foreach (char ch in invalid)
+            sanitized = sanitized.Replace(ch, '_');
+        return sanitized;
+    }
+}
