@@ -6,6 +6,7 @@ using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
 using MessagePack;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 using Xunit.Abstractions;
 
@@ -466,6 +467,61 @@ public sealed class EndToEndSmokeTests
             JsonElement heapLabels = heap.GetProperty("labels");
             heapLabels.GetArrayLength().Should().Be(1);
             heapLabels[0].GetProperty("latest_value").GetInt64().Should().Be(1048576);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+
+    [Fact]
+    public async Task Logs_endpoint_returns_ring_buffer_entries_newest_first()
+    {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try
+        {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () =>
+            {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            Logging.RingBufferLogSink sink = app.Services.GetRequiredService<Logging.RingBufferLogSink>();
+            Serilog.ILogger logger = new Serilog.LoggerConfiguration()
+                .MinimumLevel.Is(Serilog.Events.LogEventLevel.Verbose)
+                .WriteTo.Sink(sink)
+                .CreateLogger();
+
+            logger.Information("hello {Who}", "world");
+            logger.Warning("careful {N}", 42);
+            logger.Error("boom {Code}", "E1");
+
+            string body = await http.GetStringAsync("/api/v1/logs?limit=10");
+            _out.WriteLine($"logs: {body}");
+            using JsonDocument doc = JsonDocument.Parse(body);
+            doc.RootElement.GetProperty("count").GetInt32().Should().Be(3);
+            JsonElement entries = doc.RootElement.GetProperty("entries");
+            entries[0].GetProperty("message").GetString().Should().Contain("boom");
+            entries[0].GetProperty("level").GetString().Should().Be("Error");
+            entries[1].GetProperty("message").GetString().Should().Contain("careful");
+            entries[2].GetProperty("message").GetString().Should().Contain("hello");
+
+            string warnPlus = await http.GetStringAsync("/api/v1/logs?level=Warning&limit=10");
+            _out.WriteLine($"logs warn+: {warnPlus}");
+            using JsonDocument warnDoc = JsonDocument.Parse(warnPlus);
+            warnDoc.RootElement.GetProperty("count").GetInt32().Should().Be(2);
+            foreach (JsonElement e in warnDoc.RootElement.GetProperty("entries").EnumerateArray())
+                e.GetProperty("level").GetString().Should().NotBe("Information");
+
+            string capped = await http.GetStringAsync("/api/v1/logs?limit=2");
+            using JsonDocument capDoc = JsonDocument.Parse(capped);
+            capDoc.RootElement.GetProperty("count").GetInt32().Should().Be(2);
         }
         finally
         {
