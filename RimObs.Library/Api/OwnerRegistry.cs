@@ -9,6 +9,20 @@ public static class OwnerRegistry
 {
     private static readonly Dictionary<Assembly, string> s_AssemblyToPackageId = new();
     private static readonly object s_Lock = new();
+    private static Func<Assembly, string?>? s_LateResolver;
+
+    /// <summary>
+    /// Installs a fallback resolver used by <see cref="TryGetPackageId"/> on cache miss.
+    /// RimObsMod wires this to a Verse-aware scan of LoadedModManager so consumer mods whose
+    /// Mod ctor runs before RimObsMod still resolve. Pass null to clear (used by tests).
+    /// </summary>
+    public static void SetLateResolver(Func<Assembly, string?>? resolver)
+    {
+        lock (s_Lock)
+        {
+            s_LateResolver = resolver;
+        }
+    }
 
     public static void RegisterMod(Assembly assembly, string packageId)
     {
@@ -25,10 +39,30 @@ public static class OwnerRegistry
 
     public static bool TryGetPackageId(Assembly assembly, [MaybeNullWhen(false)] out string packageId)
     {
+        Func<Assembly, string?>? resolver;
         lock (s_Lock)
         {
-            return s_AssemblyToPackageId.TryGetValue(assembly, out packageId);
+            if (s_AssemblyToPackageId.TryGetValue(assembly, out packageId))
+                return true;
+            resolver = s_LateResolver;
         }
+
+        if (resolver != null)
+        {
+            string? resolved = resolver(assembly);
+            if (!string.IsNullOrEmpty(resolved))
+            {
+                lock (s_Lock)
+                {
+                    s_AssemblyToPackageId[assembly] = resolved!;
+                }
+                packageId = resolved;
+                return true;
+            }
+        }
+
+        packageId = null;
+        return false;
     }
 
     public static string ResolveOrThrow(Assembly assembly)
@@ -62,6 +96,7 @@ public static class OwnerRegistry
         lock (s_Lock)
         {
             s_AssemblyToPackageId.Clear();
+            s_LateResolver = null;
         }
     }
 }
