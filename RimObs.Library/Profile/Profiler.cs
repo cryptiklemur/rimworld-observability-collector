@@ -11,7 +11,7 @@ public static class Profiler
 
     internal static ISampleSink? Sink;
 
-    public static void SetSink(ISampleSink? sink) => Sink = sink;
+    internal static void SetSink(ISampleSink? sink) => Sink = sink;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static long Start(SectionHandle handle) => StartById(handle.Id);

@@ -1,6 +1,6 @@
 namespace Cryptiklemur.RimObs.Metrics;
 
-public enum MetricKind : byte
+internal enum MetricKind : byte
 {
     Counter = 0,
     Gauge = 1,

@@ -1,6 +1,6 @@
 namespace Cryptiklemur.RimObs.Metrics;
 
-public sealed class MetricDescriptor
+internal sealed class MetricDescriptor
 {
     public const int DefaultCardinalityLimit = 64;
     public const string OverflowLabel = "__overflow";

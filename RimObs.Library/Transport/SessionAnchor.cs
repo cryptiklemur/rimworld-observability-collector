@@ -3,7 +3,7 @@ using System.Diagnostics;
 
 namespace Cryptiklemur.RimObs.Transport;
 
-public static class SessionAnchor
+internal static class SessionAnchor
 {
     public static DateTime StartedUtc { get; private set; }
     public static long AnchorTimestamp { get; private set; }

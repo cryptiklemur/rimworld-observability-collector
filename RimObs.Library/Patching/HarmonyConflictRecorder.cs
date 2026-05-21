@@ -3,7 +3,7 @@ using HarmonyLib;
 
 namespace Cryptiklemur.RimObs.Patching;
 
-public static class HarmonyConflictRecorder
+internal static class HarmonyConflictRecorder
 {
     private static readonly List<HarmonyConflict> s_Conflicts = new();
     private static readonly object s_Lock = new();

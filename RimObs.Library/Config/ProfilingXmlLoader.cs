@@ -6,7 +6,7 @@ using Cryptiklemur.RimObs.Patching;
 
 namespace Cryptiklemur.RimObs.Config;
 
-public static class ProfilingXmlLoader
+internal static class ProfilingXmlLoader
 {
     public const string FileName = "profiling.xml";
 

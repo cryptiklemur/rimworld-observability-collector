@@ -1,6 +1,6 @@
 namespace Cryptiklemur.RimObs.Patching;
 
-public sealed class HarmonyConflict
+internal sealed class HarmonyConflict
 {
     public HarmonyConflict(
         string sectionName,

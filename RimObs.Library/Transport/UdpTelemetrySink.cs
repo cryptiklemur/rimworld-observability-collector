@@ -10,7 +10,7 @@ using MessagePack;
 
 namespace Cryptiklemur.RimObs.Transport;
 
-public sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationSink, IDisposable
+internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationSink, IDisposable
 {
     public const int DefaultPort = 17654;
     private const int RingCapacity = 16384;

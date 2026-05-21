@@ -4,7 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace Cryptiklemur.RimObs.Metrics;
 
-public static class MetricRegistry
+internal static class MetricRegistry
 {
     public const int MaxMetrics = 4096;
 

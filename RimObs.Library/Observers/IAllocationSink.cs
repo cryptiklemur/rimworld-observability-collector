@@ -1,6 +1,6 @@
 namespace Cryptiklemur.RimObs.Observers;
 
-public interface IAllocationSink
+internal interface IAllocationSink
 {
     void RecordAllocation(in AllocationSample sample);
 }

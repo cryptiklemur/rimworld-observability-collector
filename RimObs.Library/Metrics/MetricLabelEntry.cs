@@ -1,6 +1,6 @@
 namespace Cryptiklemur.RimObs.Metrics;
 
-public sealed class MetricLabelEntry
+internal sealed class MetricLabelEntry
 {
     public MetricLabelEntry(string canonicalLabel)
     {

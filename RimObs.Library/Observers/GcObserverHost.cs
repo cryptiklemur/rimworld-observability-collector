@@ -3,7 +3,7 @@ using System.Threading;
 
 namespace Cryptiklemur.RimObs.Observers;
 
-public static class GcObserverHost
+internal static class GcObserverHost
 {
     private static readonly object s_Lock = new();
     private static GcObserver? s_Instance;
