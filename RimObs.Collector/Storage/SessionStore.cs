@@ -5,23 +5,20 @@ using Microsoft.Data.Sqlite;
 
 namespace Cryptiklemur.RimObs.Collector.Storage;
 
-public sealed class SessionStore : IDisposable
-{
+public sealed class SessionStore : IDisposable {
     public const int SchemaVersion = 2;
     private const string SchemaVersionPragma = "user_version";
 
     private readonly SqliteConnection _connection;
     private bool _disposed;
 
-    private SessionStore(SqliteConnection connection)
-    {
+    private SessionStore(SqliteConnection connection) {
         _connection = connection;
     }
 
     public string DatabasePath => _connection.DataSource;
 
-    public static SessionStore Open(string dbPath)
-    {
+    public static SessionStore Open(string dbPath) {
         if (string.IsNullOrWhiteSpace(dbPath))
             throw new ArgumentException("dbPath must be a non-empty path", nameof(dbPath));
 
@@ -29,8 +26,7 @@ public sealed class SessionStore : IDisposable
         if (!string.IsNullOrEmpty(directory))
             Directory.CreateDirectory(directory);
 
-        SqliteConnectionStringBuilder csb = new()
-        {
+        SqliteConnectionStringBuilder csb = new() {
             DataSource = dbPath,
             Mode = SqliteOpenMode.ReadWriteCreate,
             Cache = SqliteCacheMode.Default,
@@ -41,8 +37,7 @@ public sealed class SessionStore : IDisposable
         SetWalMode(connection);
 
         int existing = ReadSchemaVersion(connection);
-        if (existing != SchemaVersion)
-        {
+        if (existing != SchemaVersion) {
             DropAllTables(connection);
             CreateSchema(connection);
             WriteSchemaVersion(connection, SchemaVersion);
@@ -51,8 +46,21 @@ public sealed class SessionStore : IDisposable
         return new SessionStore(connection);
     }
 
-    public void WriteSessionMeta(SessionMeta meta)
-    {
+    public static SessionStore OpenReadOnly(string dbPath) {
+        if (string.IsNullOrWhiteSpace(dbPath))
+            throw new ArgumentException("dbPath must be a non-empty path", nameof(dbPath));
+
+        SqliteConnectionStringBuilder csb = new() {
+            DataSource = dbPath,
+            Mode = SqliteOpenMode.ReadOnly,
+            Cache = SqliteCacheMode.Default,
+        };
+        SqliteConnection connection = new(csb.ConnectionString);
+        connection.Open();
+        return new SessionStore(connection);
+    }
+
+    public void WriteSessionMeta(SessionMeta meta) {
         ArgumentNullException.ThrowIfNull(meta);
         ThrowIfDisposed();
 
@@ -76,8 +84,7 @@ ON CONFLICT(session_id) DO UPDATE SET
         cmd.ExecuteNonQuery();
     }
 
-    public SessionMeta? ReadSessionMeta(string sessionId)
-    {
+    public SessionMeta? ReadSessionMeta(string sessionId) {
         if (string.IsNullOrWhiteSpace(sessionId))
             throw new ArgumentException("sessionId must be non-empty", nameof(sessionId));
         ThrowIfDisposed();
@@ -93,8 +100,30 @@ FROM session_meta WHERE session_id = $id;
         if (!reader.Read())
             return null;
 
-        return new SessionMeta
-        {
+        return new SessionMeta {
+            SessionId = reader.GetString(0),
+            StartedUtcTicks = reader.GetInt64(1),
+            StopwatchFrequency = reader.GetInt64(2),
+            AnchorTimestamp = reader.GetInt64(3),
+            LibraryVersion = reader.GetString(4),
+            GameVersion = reader.GetString(5),
+        };
+    }
+
+    public SessionMeta? ReadFirstSessionMeta() {
+        ThrowIfDisposed();
+
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = @"
+SELECT session_id, started_utc_ticks, stopwatch_frequency, anchor_timestamp, library_version, game_version
+FROM session_meta LIMIT 1;
+";
+
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        if (!reader.Read())
+            return null;
+
+        return new SessionMeta {
             SessionId = reader.GetString(0),
             StartedUtcTicks = reader.GetInt64(1),
             StopwatchFrequency = reader.GetInt64(2),
@@ -105,8 +134,7 @@ FROM session_meta WHERE session_id = $id;
     }
 
 
-    public void WriteSectionsSnapshot(IReadOnlyCollection<SectionStats> sections)
-    {
+    public void WriteSectionsSnapshot(IReadOnlyCollection<SectionStats> sections) {
         ArgumentNullException.ThrowIfNull(sections);
         ThrowIfDisposed();
 
@@ -132,8 +160,7 @@ ON CONFLICT(section_id) DO UPDATE SET
         SqliteParameter pMax = upsert.Parameters.Add("$max", SqliteType.Integer);
         SqliteParameter pLast = upsert.Parameters.Add("$lastStart", SqliteType.Integer);
 
-        foreach (SectionStats stats in sections)
-        {
+        foreach (SectionStats stats in sections) {
             pId.Value = stats.SectionId;
             pName.Value = stats.Name ?? string.Empty;
             pSamples.Value = Interlocked.Read(ref stats.SampleCount);
@@ -147,8 +174,7 @@ ON CONFLICT(section_id) DO UPDATE SET
         tx.Commit();
     }
 
-    public void WriteMetricsSnapshot(IReadOnlyCollection<MetricStats> metrics)
-    {
+    public void WriteMetricsSnapshot(IReadOnlyCollection<MetricStats> metrics) {
         ArgumentNullException.ThrowIfNull(metrics);
         ThrowIfDisposed();
 
@@ -183,16 +209,14 @@ ON CONFLICT(metric_id, canonical) DO UPDATE SET
         SqliteParameter lLatest = upsertLabel.Parameters.Add("$latest", SqliteType.Integer);
         SqliteParameter lSamples = upsertLabel.Parameters.Add("$samples", SqliteType.Integer);
 
-        foreach (MetricStats metric in metrics)
-        {
+        foreach (MetricStats metric in metrics) {
             pId.Value = metric.MetricId;
             pName.Value = metric.Name ?? string.Empty;
             pKind.Value = metric.Kind;
             pUnit.Value = metric.Unit ?? string.Empty;
             upsertMetric.ExecuteNonQuery();
 
-            foreach (MetricLabelStats label in metric.Labels.Values)
-            {
+            foreach (MetricLabelStats label in metric.Labels.Values) {
                 lMid.Value = metric.MetricId;
                 lCanon.Value = label.Canonical ?? string.Empty;
                 lLatest.Value = Interlocked.Read(ref label.LatestValue);
@@ -203,22 +227,19 @@ ON CONFLICT(metric_id, canonical) DO UPDATE SET
         tx.Commit();
     }
 
-    public void ReplaceGcEventsSnapshot(GcEventRecord[] events)
-    {
+    public void ReplaceGcEventsSnapshot(GcEventRecord[] events) {
         ArgumentNullException.ThrowIfNull(events);
         ThrowIfDisposed();
 
         using SqliteTransaction tx = _connection.BeginTransaction();
 
-        using (SqliteCommand truncate = _connection.CreateCommand())
-        {
+        using (SqliteCommand truncate = _connection.CreateCommand()) {
             truncate.Transaction = tx;
             truncate.CommandText = "DELETE FROM gc_events;";
             truncate.ExecuteNonQuery();
         }
 
-        if (events.Length > 0)
-        {
+        if (events.Length > 0) {
             using SqliteCommand insert = _connection.CreateCommand();
             insert.Transaction = tx;
             insert.CommandText = @"
@@ -233,8 +254,7 @@ VALUES ($gen, $pause, $hb, $ha, $dur, $ticks, $rate);
             SqliteParameter pTicks = insert.Parameters.Add("$ticks", SqliteType.Integer);
             SqliteParameter pRate = insert.Parameters.Add("$rate", SqliteType.Integer);
 
-            foreach (GcEventRecord e in events)
-            {
+            foreach (GcEventRecord e in events) {
                 pGen.Value = e.Generation;
                 pPause.Value = e.PauseType;
                 pHb.Value = e.HeapBefore;
@@ -248,61 +268,53 @@ VALUES ($gen, $pause, $hb, $ha, $dur, $ticks, $rate);
         tx.Commit();
     }
 
-    public int CountSections()
-    {
+    public int CountSections() {
         ThrowIfDisposed();
         using SqliteCommand cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM sections;";
         return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
-    public int CountMetrics()
-    {
+    public int CountMetrics() {
         ThrowIfDisposed();
         using SqliteCommand cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM metrics;";
         return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
-    public int CountMetricLabels()
-    {
+    public int CountMetricLabels() {
         ThrowIfDisposed();
         using SqliteCommand cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM metric_labels;";
         return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
-    public int CountGcEvents()
-    {
+    public int CountGcEvents() {
         ThrowIfDisposed();
         using SqliteCommand cmd = _connection.CreateCommand();
         cmd.CommandText = "SELECT COUNT(*) FROM gc_events;";
         return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         if (_disposed)
             return;
         _disposed = true;
         _connection.Dispose();
     }
 
-    private void ThrowIfDisposed()
-    {
+    private void ThrowIfDisposed() {
         if (_disposed)
             throw new ObjectDisposedException(nameof(SessionStore));
     }
 
-    private static void SetWalMode(SqliteConnection connection)
-    {
+    private static void SetWalMode(SqliteConnection connection) {
         using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = "PRAGMA journal_mode=WAL;";
         cmd.ExecuteNonQuery();
     }
 
-    private static int ReadSchemaVersion(SqliteConnection connection)
-    {
+    private static int ReadSchemaVersion(SqliteConnection connection) {
         using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = $"PRAGMA {SchemaVersionPragma};";
         object? result = cmd.ExecuteScalar();
@@ -313,8 +325,7 @@ VALUES ($gen, $pause, $hb, $ha, $dur, $ticks, $rate);
         return 0;
     }
 
-    private static void WriteSchemaVersion(SqliteConnection connection, int version)
-    {
+    private static void WriteSchemaVersion(SqliteConnection connection, int version) {
         using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = string.Create(
             CultureInfo.InvariantCulture,
@@ -322,27 +333,23 @@ VALUES ($gen, $pause, $hb, $ha, $dur, $ticks, $rate);
         cmd.ExecuteNonQuery();
     }
 
-    private static void DropAllTables(SqliteConnection connection)
-    {
+    private static void DropAllTables(SqliteConnection connection) {
         using SqliteCommand listCmd = connection.CreateCommand();
         listCmd.CommandText = "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE 'sqlite_%';";
         List<string> tables = [];
-        using (SqliteDataReader reader = listCmd.ExecuteReader())
-        {
+        using (SqliteDataReader reader = listCmd.ExecuteReader()) {
             while (reader.Read())
                 tables.Add(reader.GetString(0));
         }
 
-        foreach (string table in tables)
-        {
+        foreach (string table in tables) {
             using SqliteCommand dropCmd = connection.CreateCommand();
             dropCmd.CommandText = $"DROP TABLE IF EXISTS \"{table}\";";
             dropCmd.ExecuteNonQuery();
         }
     }
 
-    private static void CreateSchema(SqliteConnection connection)
-    {
+    private static void CreateSchema(SqliteConnection connection) {
         using SqliteCommand cmd = connection.CreateCommand();
         cmd.CommandText = @"
 CREATE TABLE session_meta (
