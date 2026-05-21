@@ -44,7 +44,18 @@ public sealed class UdpReceiver : BackgroundService
             try
             {
                 UdpReceiveResult result = await _client.ReceiveAsync(stoppingToken).ConfigureAwait(false);
-                Dispatch(result.Buffer);
+                byte[]? response = Dispatch(result.Buffer);
+                if (response is not null)
+                {
+                    try
+                    {
+                        await _client.SendAsync(response, response.Length, result.RemoteEndPoint).ConfigureAwait(false);
+                    }
+                    catch (Exception sendEx)
+                    {
+                        _log.LogWarning(sendEx, "Failed to send pong to {Remote}", result.RemoteEndPoint);
+                    }
+                }
             }
             catch (OperationCanceledException)
             {
@@ -61,7 +72,7 @@ public sealed class UdpReceiver : BackgroundService
         }
     }
 
-    internal void Dispatch(byte[] bytes)
+    internal byte[]? Dispatch(byte[] bytes)
     {
         TelemetryBatch envelope;
         try
@@ -71,13 +82,13 @@ public sealed class UdpReceiver : BackgroundService
         catch (Exception ex)
         {
             _log.LogWarning(ex, "Failed to deserialize TelemetryBatch envelope ({Bytes} bytes)", bytes.Length);
-            return;
+            return null;
         }
 
         if (envelope.SchemaVersion != SchemaVersion.Current)
         {
             _log.LogWarning("Dropping batch with schema_version={Version} (expected {Expected})", envelope.SchemaVersion, SchemaVersion.Current);
-            return;
+            return null;
         }
 
         _aggregator.OnBatchReceived(bytes.Length);
@@ -108,8 +119,8 @@ public sealed class UdpReceiver : BackgroundService
                     _aggregator.OnAllocations(MessagePackSerializer.Deserialize<AllocationsBatch>(envelope.Payload));
                     break;
                 case BatchType.Ping:
-                    // Ping handling deferred to Phase 2 (collector discovery handshake).
-                    break;
+                    PingMessage ping = MessagePackSerializer.Deserialize<PingMessage>(envelope.Payload);
+                    return BuildPongEnvelope(ping, BuildInfo.Revision, _aggregator.Meta?.SessionId);
                 default:
                     _log.LogDebug("Ignoring batch_type={Type} (not implemented in M0)", envelope.BatchType);
                     break;
@@ -119,5 +130,27 @@ public sealed class UdpReceiver : BackgroundService
         {
             _log.LogWarning(ex, "Failed to dispatch batch_type={Type}", envelope.BatchType);
         }
+
+        return null;
+    }
+
+    internal static byte[] BuildPongEnvelope(PingMessage ping, string collectorVersion, string? sessionId)
+    {
+        PongMessage pong = new()
+        {
+            OwnerId = ping.OwnerId,
+            PingSentAtUtcTicks = ping.SentAtUtcTicks,
+            CollectorVersion = collectorVersion,
+            SessionId = sessionId,
+        };
+        TelemetryBatch envelope = new()
+        {
+            SchemaVersion = SchemaVersion.Current,
+            Sequence = 0,
+            OwnerId = "collector",
+            BatchType = BatchType.Pong,
+            Payload = MessagePackSerializer.Serialize(pong),
+        };
+        return MessagePackSerializer.Serialize(envelope);
     }
 }

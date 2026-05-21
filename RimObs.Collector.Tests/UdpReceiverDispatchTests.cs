@@ -103,6 +103,71 @@ public sealed class UdpReceiverDispatchTests
         agg.TotalBatches.Should().Be(1);
     }
 
+
+    [Fact]
+    public void Dispatch_ping_with_payload_returns_pong_envelope_with_echoed_owner_and_collector_version()
+    {
+        SessionAggregator agg = new();
+        UdpReceiver receiver = NewReceiver(agg);
+        PingMessage ping = new() { OwnerId = "test.owner", SentAtUtcTicks = 1234567 };
+        byte[] envelope = SerializeEnvelope(BatchType.Ping, MessagePackSerializer.Serialize(ping));
+
+        byte[]? response = receiver.Dispatch(envelope);
+
+        response.Should().NotBeNull();
+        TelemetryBatch decoded = MessagePackSerializer.Deserialize<TelemetryBatch>(response!);
+        decoded.BatchType.Should().Be(BatchType.Pong);
+        PongMessage pong = MessagePackSerializer.Deserialize<PongMessage>(decoded.Payload);
+        pong.OwnerId.Should().Be("test.owner");
+        pong.PingSentAtUtcTicks.Should().Be(1234567);
+        pong.CollectorVersion.Should().Be(BuildInfo.Revision);
+        pong.SessionId.Should().BeNull();
+    }
+
+    [Fact]
+    public void Dispatch_ping_after_session_meta_includes_session_id_in_pong()
+    {
+        SessionAggregator agg = new();
+        agg.OnSessionMeta(new SessionMeta
+        {
+            SessionId = "live-session-42",
+            StartedUtcTicks = DateTime.UtcNow.Ticks,
+            StopwatchFrequency = 10_000_000,
+            AnchorTimestamp = 0,
+            LibraryVersion = "0.0.0",
+            GameVersion = "1.6",
+        });
+        UdpReceiver receiver = NewReceiver(agg);
+        PingMessage ping = new() { OwnerId = "x", SentAtUtcTicks = 7 };
+        byte[] envelope = SerializeEnvelope(BatchType.Ping, MessagePackSerializer.Serialize(ping));
+
+        byte[]? response = receiver.Dispatch(envelope);
+
+        TelemetryBatch decoded = MessagePackSerializer.Deserialize<TelemetryBatch>(response!);
+        PongMessage pong = MessagePackSerializer.Deserialize<PongMessage>(decoded.Payload);
+        pong.SessionId.Should().Be("live-session-42");
+    }
+
+    [Fact]
+    public void Dispatch_non_ping_batch_returns_null()
+    {
+        SessionAggregator agg = new();
+        UdpReceiver receiver = NewReceiver(agg);
+        byte[] envelope = SerializeEnvelope(BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta
+        {
+            SessionId = "s",
+            StartedUtcTicks = 0,
+            StopwatchFrequency = 1,
+            AnchorTimestamp = 0,
+            LibraryVersion = "0",
+            GameVersion = "0",
+        }));
+
+        byte[]? response = receiver.Dispatch(envelope);
+
+        response.Should().BeNull();
+    }
+
     private static UdpReceiver NewReceiver(SessionAggregator agg)
     {
         return new UdpReceiver(agg, NullLogger<UdpReceiver>.Instance, port: 0);

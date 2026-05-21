@@ -9,5 +9,6 @@ public enum BatchType : byte
     Allocations = 5,
     SessionMeta = 7,
     SectionRegistrations = 8,
+    Pong = 254,
     Ping = 255,
 }
