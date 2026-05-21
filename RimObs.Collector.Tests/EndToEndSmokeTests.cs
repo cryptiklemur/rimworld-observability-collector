@@ -162,6 +162,66 @@ public sealed class EndToEndSmokeTests
     }
 
     [Fact]
+    public async Task Gc_endpoint_returns_recent_events_newest_first_and_honors_limit()
+    {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try
+        {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () =>
+            {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            SendBatch(port, BatchType.GcEvents, MessagePackSerializer.Serialize(new GcEventsBatch
+            {
+                Generations = [0, 1, 2],
+                PauseTypes = [0, 0, 1],
+                HeapBefore = [100, 200, 300],
+                HeapAfter = [80, 180, 280],
+                DurationMicros = [10, 20, 30],
+                Ticks = [111, 222, 333],
+                AllocationRateBytesPerMinute = [1000, 2000, 3000],
+            }));
+
+            await WaitFor(async () =>
+            {
+                string body = await http.GetStringAsync("/api/v1/sessions/current/gc");
+                using JsonDocument doc = JsonDocument.Parse(body);
+                return doc.RootElement.GetProperty("events").GetArrayLength() >= 3;
+            }, TimeSpan.FromSeconds(3));
+
+            string fullBody = await http.GetStringAsync("/api/v1/sessions/current/gc");
+            _out.WriteLine($"gc full: {fullBody}");
+            using JsonDocument full = JsonDocument.Parse(fullBody);
+            full.RootElement.GetProperty("total_events").GetInt64().Should().Be(3);
+            JsonElement events = full.RootElement.GetProperty("events");
+            events.GetArrayLength().Should().Be(3);
+            events[0].GetProperty("ticks").GetInt64().Should().Be(333);
+            events[0].GetProperty("generation").GetInt32().Should().Be(2);
+            events[1].GetProperty("ticks").GetInt64().Should().Be(222);
+            events[2].GetProperty("ticks").GetInt64().Should().Be(111);
+
+            string limited = await http.GetStringAsync("/api/v1/sessions/current/gc?limit=2");
+            _out.WriteLine($"gc limited: {limited}");
+            using JsonDocument lim = JsonDocument.Parse(limited);
+            JsonElement limEvents = lim.RootElement.GetProperty("events");
+            limEvents.GetArrayLength().Should().Be(2);
+            limEvents[0].GetProperty("ticks").GetInt64().Should().Be(333);
+            limEvents[1].GetProperty("ticks").GetInt64().Should().Be(222);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Hotspots_endpoint_returns_sections_sorted_by_total_descending_and_honors_limit()
     {
         int port = PickFreePort();

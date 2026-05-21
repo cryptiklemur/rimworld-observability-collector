@@ -13,6 +13,8 @@ public static class SessionsEndpoints
 {
     private const int DefaultHotspotLimit = 50;
     private const int MaxHotspotLimit = 500;
+    private const int DefaultGcEventLimit = 100;
+    private const int MaxGcEventLimit = 1024;
 
     public static IEndpointRouteBuilder MapSessionsEndpoints(this IEndpointRouteBuilder endpoints)
     {
@@ -57,6 +59,27 @@ public static class SessionsEndpoints
                         max_ns = (long)(s.MaxElapsedTicks * nsPerTick),
                     })
                     .ToArray(),
+            });
+        });
+
+        endpoints.MapGet("/api/v1/sessions/current/gc", (SessionAggregator aggregator, int? limit) =>
+        {
+            int take = limit is int l && l > 0 ? Math.Min(l, MaxGcEventLimit) : DefaultGcEventLimit;
+            GcEventRecord[] snapshot = aggregator.SnapshotGcEvents(take);
+            return Results.Ok(new
+            {
+                schema_version = SchemaVersion.Current,
+                total_events = aggregator.TotalGcEvents,
+                events = snapshot.Select(e => new
+                {
+                    generation = e.Generation,
+                    pause_type = e.PauseType,
+                    heap_before = e.HeapBefore,
+                    heap_after = e.HeapAfter,
+                    duration_micros = e.DurationMicros,
+                    ticks = e.Ticks,
+                    allocation_rate_bpm = e.AllocationRateBytesPerMinute,
+                }).ToArray(),
             });
         });
 
