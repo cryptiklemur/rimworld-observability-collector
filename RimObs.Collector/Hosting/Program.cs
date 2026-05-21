@@ -1,5 +1,9 @@
+using System;
+using System.Threading;
+using System.Threading.Tasks;
 using Cryptiklemur.RimObs.Collector.Api;
 using Cryptiklemur.RimObs.Collector.Runtime;
+using Cryptiklemur.RimObs.Wire;
 using Cryptiklemur.RimObs.Collector.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -33,6 +37,7 @@ public static class Program {
 
             string sessionsDir = Path.Combine(configDir, "sessions");
             WebApplication app = BuildApp(args, port, token, sessionsDir, logSink);
+            StartUpdateCheck(app.Services);
             app.Run();
             return 0;
         }
@@ -92,6 +97,7 @@ public static class Program {
         builder.Services.AddSingleton(sink);
 
         builder.Services.AddSingleton(token);
+        builder.Services.AddSingleton<Update.UpdateState>();
         bool hasPersister = !string.IsNullOrWhiteSpace(sessionsDir);
         if (hasPersister) {
             builder.Services.AddSingleton<Storage.ISessionPersister>(_ => new Storage.SqliteSessionPersister(sessionsDir!));
@@ -120,5 +126,30 @@ public static class Program {
         app.MapSessionsEndpoints();
         app.MapVersionEndpoints();
         app.MapLogsEndpoints();
+    }
+
+    private const string UpdateOwner = "cryptiklemur";
+    private const string UpdateRepo = "rimworld-observability-collector";
+
+    internal static void StartUpdateCheck(IServiceProvider services) {
+        Update.UpdateState state = services.GetRequiredService<Update.UpdateState>();
+        _ = Task.Run(async () => {
+            try {
+                using System.Net.Http.HttpClient client = new System.Net.Http.HttpClient {
+                    Timeout = TimeSpan.FromSeconds(10),
+                };
+                using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+                Update.ReleaseInfo? latest = await Update.UpdateChecker
+                    .CheckAsync(client, BuildInfo.Revision, UpdateOwner, UpdateRepo, cts.Token)
+                    .ConfigureAwait(false);
+                state.Set(latest);
+                if (latest is not null) {
+                    Log.Information("Update available: {Tag} ({Url})", latest.TagName, latest.HtmlUrl);
+                }
+            }
+            catch (System.Exception ex) {
+                Log.Warning(ex, "Update check failed");
+            }
+        });
     }
 }

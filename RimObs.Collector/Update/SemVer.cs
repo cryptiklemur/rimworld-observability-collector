@@ -1,0 +1,67 @@
+using System;
+
+namespace Cryptiklemur.RimObs.Collector.Update;
+
+public sealed class SemVer {
+    public SemVer(Version core, string? prerelease = null) {
+        Core = core ?? throw new ArgumentNullException(nameof(core));
+        Prerelease = string.IsNullOrEmpty(prerelease) ? null : prerelease;
+    }
+
+    public Version Core { get; }
+    public string? Prerelease { get; }
+    public bool IsPrerelease => Prerelease != null;
+
+    public static bool TryParse(string? s, out SemVer? result) {
+        result = null;
+        if (string.IsNullOrWhiteSpace(s))
+            return false;
+
+        string trimmed = s.Trim();
+        if (trimmed.Length > 0 && (trimmed[0] == 'v' || trimmed[0] == 'V'))
+            trimmed = trimmed.Substring(1);
+
+        int plusIdx = trimmed.IndexOf('+');
+        if (plusIdx >= 0)
+            trimmed = trimmed.Substring(0, plusIdx);
+
+        string corePart;
+        string? pre;
+        int dashIdx = trimmed.IndexOf('-');
+        if (dashIdx >= 0) {
+            corePart = trimmed.Substring(0, dashIdx);
+            pre = trimmed.Substring(dashIdx + 1);
+            if (pre.Length == 0)
+                return false;
+        }
+        else {
+            corePart = trimmed;
+            pre = null;
+        }
+
+        if (!Version.TryParse(corePart, out Version? core) || core is null)
+            return false;
+
+        result = new SemVer(core, pre);
+        return true;
+    }
+
+    public static int Compare(SemVer a, SemVer b) {
+        if (a is null)
+            throw new ArgumentNullException(nameof(a));
+        if (b is null)
+            throw new ArgumentNullException(nameof(b));
+
+        int coreCmp = a.Core.CompareTo(b.Core);
+        if (coreCmp != 0)
+            return coreCmp;
+
+        if (a.IsPrerelease != b.IsPrerelease)
+            return a.IsPrerelease ? -1 : 1;
+
+        if (!a.IsPrerelease)
+            return 0;
+
+        return string.CompareOrdinal(a.Prerelease, b.Prerelease);
+    }
+}
