@@ -14,32 +14,10 @@ public static class Profiler
     public static void SetSink(ISampleSink? sink) => Sink = sink;
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static long Start(SectionHandle handle)
-    {
-        if (!Enabled)
-            return DisabledToken;
-
-        int id = handle.Id;
-        if ((uint)id >= (uint)SectionRegistry.MaxSections)
-            return DisabledToken;
-        if (!SectionRegistry.s_Active[id])
-            return DisabledToken;
-
-        return Stopwatch.GetTimestamp();
-    }
+    public static long Start(SectionHandle handle) => StartById(handle.Id);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void Stop(SectionHandle handle, long token)
-    {
-        if (token == DisabledToken)
-            return;
-
-        long elapsed = Stopwatch.GetTimestamp() - token;
-        ISampleSink? sink = Sink;
-        if (sink != null)
-            sink.RecordSection(handle.Id, token, elapsed);
-    }
-
+    public static void Stop(SectionHandle handle, long token) => StopById(handle.Id, token);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static long StartById(int sectionId)
