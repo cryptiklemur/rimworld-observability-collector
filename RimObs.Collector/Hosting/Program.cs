@@ -1,4 +1,5 @@
 using Cryptiklemur.RimObs.Collector.Api;
+using Cryptiklemur.RimObs.Collector.Runtime;
 using Cryptiklemur.RimObs.Collector.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -21,9 +22,22 @@ public static class Program
             .WriteTo.Console()
             .CreateLogger();
 
+        const int port = 17654;
         try
         {
-            WebApplication app = BuildApp(args, port: 17654);
+            CollectorToken token = CollectorToken.CreateFromEnvOrGenerate();
+            string configDir = ConfigDirResolver.Resolve();
+            try
+            {
+                RuntimeFiles.WriteAll(configDir, token, port);
+                Log.Information("Wrote discovery files to {ConfigDir} (token source: {Source})", configDir, token.FromEnv ? "env" : "generated");
+            }
+            catch (System.Exception ex)
+            {
+                Log.Warning(ex, "Failed to write discovery files to {ConfigDir}", configDir);
+            }
+
+            WebApplication app = BuildApp(args, port, token);
             app.Run();
             return 0;
         }
