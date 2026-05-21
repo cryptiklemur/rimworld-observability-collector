@@ -13,7 +13,7 @@ public static class CollectorDiscovery
         {
             if (c is null)
                 continue;
-            if (best is null || c.Version > best.Version)
+            if (best is null || CollectorCandidate.Compare(c, best) > 0)
                 best = c;
         }
         return best;

@@ -45,6 +45,50 @@ public sealed class CollectorLauncherTests
     }
 
     [Fact]
+    public void Parse_splits_core_version_from_prerelease()
+    {
+        CollectorCandidate stable = CollectorCandidate.Parse("/x/Collector", "2.1.0");
+        stable.Version.Should().Be(new Version(2, 1, 0));
+        stable.IsPrerelease.Should().BeFalse();
+        stable.Prerelease.Should().BeNull();
+
+        CollectorCandidate pre = CollectorCandidate.Parse("/x/Collector", "2.1.0-beta.3+build.7");
+        pre.Version.Should().Be(new Version(2, 1, 0));
+        pre.IsPrerelease.Should().BeTrue();
+        pre.Prerelease.Should().Be("beta.3");
+    }
+
+    [Fact]
+    public void SelectHighest_prefers_stable_over_prerelease_when_core_versions_tie()
+    {
+        List<CollectorCandidate> candidates =
+        [
+            CollectorCandidate.Parse("/pre", "2.1.0-beta.3"),
+            CollectorCandidate.Parse("/stable", "2.1.0"),
+        ];
+
+        CollectorCandidate? best = CollectorDiscovery.SelectHighest(candidates);
+
+        best!.ExecutablePath.Should().Be("/stable");
+        best.IsPrerelease.Should().BeFalse();
+    }
+
+    [Fact]
+    public void SelectHighest_prerelease_with_higher_core_beats_lower_stable()
+    {
+        List<CollectorCandidate> candidates =
+        [
+            CollectorCandidate.Parse("/stable", "2.1.0"),
+            CollectorCandidate.Parse("/pre", "2.2.0-beta.1"),
+        ];
+
+        CollectorCandidate? best = CollectorDiscovery.SelectHighest(candidates);
+
+        best!.ExecutablePath.Should().Be("/pre");
+        best.Version.Should().Be(new Version(2, 2, 0));
+    }
+
+    [Fact]
     public void EnsureRunning_returns_running_without_launching_when_collector_already_live()
     {
         using PongResponder responder = new("5.5.5", "already-up");
