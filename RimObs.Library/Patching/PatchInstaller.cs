@@ -84,4 +84,24 @@ public static class PatchInstaller
         HarmonyMethod transpiler = new(MethodTransplanter.TranspilerMethod);
         harmony.Patch(target, transpiler: transpiler);
     }
+
+    internal static void ResetForTests()
+    {
+        if (s_Harmony != null)
+        {
+            try
+            {
+                s_Harmony.UnpatchAll(s_Harmony.Id);
+            }
+            catch
+            {
+                // Best-effort cleanup; ignore failures during test teardown.
+            }
+        }
+        s_Harmony = null;
+        s_Installed = false;
+        InstalledCount = 0;
+        FailedCount = 0;
+        UnresolvedCount = 0;
+    }
 }
