@@ -3,7 +3,7 @@ using System.Reflection;
 
 namespace Cryptiklemur.RimObs.Patching;
 
-public sealed class CatalogEntry
+internal sealed class CatalogEntry
 {
     public CatalogEntry(string name, string typeName, string methodName, string[]? paramTypeNames)
     {

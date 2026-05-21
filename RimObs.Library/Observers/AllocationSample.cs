@@ -1,6 +1,6 @@
 namespace Cryptiklemur.RimObs.Observers;
 
-public readonly struct AllocationSample
+internal readonly struct AllocationSample
 {
     public AllocationSample(long windowStartTimestamp, long windowDurationMs, long bytesAllocated, long samplesCount)
     {

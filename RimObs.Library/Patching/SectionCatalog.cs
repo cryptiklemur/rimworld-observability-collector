@@ -5,7 +5,7 @@ using Cryptiklemur.RimObs.Profile;
 
 namespace Cryptiklemur.RimObs.Patching;
 
-public static class SectionCatalog
+internal static class SectionCatalog
 {
     private static readonly List<CatalogEntry> s_Entries = new();
     private static readonly Dictionary<MethodBase, int> s_MethodToSectionId = new();

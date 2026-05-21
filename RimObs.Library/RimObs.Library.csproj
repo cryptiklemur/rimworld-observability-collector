@@ -58,6 +58,7 @@
 
     <ItemGroup>
         <ProjectReference Include="..\RimObs.Wire\RimObs.Wire.csproj"/>
+        <InternalsVisibleTo Include="RimObs.Library.Tests"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace Cryptiklemur.RimObs.Observers;
 
-public sealed class GcObserver
+internal sealed class GcObserver
 {
     private static readonly long TimestampTicksPerSecond = Stopwatch.Frequency;
     private const long MicrosPerSecond = 1_000_000L;

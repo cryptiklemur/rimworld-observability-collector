@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace Cryptiklemur.RimObs.Observers;
 
-public sealed class AllocationSampler
+internal sealed class AllocationSampler
 {
     private static readonly long TimestampTicksPerSecond = Stopwatch.Frequency;
 

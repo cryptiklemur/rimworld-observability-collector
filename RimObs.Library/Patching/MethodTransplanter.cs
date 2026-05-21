@@ -7,7 +7,7 @@ using HarmonyLib;
 
 namespace Cryptiklemur.RimObs.Patching;
 
-public static class MethodTransplanter
+internal static class MethodTransplanter
 {
     private static readonly MethodInfo StartByIdMethod = typeof(Profiler).GetMethod(
         nameof(Profiler.StartById),

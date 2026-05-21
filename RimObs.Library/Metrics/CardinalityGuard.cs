@@ -4,7 +4,7 @@ using System.Threading;
 
 namespace Cryptiklemur.RimObs.Metrics;
 
-public static class CardinalityGuard
+internal static class CardinalityGuard
 {
     public static MetricLabelEntry ResolveLabelEntry(MetricDescriptor descriptor, string canonicalLabel)
     {

@@ -5,7 +5,7 @@ using HarmonyLib;
 
 namespace Cryptiklemur.RimObs.Patching;
 
-public static class PatchInstaller
+internal static class PatchInstaller
 {
     public const string HarmonyId = "cryptiklemur.rimobs.library";
 
