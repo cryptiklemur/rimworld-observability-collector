@@ -52,6 +52,17 @@ public sealed class SqliteSessionPersister : ISessionPersister {
         store.WriteMetricsSnapshot(metrics);
     }
 
+    public void WriteCallTreeSnapshot(string sessionId, IReadOnlyCollection<CallEdgeStats> edges) {
+        ArgumentNullException.ThrowIfNull(edges);
+        ValidateSessionId(sessionId);
+        if (edges.Count == 0)
+            return;
+        ThrowIfDisposed();
+
+        SessionStore store = GetOrOpen(sessionId);
+        store.WriteCallTreeSnapshot(edges);
+    }
+
     public void ReplaceGcEventsSnapshot(string sessionId, GcEventRecord[] events) {
         ArgumentNullException.ThrowIfNull(events);
         ValidateSessionId(sessionId);

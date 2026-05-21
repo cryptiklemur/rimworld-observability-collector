@@ -143,11 +143,13 @@ public sealed class PersistenceFlusherTests : IDisposable {
         public List<(string sessionId, IReadOnlyCollection<SectionStats> sections)> WrittenSections { get; } = [];
         public List<(string sessionId, IReadOnlyCollection<MetricStats> metrics)> WrittenMetrics { get; } = [];
         public List<(string sessionId, GcEventRecord[] events)> WrittenGc { get; } = [];
+        public List<(string sessionId, IReadOnlyCollection<CallEdgeStats> edges)> WrittenCallTree { get; } = [];
 
         public void WriteSessionMeta(SessionMeta meta) => WrittenMetas.Add(meta);
         public void WriteSectionsSnapshot(string sessionId, IReadOnlyCollection<SectionStats> sections) => WrittenSections.Add((sessionId, sections));
         public void WriteMetricsSnapshot(string sessionId, IReadOnlyCollection<MetricStats> metrics) => WrittenMetrics.Add((sessionId, metrics));
         public void ReplaceGcEventsSnapshot(string sessionId, GcEventRecord[] events) => WrittenGc.Add((sessionId, events));
+        public void WriteCallTreeSnapshot(string sessionId, IReadOnlyCollection<CallEdgeStats> edges) => WrittenCallTree.Add((sessionId, edges));
         public void Dispose() { }
     }
 
@@ -156,6 +158,7 @@ public sealed class PersistenceFlusherTests : IDisposable {
         public void WriteSectionsSnapshot(string sessionId, IReadOnlyCollection<SectionStats> sections) => throw new InvalidOperationException("disk full");
         public void WriteMetricsSnapshot(string sessionId, IReadOnlyCollection<MetricStats> metrics) { }
         public void ReplaceGcEventsSnapshot(string sessionId, GcEventRecord[] events) { }
+        public void WriteCallTreeSnapshot(string sessionId, IReadOnlyCollection<CallEdgeStats> edges) { }
         public void Dispose() { }
     }
 }

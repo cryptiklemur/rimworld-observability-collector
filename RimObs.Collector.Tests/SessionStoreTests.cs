@@ -281,4 +281,45 @@ public sealed class SessionStoreTests : IDisposable {
         store.ReplaceGcEventsSnapshot([]);
         store.CountGcEvents().Should().Be(0);
     }
+
+
+    [Fact]
+    public void WriteCallTreeSnapshot_round_trips_edges_keyed_by_parent_and_section() {
+        CallEdgeStats root = new() { ParentId = -1, SectionId = 1, CallCount = 3, TotalElapsedTicks = 300 };
+        CallEdgeStats child = new() { ParentId = 1, SectionId = 2, CallCount = 5, TotalElapsedTicks = 120 };
+
+        using SessionStore store = SessionStore.Open(_dbPath);
+        store.WriteCallTreeSnapshot([root, child]);
+
+        store.CountCallTreeEdges().Should().Be(2);
+
+        using SqliteConnection probe = new($"Data Source={_dbPath}");
+        probe.Open();
+        using SqliteCommand cmd = probe.CreateCommand();
+        cmd.CommandText = "SELECT call_count, total_elapsed_ticks FROM call_tree_edges WHERE parent_id = 1 AND section_id = 2;";
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        reader.Read().Should().BeTrue();
+        reader.GetInt64(0).Should().Be(5);
+        reader.GetInt64(1).Should().Be(120);
+    }
+
+    [Fact]
+    public void WriteCallTreeSnapshot_is_idempotent_on_same_edge_key() {
+        CallEdgeStats edge = new() { ParentId = 1, SectionId = 2, CallCount = 5, TotalElapsedTicks = 120 };
+
+        using SessionStore store = SessionStore.Open(_dbPath);
+        store.WriteCallTreeSnapshot([edge]);
+
+        edge.CallCount = 9;
+        edge.TotalElapsedTicks = 400;
+        store.WriteCallTreeSnapshot([edge]);
+
+        store.CountCallTreeEdges().Should().Be(1);
+
+        using SqliteConnection probe = new($"Data Source={_dbPath}");
+        probe.Open();
+        using SqliteCommand cmd = probe.CreateCommand();
+        cmd.CommandText = "SELECT call_count FROM call_tree_edges WHERE parent_id = 1 AND section_id = 2;";
+        Convert.ToInt64(cmd.ExecuteScalar()).Should().Be(9);
+    }
 }

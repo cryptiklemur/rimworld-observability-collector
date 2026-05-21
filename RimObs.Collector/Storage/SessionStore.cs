@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 namespace Cryptiklemur.RimObs.Collector.Storage;
 
 public sealed class SessionStore : IDisposable {
-    public const int SchemaVersion = 2;
+    public const int SchemaVersion = 3;
     private const string SchemaVersionPragma = "user_version";
 
     private readonly SqliteConnection _connection;
@@ -268,6 +268,42 @@ VALUES ($gen, $pause, $hb, $ha, $dur, $ticks, $rate);
         tx.Commit();
     }
 
+    public void WriteCallTreeSnapshot(IReadOnlyCollection<CallEdgeStats> edges) {
+        ArgumentNullException.ThrowIfNull(edges);
+        ThrowIfDisposed();
+
+        using SqliteTransaction tx = _connection.BeginTransaction();
+        using SqliteCommand upsert = _connection.CreateCommand();
+        upsert.Transaction = tx;
+        upsert.CommandText = @"
+INSERT INTO call_tree_edges (parent_id, section_id, call_count, total_elapsed_ticks)
+VALUES ($parent, $section, $count, $total)
+ON CONFLICT(parent_id, section_id) DO UPDATE SET
+    call_count = excluded.call_count,
+    total_elapsed_ticks = excluded.total_elapsed_ticks;
+";
+        SqliteParameter pParent = upsert.Parameters.Add("$parent", SqliteType.Integer);
+        SqliteParameter pSection = upsert.Parameters.Add("$section", SqliteType.Integer);
+        SqliteParameter pCount = upsert.Parameters.Add("$count", SqliteType.Integer);
+        SqliteParameter pTotal = upsert.Parameters.Add("$total", SqliteType.Integer);
+
+        foreach (CallEdgeStats edge in edges) {
+            pParent.Value = edge.ParentId;
+            pSection.Value = edge.SectionId;
+            pCount.Value = Interlocked.Read(ref edge.CallCount);
+            pTotal.Value = Interlocked.Read(ref edge.TotalElapsedTicks);
+            upsert.ExecuteNonQuery();
+        }
+        tx.Commit();
+    }
+
+    public int CountCallTreeEdges() {
+        ThrowIfDisposed();
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT COUNT(*) FROM call_tree_edges;";
+        return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
+    }
+
     public int CountSections() {
         ThrowIfDisposed();
         using SqliteCommand cmd = _connection.CreateCommand();
@@ -396,6 +432,14 @@ CREATE TABLE gc_events (
     ticks INTEGER NOT NULL,
     allocation_rate_bpm INTEGER NOT NULL
 );
+
+CREATE TABLE call_tree_edges (
+    parent_id INTEGER NOT NULL,
+    section_id INTEGER NOT NULL,
+    call_count INTEGER NOT NULL,
+    total_elapsed_ticks INTEGER NOT NULL,
+    PRIMARY KEY (parent_id, section_id)
+) WITHOUT ROWID;
 ";
         cmd.ExecuteNonQuery();
     }

@@ -346,6 +346,73 @@ public sealed class EndToEndSmokeTests {
 
 
     [Fact]
+    public async Task Call_tree_endpoint_returns_nested_roots_from_parent_ids() {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
+                SessionId = "tree-session",
+                StartedUtcTicks = DateTime.UtcNow.Ticks,
+                StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                LibraryVersion = "0.0.0-smoke",
+                GameVersion = "1.6",
+            }));
+
+            SendBatch(port, BatchType.SectionRegistrations, MessagePackSerializer.Serialize(new SectionRegistrationsBatch {
+                SectionIds = [10, 20],
+                Names = ["tree.root", "tree.child"],
+            }));
+
+            SendBatch(port, BatchType.Sections, MessagePackSerializer.Serialize(new SectionBatch {
+                SectionIds = [10, 20, 20],
+                ParentIds = [-1, 10, 10],
+                StartTimestamps = [1, 2, 3],
+                ElapsedTicks = [1000, 200, 300],
+            }));
+
+            await WaitFor(async () => {
+                string body = await http.GetStringAsync("/api/v1/status");
+                using JsonDocument doc = JsonDocument.Parse(body);
+                int sectionCount = doc.RootElement.GetProperty("receive").GetProperty("section_count").GetInt32();
+                return sectionCount >= 2;
+            }, TimeSpan.FromSeconds(3));
+
+            string treeBody = await http.GetStringAsync("/api/v1/sessions/current/call_tree");
+            _out.WriteLine($"call_tree: {treeBody}");
+            using JsonDocument doc = JsonDocument.Parse(treeBody);
+            JsonElement roots = doc.RootElement.GetProperty("roots");
+
+            roots.GetArrayLength().Should().Be(1);
+            JsonElement root = roots[0];
+            root.GetProperty("id").GetInt32().Should().Be(10);
+            root.GetProperty("name").GetString().Should().Be("tree.root");
+            root.GetProperty("call_count").GetInt64().Should().Be(1);
+
+            JsonElement children = root.GetProperty("children");
+            children.GetArrayLength().Should().Be(1);
+            JsonElement child = children[0];
+            child.GetProperty("id").GetInt32().Should().Be(20);
+            child.GetProperty("name").GetString().Should().Be("tree.child");
+            child.GetProperty("call_count").GetInt64().Should().Be(2);
+            child.GetProperty("total_ns").GetInt64().Should().BeGreaterThan(0);
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+
+    [Fact]
     public async Task Metrics_endpoint_returns_registered_metrics_with_labels() {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port);
