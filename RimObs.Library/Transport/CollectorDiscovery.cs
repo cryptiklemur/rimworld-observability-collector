@@ -1,0 +1,21 @@
+using System.Collections.Generic;
+
+namespace Cryptiklemur.RimObs.Transport;
+
+public static class CollectorDiscovery
+{
+    public static CollectorCandidate? SelectHighest(IEnumerable<CollectorCandidate> candidates)
+    {
+        if (candidates is null)
+            return null;
+        CollectorCandidate? best = null;
+        foreach (CollectorCandidate c in candidates)
+        {
+            if (c is null)
+                continue;
+            if (best is null || c.Version > best.Version)
+                best = c;
+        }
+        return best;
+    }
+}
