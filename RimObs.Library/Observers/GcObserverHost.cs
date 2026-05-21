@@ -9,8 +9,8 @@ public static class GcObserverHost
     private static GcObserver? s_Instance;
     private static Thread? s_PollThread;
     private static volatile bool s_Stop;
-    private static readonly List<GcEventSample> s_RecentEvents = new(capacity: 64);
-    private const int MaxRecentEvents = 64;
+    private static readonly List<GcEventSample> s_RecentSamples = new(capacity: 64);
+    private const int MaxRecentSamples = 64;
     private const int PollIntervalMs = 1000;
 
     public static GcObserver Instance
@@ -35,13 +35,13 @@ public static class GcObserverHost
         }
     }
 
-    public static IReadOnlyList<GcEventSample> RecentEvents
+    public static IReadOnlyList<GcEventSample> RecentSamples
     {
         get
         {
             lock (s_Lock)
             {
-                return s_RecentEvents.ToArray();
+                return s_RecentSamples.ToArray();
             }
         }
     }
@@ -77,11 +77,11 @@ public static class GcObserverHost
         thread?.Join(2000);
     }
 
-    public static void ClearRecentEvents()
+    public static void ClearRecentSamples()
     {
         lock (s_Lock)
         {
-            s_RecentEvents.Clear();
+            s_RecentSamples.Clear();
         }
     }
 
@@ -93,9 +93,9 @@ public static class GcObserverHost
 
         lock (s_Lock)
         {
-            if (s_RecentEvents.Count >= MaxRecentEvents)
-                s_RecentEvents.RemoveAt(0);
-            s_RecentEvents.Add(sample);
+            if (s_RecentSamples.Count >= MaxRecentSamples)
+                s_RecentSamples.RemoveAt(0);
+            s_RecentSamples.Add(sample);
         }
         return true;
     }
