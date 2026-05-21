@@ -33,15 +33,10 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
     private readonly string[] _registrationNames = new string[64];
 
     private const int ObserverQueueCapacity = 256;
-    private readonly object _gcLock = new();
-    private readonly GcEventSample[] _gcQueue = new GcEventSample[ObserverQueueCapacity];
-    private int _gcCount;
-    private long _gcDropped;
-
-    private readonly object _allocLock = new();
-    private readonly AllocationSample[] _allocQueue = new AllocationSample[ObserverQueueCapacity];
-    private int _allocCount;
-    private long _allocDropped;
+    private readonly BoundedSampleQueue<GcEventSample> _gcQueue = new(ObserverQueueCapacity);
+    private readonly GcEventSample[] _gcSnapshot = new GcEventSample[ObserverQueueCapacity];
+    private readonly BoundedSampleQueue<AllocationSample> _allocQueue = new(ObserverQueueCapacity);
+    private readonly AllocationSample[] _allocSnapshot = new AllocationSample[ObserverQueueCapacity];
 
     private ulong _sequence;
     private bool _metaSent;
@@ -67,8 +62,8 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
     public long SamplesDropped => _ring.Dropped;
     public long SendErrors => Interlocked.Read(ref _sendErrors);
     public Exception? LastSendError => Volatile.Read(ref _lastSendError);
-    public long GcEventsDropped => Interlocked.Read(ref _gcDropped);
-    public long AllocationsDropped => Interlocked.Read(ref _allocDropped);
+    public long GcEventsDropped => _gcQueue.Dropped;
+    public long AllocationsDropped => _allocQueue.Dropped;
 
     public void Start()
     {
@@ -81,31 +76,9 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
         _ring.TryWrite(sectionId, startTimestamp, elapsedTicks);
     }
 
-    public void RecordGcEvent(in GcEventSample sample)
-    {
-        lock (_gcLock)
-        {
-            if (_gcCount >= ObserverQueueCapacity)
-            {
-                Interlocked.Increment(ref _gcDropped);
-                return;
-            }
-            _gcQueue[_gcCount++] = sample;
-        }
-    }
+    public void RecordGcEvent(in GcEventSample sample) => _gcQueue.TryEnqueue(sample);
 
-    public void RecordAllocation(in AllocationSample sample)
-    {
-        lock (_allocLock)
-        {
-            if (_allocCount >= ObserverQueueCapacity)
-            {
-                Interlocked.Increment(ref _allocDropped);
-                return;
-            }
-            _allocQueue[_allocCount++] = sample;
-        }
-    }
+    public void RecordAllocation(in AllocationSample sample) => _allocQueue.TryEnqueue(sample);
 
     private void SenderLoop()
     {
@@ -145,8 +118,7 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
             LibraryVersion = BuildInfo.Revision,
             GameVersion = string.Empty,
         };
-        byte[] payload = MessagePackSerializer.Serialize(meta);
-        SendBatch(BatchType.SessionMeta, payload);
+        SendBatch(BatchType.SessionMeta, meta);
     }
 
     private void FlushRegistrations()
@@ -159,8 +131,7 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
             SectionIds = Slice(_registrationIds, n),
             Names = Slice(_registrationNames, n),
         };
-        byte[] payload = MessagePackSerializer.Serialize(batch);
-        SendBatch(BatchType.SectionRegistrations, payload);
+        SendBatch(BatchType.SectionRegistrations, batch);
     }
 
     private void FlushSamples()
@@ -177,25 +148,16 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
                 StartTimestamps = Slice(_startTimestamps, n),
                 ElapsedTicks = Slice(_elapsedTicks, n),
             };
-            byte[] payload = MessagePackSerializer.Serialize(batch);
-            SendBatch(BatchType.Sections, payload);
+            SendBatch(BatchType.Sections, batch);
             Interlocked.Add(ref _sent, n);
         }
     }
 
     private void FlushGcEvents()
     {
-        GcEventSample[]? snapshot = null;
-        int n = 0;
-        lock (_gcLock)
-        {
-            if (_gcCount == 0)
-                return;
-            n = _gcCount;
-            snapshot = new GcEventSample[n];
-            Array.Copy(_gcQueue, 0, snapshot, 0, n);
-            _gcCount = 0;
-        }
+        int n = _gcQueue.DrainSnapshot(_gcSnapshot);
+        if (n == 0)
+            return;
 
         GcEventsBatch batch = new()
         {
@@ -209,7 +171,7 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
         };
         for (int i = 0; i < n; i++)
         {
-            GcEventSample s = snapshot[i];
+            GcEventSample s = _gcSnapshot[i];
             batch.Generations[i] = s.Generation;
             batch.PauseTypes[i] = (byte)s.PauseType;
             batch.HeapBefore[i] = s.HeapBefore;
@@ -218,23 +180,14 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
             batch.Ticks[i] = s.Tick;
             batch.AllocationRateBytesPerMinute[i] = s.AllocationRateBytesPerMinute;
         }
-        byte[] payload = MessagePackSerializer.Serialize(batch);
-        SendBatch(BatchType.GcEvents, payload);
+        SendBatch(BatchType.GcEvents, batch);
     }
 
     private void FlushAllocations()
     {
-        AllocationSample[]? snapshot = null;
-        int n = 0;
-        lock (_allocLock)
-        {
-            if (_allocCount == 0)
-                return;
-            n = _allocCount;
-            snapshot = new AllocationSample[n];
-            Array.Copy(_allocQueue, 0, snapshot, 0, n);
-            _allocCount = 0;
-        }
+        int n = _allocQueue.DrainSnapshot(_allocSnapshot);
+        if (n == 0)
+            return;
 
         AllocationsBatch batch = new()
         {
@@ -245,14 +198,19 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
         };
         for (int i = 0; i < n; i++)
         {
-            AllocationSample s = snapshot[i];
+            AllocationSample s = _allocSnapshot[i];
             batch.WindowStartTimestamps[i] = s.WindowStartTimestamp;
             batch.WindowDurationsMs[i] = s.WindowDurationMs;
             batch.BytesAllocated[i] = s.BytesAllocated;
             batch.SamplesCount[i] = s.SamplesCount;
         }
+        SendBatch(BatchType.Allocations, batch);
+    }
+
+    private void SendBatch<TBatch>(BatchType type, TBatch batch)
+    {
         byte[] payload = MessagePackSerializer.Serialize(batch);
-        SendBatch(BatchType.Allocations, payload);
+        SendBatch(type, payload);
     }
 
     private void SendBatch(BatchType type, byte[] payload)

@@ -2,21 +2,28 @@ using Cryptiklemur.RimObs.Api;
 using Cryptiklemur.RimObs.Config;
 using Cryptiklemur.RimObs.Observers;
 using Cryptiklemur.RimObs.Patching;
+using Cryptiklemur.RimObs.Profile;
 using Cryptiklemur.RimObs.Session;
+using Cryptiklemur.RimObs.Transport;
 using Verse;
 
 namespace Cryptiklemur.RimObs.Bootstrap;
 
 public sealed class RimObsMod : Mod
 {
+    private const string FrameworkOwnerId = "cryptiklemur.rimobs";
+    private static UdpTelemetrySink? s_Sink;
+
     public RimObsMod(ModContentPack content) : base(content)
     {
         try
         {
             SessionAnchor.Initialize(System.Guid.NewGuid().ToString("N"));
+            WireTelemetrySink(content);
             PopulateOwnerRegistry();
             ProfilingXmlLoader.LoadResult declared = LoadDeclaredProfiling();
             PatchInstaller.InstallAll();
+            Profiler.Enabled = true;
             GcObserverHost.Start();
             // AllocationSamplerHost is opt-in and stays inert at bootstrap. Mod authors
             // call AllocationSamplerHost.Start() themselves when they want it (PRD §35.18,
@@ -28,6 +35,19 @@ public sealed class RimObsMod : Mod
         {
             Log.Error($"[RimObs] Bootstrap failed: {ex}");
         }
+    }
+
+    private static void WireTelemetrySink(ModContentPack content)
+    {
+        if (s_Sink != null)
+            return;
+        string ownerId = string.IsNullOrEmpty(content?.PackageId) ? FrameworkOwnerId : content!.PackageId;
+        UdpTelemetrySink sink = new(ownerId);
+        sink.Start();
+        Profiler.SetSink(sink);
+        GcObserverHost.SetSink(sink);
+        AllocationSamplerHost.SetSink(sink);
+        s_Sink = sink;
     }
 
     private static void LogBootstrapSummary(ProfilingXmlLoader.LoadResult declared)
