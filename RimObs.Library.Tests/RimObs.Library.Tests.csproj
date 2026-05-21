@@ -23,7 +23,6 @@
         <Compile Include="..\RimObs.Library\Metrics\**\*.cs" LinkBase="LinkedSource\Metrics"/>
         <Compile Include="..\RimObs.Library\Observers\**\*.cs" LinkBase="LinkedSource\Observers"/>
         <Compile Include="..\RimObs.Library\Config\**\*.cs" LinkBase="LinkedSource\Config"/>
-        <Compile Include="..\RimObs.Library\BuildInfo.cs" LinkBase="LinkedSource"/>
     </ItemGroup>
 
     <ItemGroup>

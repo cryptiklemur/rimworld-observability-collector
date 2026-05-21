@@ -9,31 +9,17 @@ export default {
             {
                 replacements: [
                     {
-                        files: ['RimObs.Library/BuildInfo.cs'],
+                        files: ['RimObs.Wire/BuildInfo.cs'],
                         from: 'Revision = ".*"',
                         to: 'Revision = "${nextRelease.version}"',
-                        results: [{ file: 'RimObs.Library/BuildInfo.cs', hasChanged: true, numMatches: 1, numReplacements: 1 }],
+                        results: [{ file: 'RimObs.Wire/BuildInfo.cs', hasChanged: true, numMatches: 1, numReplacements: 1 }],
                         countMatches: true,
                     },
                     {
-                        files: ['RimObs.Library/BuildInfo.cs'],
+                        files: ['RimObs.Wire/BuildInfo.cs'],
                         from: 'BuildTime = ".*"',
                         to: () => `BuildTime = "${new Date().toISOString()}"`,
-                        results: [{ file: 'RimObs.Library/BuildInfo.cs', hasChanged: true, numMatches: 1, numReplacements: 1 }],
-                        countMatches: true,
-                    },
-                    {
-                        files: ['RimObs.Collector/BuildInfo.cs'],
-                        from: 'Revision = ".*"',
-                        to: 'Revision = "${nextRelease.version}"',
-                        results: [{ file: 'RimObs.Collector/BuildInfo.cs', hasChanged: true, numMatches: 1, numReplacements: 1 }],
-                        countMatches: true,
-                    },
-                    {
-                        files: ['RimObs.Collector/BuildInfo.cs'],
-                        from: 'BuildTime = ".*"',
-                        to: () => `BuildTime = "${new Date().toISOString()}"`,
-                        results: [{ file: 'RimObs.Collector/BuildInfo.cs', hasChanged: true, numMatches: 1, numReplacements: 1 }],
+                        results: [{ file: 'RimObs.Wire/BuildInfo.cs', hasChanged: true, numMatches: 1, numReplacements: 1 }],
                         countMatches: true,
                     },
                 ],
@@ -43,7 +29,7 @@ export default {
         [
             '@semantic-release/git',
             {
-                assets: ['RimObs.Library/BuildInfo.cs', 'RimObs.Collector/BuildInfo.cs'],
+                assets: ['RimObs.Wire/BuildInfo.cs'],
                 message: 'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',
             },
         ],
