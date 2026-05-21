@@ -8,6 +8,7 @@ public sealed class SessionAggregator
     private const int GcEventRingCapacity = 1024;
 
     private readonly ConcurrentDictionary<int, SectionStats> _sections = new();
+    private readonly ConcurrentDictionary<int, MetricStats> _metrics = new();
     private readonly BoundedRecordRing<GcEventRecord> _gcEvents = new(GcEventRingCapacity);
     private SessionMeta? _meta;
     private long _totalSamples;
@@ -15,6 +16,7 @@ public sealed class SessionAggregator
     private long _totalBytes;
     private long _totalGcEvents;
     private long _totalAllocations;
+    private long _totalMetricObservations;
     private DateTime _lastBatchUtc;
 
     public SessionMeta? Meta => _meta;
@@ -25,8 +27,11 @@ public sealed class SessionAggregator
     public int SectionCount => _sections.Count;
     public long TotalGcEvents => Interlocked.Read(ref _totalGcEvents);
     public long TotalAllocations => Interlocked.Read(ref _totalAllocations);
+    public long TotalMetricObservations => Interlocked.Read(ref _totalMetricObservations);
+    public int MetricCount => _metrics.Count;
 
     public IReadOnlyCollection<SectionStats> Sections => _sections.Values.ToArray();
+    public IReadOnlyCollection<MetricStats> Metrics => _metrics.Values.ToArray();
 
     public GcEventRecord[] SnapshotGcEvents(int limit) => _gcEvents.SnapshotNewestFirst(limit);
 
@@ -52,6 +57,43 @@ public sealed class SessionAggregator
             SectionStats stats = _sections.GetOrAdd(id, key => new SectionStats { SectionId = key });
             stats.Name = name;
         }
+    }
+
+    public void OnMetricRegistrations(MetricRegistrationsBatch batch)
+    {
+        int n = Math.Min(
+            batch.MetricIds.Length,
+            Math.Min(batch.Names.Length, Math.Min(batch.Kinds.Length, batch.Units.Length))
+        );
+        for (int i = 0; i < n; i++)
+        {
+            int id = batch.MetricIds[i];
+            MetricStats stats = _metrics.GetOrAdd(id, key => new MetricStats(key));
+            stats.Name = batch.Names[i];
+            stats.Kind = batch.Kinds[i];
+            stats.Unit = batch.Units[i];
+        }
+    }
+
+    public void OnMetrics(MetricsBatch batch)
+    {
+        int n = Math.Min(
+            batch.MetricIds.Length,
+            Math.Min(batch.LabelCanonicals.Length, Math.Min(batch.Kinds.Length, Math.Min(batch.Values.Length, batch.SampleCounts.Length)))
+        );
+        for (int i = 0; i < n; i++)
+        {
+            int id = batch.MetricIds[i];
+            string canonical = batch.LabelCanonicals[i];
+            long value = batch.Values[i];
+            long samples = batch.SampleCounts[i];
+            MetricStats stats = _metrics.GetOrAdd(id, key => new MetricStats(key));
+            stats.Kind = batch.Kinds[i];
+            MetricLabelStats labelStats = stats.Labels.GetOrAdd(canonical, key => new MetricLabelStats(key));
+            Interlocked.Exchange(ref labelStats.LatestValue, value);
+            Interlocked.Add(ref labelStats.TotalSampleCount, samples);
+        }
+        Interlocked.Add(ref _totalMetricObservations, n);
     }
 
     public void OnGcEvents(GcEventsBatch batch)

@@ -388,6 +388,92 @@ public sealed class EndToEndSmokeTests
         }
     }
 
+
+    [Fact]
+    public async Task Metrics_endpoint_returns_registered_metrics_with_labels()
+    {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try
+        {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () =>
+            {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta
+            {
+                SessionId = "metrics-session",
+                StartedUtcTicks = DateTime.UtcNow.Ticks,
+                StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                LibraryVersion = "0.0.0-smoke",
+                GameVersion = "1.6",
+            }));
+
+            SendBatch(port, BatchType.MetricRegistrations, MessagePackSerializer.Serialize(new MetricRegistrationsBatch
+            {
+                MetricIds = [101, 102],
+                Names = ["my.mod.frames_drawn", "my.mod.heap_used"],
+                Kinds = [0, 1],
+                Units = ["count", "bytes"],
+            }));
+
+            SendBatch(port, BatchType.Metrics, MessagePackSerializer.Serialize(new MetricsBatch
+            {
+                MetricIds = [101, 101, 102],
+                LabelCanonicals = ["scene=map", "scene=ui", ""],
+                Kinds = [0, 0, 1],
+                Values = [42, 17, 1048576],
+                SampleCounts = [3, 1, 1],
+            }));
+
+            await WaitFor(async () =>
+            {
+                string body = await http.GetStringAsync("/api/v1/sessions/current/metrics");
+                using JsonDocument doc = JsonDocument.Parse(body);
+                return doc.RootElement.GetProperty("metrics").GetArrayLength() >= 2;
+            }, TimeSpan.FromSeconds(3));
+
+            string metricsBody = await http.GetStringAsync("/api/v1/sessions/current/metrics");
+            _out.WriteLine($"metrics: {metricsBody}");
+            using JsonDocument doc = JsonDocument.Parse(metricsBody);
+            JsonElement metrics = doc.RootElement.GetProperty("metrics");
+            metrics.GetArrayLength().Should().Be(2);
+            doc.RootElement.GetProperty("total_observations").GetInt64().Should().Be(3);
+
+            JsonElement frames = Enumerable.Range(0, metrics.GetArrayLength())
+                .Select(i => metrics[i])
+                .Single(m => m.GetProperty("id").GetInt32() == 101);
+            frames.GetProperty("name").GetString().Should().Be("my.mod.frames_drawn");
+            frames.GetProperty("unit").GetString().Should().Be("count");
+            JsonElement framesLabels = frames.GetProperty("labels");
+            framesLabels.GetArrayLength().Should().Be(2);
+            JsonElement mapLabel = Enumerable.Range(0, framesLabels.GetArrayLength())
+                .Select(i => framesLabels[i])
+                .Single(l => l.GetProperty("canonical").GetString() == "scene=map");
+            mapLabel.GetProperty("latest_value").GetInt64().Should().Be(42);
+            mapLabel.GetProperty("total_sample_count").GetInt64().Should().Be(3);
+
+            JsonElement heap = Enumerable.Range(0, metrics.GetArrayLength())
+                .Select(i => metrics[i])
+                .Single(m => m.GetProperty("id").GetInt32() == 102);
+            heap.GetProperty("unit").GetString().Should().Be("bytes");
+            JsonElement heapLabels = heap.GetProperty("labels");
+            heapLabels.GetArrayLength().Should().Be(1);
+            heapLabels[0].GetProperty("latest_value").GetInt64().Should().Be(1048576);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
     private static void SendBatch(int port, BatchType type, byte[] payload)
     {
         TelemetryBatch envelope = new()
