@@ -10,8 +10,17 @@ public static class GcObserverHost
     private static Thread? s_PollThread;
     private static volatile bool s_Stop;
     private static readonly List<GcEventSample> s_RecentSamples = new(capacity: 64);
+    private static IGcEventSink? s_Sink;
     private const int MaxRecentSamples = 64;
     private const int PollIntervalMs = 1000;
+
+    public static void SetSink(IGcEventSink? sink)
+    {
+        lock (s_Lock)
+        {
+            s_Sink = sink;
+        }
+    }
 
     public static GcObserver Instance
     {
@@ -91,12 +100,15 @@ public static class GcObserverHost
         if (!observer.TryPoll(currentTick, out GcEventSample sample))
             return false;
 
+        IGcEventSink? sink;
         lock (s_Lock)
         {
             if (s_RecentSamples.Count >= MaxRecentSamples)
                 s_RecentSamples.RemoveAt(0);
             s_RecentSamples.Add(sample);
+            sink = s_Sink;
         }
+        sink?.RecordGcEvent(sample);
         return true;
     }
 

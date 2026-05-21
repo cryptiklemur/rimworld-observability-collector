@@ -77,6 +77,8 @@ public static class Program
                     total_bytes = agg.TotalBytes,
                     last_batch_utc = agg.LastBatchUtc == default ? (DateTime?)null : agg.LastBatchUtc,
                     section_count = agg.SectionCount,
+                    total_gc_events = agg.TotalGcEvents,
+                    total_allocations = agg.TotalAllocations,
                 },
             });
         });

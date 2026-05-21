@@ -101,6 +101,66 @@ public sealed class EndToEndSmokeTests
         }
     }
 
+
+    [Fact]
+    public async Task GcEvents_and_Allocations_batches_increment_status_counters()
+    {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try
+        {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () =>
+            {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            SendBatch(port, BatchType.GcEvents, MessagePackSerializer.Serialize(new GcEventsBatch
+            {
+                Generations = [0, 1, 2],
+                PauseTypes = [0, 0, 1],
+                HeapBefore = [100, 200, 300],
+                HeapAfter = [80, 180, 280],
+                DurationMicros = [10, 20, 30],
+                Ticks = [1, 2, 3],
+                AllocationRateBytesPerMinute = [1000, 2000, 3000],
+            }));
+
+            SendBatch(port, BatchType.Allocations, MessagePackSerializer.Serialize(new AllocationsBatch
+            {
+                WindowStartTimestamps = [10, 20],
+                WindowDurationsMs = [5, 5],
+                BytesAllocated = [4096, 8192],
+                SamplesCount = [1, 1],
+            }));
+
+            await WaitFor(async () =>
+            {
+                string body = await http.GetStringAsync("/api/v1/status");
+                _out.WriteLine($"status: {body}");
+                using JsonDocument doc = JsonDocument.Parse(body);
+                JsonElement recv = doc.RootElement.GetProperty("receive");
+                long gc = recv.GetProperty("total_gc_events").GetInt64();
+                long alloc = recv.GetProperty("total_allocations").GetInt64();
+                return gc >= 3 && alloc >= 2;
+            }, TimeSpan.FromSeconds(3));
+
+            string statusBody = await http.GetStringAsync("/api/v1/status");
+            using JsonDocument status = JsonDocument.Parse(statusBody);
+            JsonElement receive = status.RootElement.GetProperty("receive");
+            receive.GetProperty("total_gc_events").GetInt64().Should().Be(3);
+            receive.GetProperty("total_allocations").GetInt64().Should().Be(2);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
     private static void SendBatch(int port, BatchType type, byte[] payload)
     {
         TelemetryBatch envelope = new()

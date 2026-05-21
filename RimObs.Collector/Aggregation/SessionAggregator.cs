@@ -10,6 +10,8 @@ public sealed class SessionAggregator
     private long _totalSamples;
     private long _totalBatches;
     private long _totalBytes;
+    private long _totalGcEvents;
+    private long _totalAllocations;
     private DateTime _lastBatchUtc;
 
     public SessionMeta? Meta => _meta;
@@ -18,6 +20,8 @@ public sealed class SessionAggregator
     public long TotalBytes => Interlocked.Read(ref _totalBytes);
     public DateTime LastBatchUtc => _lastBatchUtc;
     public int SectionCount => _sections.Count;
+    public long TotalGcEvents => Interlocked.Read(ref _totalGcEvents);
+    public long TotalAllocations => Interlocked.Read(ref _totalAllocations);
 
     public IReadOnlyCollection<SectionStats> Sections => _sections.Values.ToArray();
 
@@ -43,6 +47,18 @@ public sealed class SessionAggregator
             SectionStats stats = _sections.GetOrAdd(id, key => new SectionStats { SectionId = key });
             stats.Name = name;
         }
+    }
+
+    public void OnGcEvents(GcEventsBatch batch)
+    {
+        int n = batch.Generations?.Length ?? 0;
+        Interlocked.Add(ref _totalGcEvents, n);
+    }
+
+    public void OnAllocations(AllocationsBatch batch)
+    {
+        int n = batch.WindowStartTimestamps?.Length ?? 0;
+        Interlocked.Add(ref _totalAllocations, n);
     }
 
     public void OnSectionBatch(SectionBatch batch)

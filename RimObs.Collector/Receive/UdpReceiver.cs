@@ -95,6 +95,12 @@ public sealed class UdpReceiver : BackgroundService
                 case BatchType.Sections:
                     _aggregator.OnSectionBatch(MessagePackSerializer.Deserialize<SectionBatch>(envelope.Payload));
                     break;
+                case BatchType.GcEvents:
+                    _aggregator.OnGcEvents(MessagePackSerializer.Deserialize<GcEventsBatch>(envelope.Payload));
+                    break;
+                case BatchType.Allocations:
+                    _aggregator.OnAllocations(MessagePackSerializer.Deserialize<AllocationsBatch>(envelope.Payload));
+                    break;
                 case BatchType.Ping:
                     // Ping handling deferred to Phase 2 (collector discovery handshake).
                     break;
