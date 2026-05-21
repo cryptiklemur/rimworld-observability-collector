@@ -55,15 +55,20 @@ public static class Program
         builder.Services.AddHostedService(sp => sp.GetRequiredService<Receive.UdpReceiver>());
 
         WebApplication app = builder.Build();
+        MapApiEndpoints(app);
+        return app;
+    }
 
-        app.MapGet("/api/v1/status", (Aggregation.SessionAggregator agg) =>
+    public static void MapApiEndpoints(WebApplication app)
+    {
+        app.MapGet("/api/v1/status", (Aggregation.SessionAggregator aggregator) =>
         {
-            Wire.SessionMeta? meta = agg.Meta;
+            Wire.SessionMeta? meta = aggregator.Meta;
             return Results.Ok(new
             {
                 schema_version = Wire.SchemaVersion.Current,
                 status = "running",
-                version = BuildInfo.Revision,
+                version = Wire.BuildInfo.Revision,
                 session = meta is null ? null : new
                 {
                     id = meta.SessionId,
@@ -72,25 +77,25 @@ public static class Program
                 },
                 receive = new
                 {
-                    total_batches = agg.TotalBatches,
-                    total_samples = agg.TotalSamples,
-                    total_bytes = agg.TotalBytes,
-                    last_batch_utc = agg.LastBatchUtc == default ? (DateTime?)null : agg.LastBatchUtc,
-                    section_count = agg.SectionCount,
-                    total_gc_events = agg.TotalGcEvents,
-                    total_allocations = agg.TotalAllocations,
+                    total_batches = aggregator.TotalBatches,
+                    total_samples = aggregator.TotalSamples,
+                    total_bytes = aggregator.TotalBytes,
+                    last_batch_utc = aggregator.LastBatchUtc == default ? (DateTime?)null : aggregator.LastBatchUtc,
+                    section_count = aggregator.SectionCount,
+                    total_gc_events = aggregator.TotalGcEvents,
+                    total_allocations = aggregator.TotalAllocations,
                 },
             });
         });
 
-        app.MapGet("/api/v1/sessions/current/sections", (Aggregation.SessionAggregator agg) =>
+        app.MapGet("/api/v1/sessions/current/sections", (Aggregation.SessionAggregator aggregator) =>
         {
-            long freq = agg.Meta?.StopwatchFrequency ?? Stopwatch.Frequency;
+            long freq = aggregator.Meta?.StopwatchFrequency ?? Stopwatch.Frequency;
             double nsPerTick = 1_000_000_000.0 / freq;
             return Results.Ok(new
             {
                 schema_version = Wire.SchemaVersion.Current,
-                sections = agg.Sections.Select(s => new
+                sections = aggregator.Sections.Select(s => new
                 {
                     id = s.SectionId,
                     name = s.Name,
@@ -105,12 +110,10 @@ public static class Program
         app.MapGet("/api/v1/version", () => Results.Ok(new
         {
             schema_version = Wire.SchemaVersion.Current,
-            version = BuildInfo.Revision,
-            built_at = BuildInfo.BuildTime,
+            version = Wire.BuildInfo.Revision,
+            built_at = Wire.BuildInfo.BuildTime,
         }));
 
         app.MapGet("/", () => Results.Text("RimObs Collector is running. Dashboard SPA will be served here.", "text/plain"));
-
-        return app;
     }
 }

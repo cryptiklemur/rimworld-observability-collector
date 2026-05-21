@@ -10,7 +10,6 @@ public static class PatchInstaller
     public const string HarmonyId = "cryptiklemur.rimobs.library";
 
     private static Harmony? s_Harmony;
-    private static bool s_Installed;
 
     public static int InstalledCount { get; private set; }
     public static int FailedCount { get; private set; }
@@ -18,10 +17,6 @@ public static class PatchInstaller
 
     public static void InstallAll()
     {
-        if (s_Installed)
-            return;
-        s_Installed = true;
-
         SectionCatalog.RegisterCorePack();
         SectionCatalog.ResolveAll();
 
@@ -34,6 +29,9 @@ public static class PatchInstaller
 
         foreach (CatalogEntry entry in SectionCatalog.Entries)
         {
+            if (entry.Installed)
+                continue;
+
             if (entry.Resolved == null)
             {
                 UnresolvedCount++;
@@ -99,7 +97,6 @@ public static class PatchInstaller
             }
         }
         s_Harmony = null;
-        s_Installed = false;
         InstalledCount = 0;
         FailedCount = 0;
         UnresolvedCount = 0;

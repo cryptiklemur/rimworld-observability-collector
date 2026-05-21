@@ -31,17 +31,6 @@ public static class Obs
             return new MeasureScope(handle.Id, token);
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static long Start(SectionHandle handle)
-        {
-            return Profiler.StartById(handle.Id);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static void Stop(SectionHandle handle, long token)
-        {
-            Profiler.StopById(handle.Id, token);
-        }
     }
 
     public static class Metrics

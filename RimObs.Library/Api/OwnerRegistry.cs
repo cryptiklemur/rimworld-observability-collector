@@ -56,7 +56,7 @@ public static class OwnerRegistry
                 {
                     s_AssemblyToPackageId[assembly] = resolved!;
                 }
-                packageId = resolved;
+                packageId = resolved!;
                 return true;
             }
         }

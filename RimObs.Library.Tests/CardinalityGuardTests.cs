@@ -131,6 +131,26 @@ public sealed class CardinalityGuardTests : IDisposable
     }
 
     [Fact]
+    public void Canonicalize_params_throws_on_empty_label_set()
+    {
+        Action act = () => CardinalityGuard.Canonicalize(System.Array.Empty<(string, string)>());
+
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("At least one label is required.*")
+            .And.ParamName.Should().Be("labels");
+    }
+
+    [Fact]
+    public void Canonicalize_params_throws_on_null_label_set()
+    {
+        Action act = () => CardinalityGuard.Canonicalize(null!);
+
+        act.Should().Throw<ArgumentException>()
+            .WithMessage("At least one label is required.*")
+            .And.ParamName.Should().Be("labels");
+    }
+
+    [Fact]
     public void Custom_cardinality_limit_on_registration_is_honored()
     {
         CounterHandle handle = Obs.Metrics.RegisterCounter("strict", cardinalityLimit: 1);

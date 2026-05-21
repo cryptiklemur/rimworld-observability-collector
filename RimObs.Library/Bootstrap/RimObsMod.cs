@@ -21,48 +21,52 @@ public sealed class RimObsMod : Mod
             // AllocationSamplerHost is opt-in (PRD §35.18, §11.2). Mod authors or future
             // config polling (M1.8) start it via AllocationSamplerHost.Start(). Default off
             // because the GC.GetTotalMemory delta heuristic is a soft cost on every poll.
-
-            int coreCount = 0;
-            int declaredCount = 0;
-            int coreInstalled = 0;
-            int declaredInstalled = 0;
-            foreach (CatalogEntry entry in SectionCatalog.Entries)
-            {
-                if (entry.Declared)
-                {
-                    declaredCount++;
-                    if (entry.Installed)
-                        declaredInstalled++;
-                }
-                else
-                {
-                    coreCount++;
-                    if (entry.Installed)
-                        coreInstalled++;
-                }
-            }
-
-            Log.Message(
-                $"[RimObs] Loaded. Core: {coreInstalled}/{coreCount} sections installed. "
-                    + $"Declared: {declaredInstalled}/{declaredCount} sections from {declared.FilesLoaded}/{declared.FilesScanned} profiling.xml files. "
-                    + $"(unresolved={PatchInstaller.UnresolvedCount}, failed={PatchInstaller.FailedCount}, conflicts={HarmonyConflictRecorder.Count}). "
-                    + $"Owner registry: {OwnerRegistry.Count} mods. GcObserver: maxGen={GcObserverHost.Instance.MaxGeneration}."
-            );
-
-            foreach (string warning in declared.Warnings)
-                Log.Warning($"[RimObs] profiling.xml: {warning}");
-
-            foreach (CatalogEntry entry in SectionCatalog.Entries)
-            {
-                if (!entry.Installed && entry.ResolutionError != null)
-                    Log.Warning($"[RimObs] Section '{entry.Name}' unresolved: {entry.ResolutionError.Message}");
-                else if (entry.InstallError != null)
-                    Log.Error($"[RimObs] Section '{entry.Name}' install failed: {entry.InstallError.Message}");
-            }
+            LogBootstrapSummary(declared);
         }
         catch (System.Exception ex)
         {
             Log.Error($"[RimObs] Bootstrap failed: {ex}");
+        }
+    }
+
+    private static void LogBootstrapSummary(ProfilingXmlLoader.LoadResult declared)
+    {
+        int coreCount = 0;
+        int declaredCount = 0;
+        int coreInstalled = 0;
+        int declaredInstalled = 0;
+        foreach (CatalogEntry entry in SectionCatalog.Entries)
+        {
+            if (entry.Declared)
+            {
+                declaredCount++;
+                if (entry.Installed)
+                    declaredInstalled++;
+            }
+            else
+            {
+                coreCount++;
+                if (entry.Installed)
+                    coreInstalled++;
+            }
+        }
+
+        Log.Message(
+            $"[RimObs] Loaded. Core: {coreInstalled}/{coreCount} sections installed. "
+                + $"Declared: {declaredInstalled}/{declaredCount} sections from {declared.FilesLoaded}/{declared.FilesScanned} profiling.xml files. "
+                + $"(unresolved={PatchInstaller.UnresolvedCount}, failed={PatchInstaller.FailedCount}, conflicts={HarmonyConflictRecorder.Count}). "
+                + $"Owner registry: {OwnerRegistry.Count} mods. GcObserver: maxGen={GcObserverHost.Instance.MaxGeneration}."
+        );
+
+        foreach (string warning in declared.Warnings)
+            Log.Warning($"[RimObs] profiling.xml: {warning}");
+
+        foreach (CatalogEntry entry in SectionCatalog.Entries)
+        {
+            if (!entry.Installed && entry.ResolutionError != null)
+                Log.Warning($"[RimObs] Section '{entry.Name}' unresolved: {entry.ResolutionError.Message}");
+            else if (entry.InstallError != null)
+                Log.Error($"[RimObs] Section '{entry.Name}' install failed: {entry.InstallError.Message}");
         }
     }
 

@@ -51,6 +51,12 @@ public static class Diagnostics
         }
     }
 
+    /// <summary>
+    /// Resets diagnostic incident counters only: the externally-reported samples-dropped counter
+    /// and every metric descriptor's cardinality incident counter. Metric values themselves
+    /// (counter sums, gauge readings, histogram buckets) are NOT touched.
+    /// Intended for test isolation, not for production runtime use.
+    /// </summary>
     public static void Reset()
     {
         Interlocked.Exchange(ref s_SamplesDroppedExternal, 0);

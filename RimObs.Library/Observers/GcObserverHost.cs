@@ -7,8 +7,8 @@ public static class GcObserverHost
 {
     private static readonly object s_Lock = new();
     private static GcObserver? s_Instance;
-    private static Thread? s_PollThread;
-    private static volatile bool s_Stop;
+    private static PollerThread? s_Poller;
+    private static long s_Tick;
     private static readonly List<GcEventSample> s_RecentSamples = new(capacity: 64);
     private static IGcEventSink? s_Sink;
     private const int MaxRecentSamples = 64;
@@ -33,16 +33,7 @@ public static class GcObserverHost
         }
     }
 
-    public static bool IsRunning
-    {
-        get
-        {
-            lock (s_Lock)
-            {
-                return s_PollThread != null;
-            }
-        }
-    }
+    public static bool IsRunning => s_Poller?.IsRunning ?? false;
 
     public static IReadOnlyList<GcEventSample> RecentSamples
     {
@@ -59,31 +50,24 @@ public static class GcObserverHost
     {
         lock (s_Lock)
         {
-            if (s_PollThread != null)
+            if (s_Poller?.IsRunning == true)
                 return;
-
             s_Instance ??= new GcObserver();
-            s_Stop = false;
-            s_PollThread = new Thread(PollLoop)
-            {
-                Name = "RimObs.GcObserver",
-                IsBackground = true,
-                Priority = ThreadPriority.BelowNormal,
-            };
-            s_PollThread.Start();
+            s_Tick = 0;
+            s_Poller = new PollerThread("RimObs.GcObserver", PollTick, PollIntervalMs);
+            s_Poller.Start();
         }
     }
 
     public static void Stop()
     {
-        Thread? thread;
+        PollerThread? poller;
         lock (s_Lock)
         {
-            thread = s_PollThread;
-            s_PollThread = null;
-            s_Stop = true;
+            poller = s_Poller;
+            s_Poller = null;
         }
-        thread?.Join(2000);
+        poller?.Stop();
     }
 
     public static void ClearRecentSamples()
@@ -112,13 +96,5 @@ public static class GcObserverHost
         return true;
     }
 
-    private static void PollLoop()
-    {
-        long tick = 0;
-        while (!s_Stop)
-        {
-            PollOnce(tick++);
-            Thread.Sleep(PollIntervalMs);
-        }
-    }
+    private static void PollTick() => PollOnce(Interlocked.Increment(ref s_Tick));
 }

@@ -51,13 +51,13 @@ public sealed class SessionAggregator
 
     public void OnGcEvents(GcEventsBatch batch)
     {
-        int n = batch.Generations?.Length ?? 0;
+        int n = batch.Generations.Length;
         Interlocked.Add(ref _totalGcEvents, n);
     }
 
     public void OnAllocations(AllocationsBatch batch)
     {
-        int n = batch.WindowStartTimestamps?.Length ?? 0;
+        int n = batch.WindowStartTimestamps.Length;
         Interlocked.Add(ref _totalAllocations, n);
     }
 

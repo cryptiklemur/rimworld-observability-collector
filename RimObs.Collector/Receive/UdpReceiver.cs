@@ -61,7 +61,7 @@ public sealed class UdpReceiver : BackgroundService
         }
     }
 
-    private void Dispatch(byte[] bytes)
+    internal void Dispatch(byte[] bytes)
     {
         TelemetryBatch envelope;
         try
