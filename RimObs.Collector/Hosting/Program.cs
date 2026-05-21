@@ -1,7 +1,5 @@
-using System.Diagnostics;
-using System.Linq;
+using Cryptiklemur.RimObs.Collector.Api;
 using Microsoft.AspNetCore.Builder;
-using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
 using Serilog;
@@ -61,59 +59,8 @@ public static class Program
 
     public static void MapApiEndpoints(WebApplication app)
     {
-        app.MapGet("/api/v1/status", (Aggregation.SessionAggregator aggregator) =>
-        {
-            Wire.SessionMeta? meta = aggregator.Meta;
-            return Results.Ok(new
-            {
-                schema_version = Wire.SchemaVersion.Current,
-                status = "running",
-                version = Wire.BuildInfo.Revision,
-                session = meta is null ? null : new
-                {
-                    id = meta.SessionId,
-                    started_utc = new DateTime(meta.StartedUtcTicks, DateTimeKind.Utc),
-                    library_version = meta.LibraryVersion,
-                },
-                receive = new
-                {
-                    total_batches = aggregator.TotalBatches,
-                    total_samples = aggregator.TotalSamples,
-                    total_bytes = aggregator.TotalBytes,
-                    last_batch_utc = aggregator.LastBatchUtc == default ? (DateTime?)null : aggregator.LastBatchUtc,
-                    section_count = aggregator.SectionCount,
-                    total_gc_events = aggregator.TotalGcEvents,
-                    total_allocations = aggregator.TotalAllocations,
-                },
-            });
-        });
-
-        app.MapGet("/api/v1/sessions/current/sections", (Aggregation.SessionAggregator aggregator) =>
-        {
-            long freq = aggregator.Meta?.StopwatchFrequency ?? Stopwatch.Frequency;
-            double nsPerTick = 1_000_000_000.0 / freq;
-            return Results.Ok(new
-            {
-                schema_version = Wire.SchemaVersion.Current,
-                sections = aggregator.Sections.Select(s => new
-                {
-                    id = s.SectionId,
-                    name = s.Name,
-                    sample_count = s.SampleCount,
-                    total_ns = (long)(s.TotalElapsedTicks * nsPerTick),
-                    min_ns = s.MinElapsedTicks == long.MaxValue ? 0 : (long)(s.MinElapsedTicks * nsPerTick),
-                    max_ns = (long)(s.MaxElapsedTicks * nsPerTick),
-                }).ToArray(),
-            });
-        });
-
-        app.MapGet("/api/v1/version", () => Results.Ok(new
-        {
-            schema_version = Wire.SchemaVersion.Current,
-            version = Wire.BuildInfo.Revision,
-            built_at = Wire.BuildInfo.BuildTime,
-        }));
-
-        app.MapGet("/", () => Results.Text("RimObs Collector is running. Dashboard SPA will be served here.", "text/plain"));
+        app.MapStatusEndpoints();
+        app.MapSessionsEndpoints();
+        app.MapVersionEndpoints();
     }
 }
