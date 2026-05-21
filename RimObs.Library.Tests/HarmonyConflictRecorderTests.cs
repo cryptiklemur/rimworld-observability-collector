@@ -47,7 +47,7 @@ public sealed class HarmonyConflictRecorderTests : IDisposable
         HarmonyConflictRecorder.Conflicts.Should().Contain(c =>
             c.SectionName == "test.conflict.tracked" &&
             c.OtherOwner == _foreignHarmony.Id &&
-            c.PatchType == "Prefix");
+            c.PatchType == HarmonyPatchType.Prefix);
     }
 
     [Fact]

@@ -51,15 +51,15 @@ internal static class HarmonyConflictRecorder
                 if (patches == null)
                     continue;
 
-                RecordList(entry, patches.Prefixes, "Prefix", harmony.Id);
-                RecordList(entry, patches.Postfixes, "Postfix", harmony.Id);
-                RecordList(entry, patches.Transpilers, "Transpiler", harmony.Id);
-                RecordList(entry, patches.Finalizers, "Finalizer", harmony.Id);
+                RecordList(entry, patches.Prefixes, HarmonyPatchType.Prefix, harmony.Id);
+                RecordList(entry, patches.Postfixes, HarmonyPatchType.Postfix, harmony.Id);
+                RecordList(entry, patches.Transpilers, HarmonyPatchType.Transpiler, harmony.Id);
+                RecordList(entry, patches.Finalizers, HarmonyPatchType.Finalizer, harmony.Id);
             }
         }
     }
 
-    private static void RecordList(CatalogEntry entry, IReadOnlyCollection<Patch> patches, string kind, string ownId)
+    private static void RecordList(CatalogEntry entry, IReadOnlyCollection<Patch> patches, HarmonyPatchType kind, string ownId)
     {
         if (patches == null)
             return;

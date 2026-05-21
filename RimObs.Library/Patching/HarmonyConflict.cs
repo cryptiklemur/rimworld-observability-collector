@@ -1,3 +1,5 @@
+using HarmonyLib;
+
 namespace Cryptiklemur.RimObs.Patching;
 
 internal sealed class HarmonyConflict
@@ -6,7 +8,7 @@ internal sealed class HarmonyConflict
         string sectionName,
         string targetMethod,
         string otherOwner,
-        string patchType,
+        HarmonyPatchType patchType,
         int priority,
         string patchMethod
     )
@@ -22,7 +24,7 @@ internal sealed class HarmonyConflict
     public string SectionName { get; }
     public string TargetMethod { get; }
     public string OtherOwner { get; }
-    public string PatchType { get; }
+    public HarmonyPatchType PatchType { get; }
     public int Priority { get; }
     public string PatchMethod { get; }
 }
