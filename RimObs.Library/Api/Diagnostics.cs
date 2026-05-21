@@ -32,7 +32,7 @@ public static class Diagnostics
         }
     }
 
-    public static IEnumerable<MetricCardinalityIncident> MetricsWithIncidents()
+    public static IEnumerable<MetricCardinalityIncident> GetMetricsWithIncidents()
     {
         int count = MetricRegistry.Count;
         for (int i = 0; i < count; i++)

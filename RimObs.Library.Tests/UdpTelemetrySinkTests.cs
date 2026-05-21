@@ -121,6 +121,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable
 
         using UdpTelemetrySink sink = new(ownerId: "test.owner", port: port);
         sink.Start();
+        bool priorEnabled = Profiler.Enabled;
         Profiler.SetSink(sink);
         Profiler.Enabled = true;
         try
@@ -156,7 +157,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable
         finally
         {
             Profiler.SetSink(null);
-            Profiler.Enabled = false;
+            Profiler.Enabled = priorEnabled;
         }
     }
 }

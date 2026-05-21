@@ -94,16 +94,16 @@ public sealed class DiagnosticsTests : IDisposable
     }
 
     [Fact]
-    public void MetricsWithIncidents_returns_empty_when_no_incidents()
+    public void GetMetricsWithIncidents_returns_empty_when_no_incidents()
     {
         CounterHandle handle = Obs.Metrics.RegisterCounter("clean");
         Obs.Metrics.Add(handle, 1, "k", "a");
 
-        Diagnostics.MetricsWithIncidents().Should().BeEmpty();
+        Diagnostics.GetMetricsWithIncidents().Should().BeEmpty();
     }
 
     [Fact]
-    public void MetricsWithIncidents_lists_only_metrics_with_incidents()
+    public void GetMetricsWithIncidents_lists_only_metrics_with_incidents()
     {
         CounterHandle clean = Obs.Metrics.RegisterCounter("clean");
         CounterHandle noisy = Obs.Metrics.RegisterCounter("noisy", cardinalityLimit: 1);
@@ -113,7 +113,7 @@ public sealed class DiagnosticsTests : IDisposable
         Obs.Metrics.Add(noisy, 1, "k", "b");
         Obs.Metrics.Add(noisy, 1, "k", "c");
 
-        var incidents = Diagnostics.MetricsWithIncidents().ToList();
+        var incidents = Diagnostics.GetMetricsWithIncidents().ToList();
 
         incidents.Should().HaveCount(1);
         incidents[0].MetricName.Should().Be(TestPackageId + ".noisy");
@@ -135,6 +135,6 @@ public sealed class DiagnosticsTests : IDisposable
         Diagnostics.Reset();
 
         Diagnostics.CardinalityIncidentsTotal.Should().Be(0);
-        Diagnostics.MetricsWithIncidents().Should().BeEmpty();
+        Diagnostics.GetMetricsWithIncidents().Should().BeEmpty();
     }
 }
