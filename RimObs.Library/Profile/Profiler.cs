@@ -1,3 +1,4 @@
+using System;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
 
@@ -6,9 +7,18 @@ namespace Cryptiklemur.RimObs.Profile;
 public static class Profiler {
     public const long DisabledToken = -1L;
 
+    internal const int MaxStackDepth = 64;
+    public const int NoParent = -1;
+
     public static volatile bool Enabled = true;
 
     internal static ISampleSink? Sink;
+
+    [ThreadStatic]
+    private static int[]? s_stack;
+
+    [ThreadStatic]
+    private static int s_depth;
 
     internal static void SetSink(ISampleSink? sink) => Sink = sink;
 
@@ -26,6 +36,13 @@ public static class Profiler {
             return DisabledToken;
         if (!SectionRegistry.s_Active[sectionId])
             return DisabledToken;
+
+        int[] stack = s_stack ??= new int[MaxStackDepth];
+        int depth = s_depth;
+        if (depth < MaxStackDepth)
+            stack[depth] = sectionId;
+        s_depth = depth + 1;
+
         return Stopwatch.GetTimestamp();
     }
 
@@ -33,9 +50,21 @@ public static class Profiler {
     public static void StopById(int sectionId, long token) {
         if (token == DisabledToken)
             return;
+
         long elapsed = Stopwatch.GetTimestamp() - token;
+
+        int depth = s_depth;
+        int parentId = NoParent;
+        if (depth > 0) {
+            depth--;
+            s_depth = depth;
+            int[]? stack = s_stack;
+            if (stack != null && depth > 0 && depth - 1 < MaxStackDepth)
+                parentId = stack[depth - 1];
+        }
+
         ISampleSink? sink = Sink;
         if (sink != null)
-            sink.RecordSection(sectionId, token, elapsed);
+            sink.RecordSection(sectionId, parentId, token, elapsed);
     }
 }

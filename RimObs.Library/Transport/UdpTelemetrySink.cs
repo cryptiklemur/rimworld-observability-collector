@@ -26,6 +26,7 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
     private readonly string _ownerId;
 
     private readonly int[] _sectionIds = new int[BatchSize];
+    private readonly int[] _parentIds = new int[BatchSize];
     private readonly long[] _startTimestamps = new long[BatchSize];
     private readonly long[] _elapsedTicks = new long[BatchSize];
     private readonly int[] _registrationIds = new int[64];
@@ -67,8 +68,8 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public void RecordSection(int sectionId, long startTimestamp, long elapsedTicks) {
-        _ring.TryWrite(sectionId, startTimestamp, elapsedTicks);
+    public void RecordSection(int sectionId, int parentId, long startTimestamp, long elapsedTicks) {
+        _ring.TryWrite(sectionId, parentId, startTimestamp, elapsedTicks);
     }
 
     public void RecordGcEvent(in GcEventSample sample) => _gcQueue.TryEnqueue(sample);
@@ -122,12 +123,13 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
 
     private void FlushSamples() {
         while (true) {
-            int n = _ring.Drain(_sectionIds, _startTimestamps, _elapsedTicks, BatchSize);
+            int n = _ring.Drain(_sectionIds, _parentIds, _startTimestamps, _elapsedTicks, BatchSize);
             if (n == 0)
                 return;
 
             SectionBatch batch = new() {
                 SectionIds = Slice(_sectionIds, n),
+                ParentIds = Slice(_parentIds, n),
                 StartTimestamps = Slice(_startTimestamps, n),
                 ElapsedTicks = Slice(_elapsedTicks, n),
             };
