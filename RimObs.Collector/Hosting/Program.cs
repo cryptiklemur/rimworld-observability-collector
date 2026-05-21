@@ -37,7 +37,8 @@ public static class Program
                 Log.Warning(ex, "Failed to write discovery files to {ConfigDir}", configDir);
             }
 
-            WebApplication app = BuildApp(args, port, token);
+            string sessionsDir = Path.Combine(configDir, "sessions");
+            WebApplication app = BuildApp(args, port, token, sessionsDir);
             app.Run();
             return 0;
         }
@@ -54,16 +55,25 @@ public static class Program
 
     public static WebApplication BuildApp(string[] args, int port)
     {
-        return BuildApp(args, port, CollectorToken.CreateFromEnvOrGenerate());
+        return BuildApp(args, port, CollectorToken.CreateFromEnvOrGenerate(), sessionsDir: null);
     }
 
     public static WebApplication BuildApp(string[] args, int port, CollectorToken token)
+    {
+        return BuildApp(args, port, token, sessionsDir: null);
+    }
+
+    public static WebApplication BuildApp(string[] args, int port, CollectorToken token, string? sessionsDir)
     {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
         builder.Host.UseSerilog();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
 
         builder.Services.AddSingleton(token);
+        if (!string.IsNullOrWhiteSpace(sessionsDir))
+        {
+            builder.Services.AddSingleton<Storage.ISessionPersister>(_ => new Storage.SqliteSessionPersister(sessionsDir));
+        }
         builder.Services.AddSingleton<Aggregation.SessionAggregator>();
         builder.Services.AddSingleton<Receive.UdpReceiver>(sp =>
             new Receive.UdpReceiver(

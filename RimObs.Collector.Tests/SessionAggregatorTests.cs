@@ -41,6 +41,35 @@ public sealed class SessionAggregatorTests
         agg.Meta.LibraryVersion.Should().Be("1.2.3");
     }
 
+
+    [Fact]
+    public void OnSessionMeta_forwards_to_persister_when_configured()
+    {
+        FakePersister persister = new();
+        SessionAggregator agg = new(persister);
+        SessionMeta meta = new() { SessionId = "persisted", LibraryVersion = "0.1" };
+
+        agg.OnSessionMeta(meta);
+
+        persister.WrittenMetas.Should().ContainSingle();
+        persister.WrittenMetas[0].SessionId.Should().Be("persisted");
+    }
+
+    [Fact]
+    public void OnSessionMeta_without_persister_does_not_throw()
+    {
+        SessionAggregator agg = new(persister: null);
+        Action act = () => agg.OnSessionMeta(new SessionMeta { SessionId = "x" });
+        act.Should().NotThrow();
+    }
+
+    private sealed class FakePersister : Cryptiklemur.RimObs.Collector.Storage.ISessionPersister
+    {
+        public List<SessionMeta> WrittenMetas { get; } = [];
+        public void WriteSessionMeta(SessionMeta meta) => WrittenMetas.Add(meta);
+        public void Dispose() { }
+    }
+
     [Fact]
     public void OnSectionRegistrations_records_name_and_id()
     {

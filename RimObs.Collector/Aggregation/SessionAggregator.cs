@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Cryptiklemur.RimObs.Collector.Storage;
 using Cryptiklemur.RimObs.Wire;
 
 namespace Cryptiklemur.RimObs.Collector.Aggregation;
@@ -10,7 +11,19 @@ public sealed class SessionAggregator
     private readonly ConcurrentDictionary<int, SectionStats> _sections = new();
     private readonly ConcurrentDictionary<int, MetricStats> _metrics = new();
     private readonly BoundedRecordRing<GcEventRecord> _gcEvents = new(GcEventRingCapacity);
+    private readonly ISessionPersister? _persister;
     private SessionMeta? _meta;
+
+    public SessionAggregator()
+        : this(persister: null)
+    {
+    }
+
+    public SessionAggregator(ISessionPersister? persister)
+    {
+        _persister = persister;
+    }
+
     private long _totalSamples;
     private long _totalBatches;
     private long _totalBytes;
@@ -45,6 +58,7 @@ public sealed class SessionAggregator
     public void OnSessionMeta(SessionMeta meta)
     {
         _meta = meta;
+        _persister?.WriteSessionMeta(meta);
     }
 
     public void OnSectionRegistrations(SectionRegistrationsBatch batch)
