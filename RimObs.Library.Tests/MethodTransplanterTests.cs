@@ -99,6 +99,49 @@ public sealed class MethodTransplanterTests : IDisposable
     }
 
     [Fact]
+    public void Empty_body_emits_paired_start_and_stop_with_ret()
+    {
+        MethodInfo target = typeof(Targets).GetMethod(nameof(Targets.VoidNoOp))!;
+        SectionCatalog.RegisterDirect("test.empty_body", target);
+
+        System.Reflection.Emit.DynamicMethod dyn = new(
+            "empty_body_test",
+            typeof(void),
+            Type.EmptyTypes,
+            typeof(MethodTransplanterTests).Module,
+            skipVisibility: true
+        );
+        System.Reflection.Emit.ILGenerator gen = dyn.GetILGenerator();
+
+        List<CodeInstruction> emitted = new(MethodTransplanter.Transpile(Array.Empty<CodeInstruction>(), gen, target));
+
+        MethodInfo startById = typeof(Profiler).GetMethod(
+            nameof(Profiler.StartById),
+            BindingFlags.Public | BindingFlags.Static
+        )!;
+        MethodInfo stopById = typeof(Profiler).GetMethod(
+            nameof(Profiler.StopById),
+            BindingFlags.Public | BindingFlags.Static
+        )!;
+
+        int startCalls = 0;
+        int stopCalls = 0;
+        foreach (CodeInstruction inst in emitted)
+        {
+            if (inst.opcode == System.Reflection.Emit.OpCodes.Call && inst.operand is MethodInfo m)
+            {
+                if (ReferenceEquals(m, startById))
+                    startCalls++;
+                else if (ReferenceEquals(m, stopById))
+                    stopCalls++;
+            }
+        }
+        startCalls.Should().Be(1, "an empty body must still pair its emitted Start with a Stop");
+        stopCalls.Should().Be(1, "an empty body must still emit the matching Stop");
+        emitted[^1].opcode.Should().Be(System.Reflection.Emit.OpCodes.Ret);
+    }
+
+    [Fact]
     public void Branchy_method_with_multiple_returns_still_records_once()
     {
         Patch(typeof(Targets).GetMethod(nameof(Targets.MultipleReturns))!, "test.multi_returns");

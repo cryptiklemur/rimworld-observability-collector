@@ -51,6 +51,23 @@ internal static class MethodTransplanter
         List<CodeInstruction> body = new(instructions);
         if (body.Count == 0)
         {
+            yield return new CodeInstruction(OpCodes.Ldc_I4, sectionId);
+            yield return new CodeInstruction(OpCodes.Ldloc, tokenLocal);
+            yield return new CodeInstruction(OpCodes.Call, StopByIdMethod);
+            if (hasReturn)
+            {
+                if (returnType.IsValueType)
+                {
+                    LocalBuilder defaultLocal = generator.DeclareLocal(returnType);
+                    yield return new CodeInstruction(OpCodes.Ldloca, defaultLocal);
+                    yield return new CodeInstruction(OpCodes.Initobj, returnType);
+                    yield return new CodeInstruction(OpCodes.Ldloc, defaultLocal);
+                }
+                else
+                {
+                    yield return new CodeInstruction(OpCodes.Ldnull);
+                }
+            }
             yield return new CodeInstruction(OpCodes.Ret);
             yield break;
         }

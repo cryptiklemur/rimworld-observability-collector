@@ -7,13 +7,13 @@ internal static class AllocationSamplerHost
 {
     private static readonly object s_Lock = new();
     private static AllocationSampler? s_Instance;
-    private static PollerThread? s_Poller;
     private static readonly List<AllocationSample> s_RecentSamples = new(capacity: 64);
     private static IAllocationSink? s_Sink;
     private const int MaxRecentSamples = 64;
     private const int PollIntervalMs = 1000;
     private const long DefaultWindowMs = 60_000L;
     private static long s_WindowDurationMs = DefaultWindowMs;
+    private static readonly PollerLifecycle s_Lifecycle = new("RimObs.AllocationSampler", PollTick, PollIntervalMs);
 
     public static void SetSink(IAllocationSink? sink)
     {
@@ -34,7 +34,7 @@ internal static class AllocationSamplerHost
         }
     }
 
-    public static bool IsRunning => s_Poller?.IsRunning ?? false;
+    public static bool IsRunning => s_Lifecycle.IsRunning;
 
     public static long WindowDurationMs
     {
@@ -69,24 +69,12 @@ internal static class AllocationSamplerHost
     {
         lock (s_Lock)
         {
-            if (s_Poller?.IsRunning == true)
-                return;
             s_Instance ??= new AllocationSampler();
-            s_Poller = new PollerThread("RimObs.AllocationSampler", PollTick, PollIntervalMs);
-            s_Poller.Start();
         }
+        s_Lifecycle.TryStart();
     }
 
-    public static void Stop()
-    {
-        PollerThread? poller;
-        lock (s_Lock)
-        {
-            poller = s_Poller;
-            s_Poller = null;
-        }
-        poller?.Stop();
-    }
+    public static void Stop() => s_Lifecycle.Stop();
 
     public static void ClearRecentSamples()
     {
