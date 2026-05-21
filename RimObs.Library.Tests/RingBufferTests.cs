@@ -4,14 +4,11 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class RingBufferTests
-{
+public sealed class RingBufferTests {
     [Fact]
-    public void Write_then_drain_returns_same_values_in_order()
-    {
+    public void Write_then_drain_returns_same_values_in_order() {
         SampleRingBuffer ring = new(16);
-        for (int i = 0; i < 10; i++)
-        {
+        for (int i = 0; i < 10; i++) {
             ring.TryWrite(i, i * 100L, i * 1000L).Should().BeTrue();
         }
 
@@ -21,8 +18,7 @@ public sealed class RingBufferTests
         int n = ring.Drain(ids, starts, elapsed, 16);
 
         n.Should().Be(10);
-        for (int i = 0; i < 10; i++)
-        {
+        for (int i = 0; i < 10; i++) {
             ids[i].Should().Be(i);
             starts[i].Should().Be(i * 100L);
             elapsed[i].Should().Be(i * 1000L);
@@ -30,8 +26,7 @@ public sealed class RingBufferTests
     }
 
     [Fact]
-    public void Drops_when_full_and_increments_dropped_counter()
-    {
+    public void Drops_when_full_and_increments_dropped_counter() {
         SampleRingBuffer ring = new(4);
         for (int i = 0; i < 4; i++)
             ring.TryWrite(i, 0, 0).Should().BeTrue();
@@ -41,8 +36,7 @@ public sealed class RingBufferTests
     }
 
     [Fact]
-    public void Multiple_drain_cycles_progress_read_pointer()
-    {
+    public void Multiple_drain_cycles_progress_read_pointer() {
         SampleRingBuffer ring = new(8);
         int[] ids = new int[8];
         long[] starts = new long[8];

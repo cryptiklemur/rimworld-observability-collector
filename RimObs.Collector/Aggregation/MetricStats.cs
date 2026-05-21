@@ -2,10 +2,8 @@ using System.Collections.Concurrent;
 
 namespace Cryptiklemur.RimObs.Collector.Aggregation;
 
-public sealed class MetricStats
-{
-    public MetricStats(int metricId)
-    {
+public sealed class MetricStats {
+    public MetricStats(int metricId) {
         MetricId = metricId;
         Labels = new ConcurrentDictionary<string, MetricLabelStats>();
     }

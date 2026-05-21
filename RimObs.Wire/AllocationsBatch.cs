@@ -3,8 +3,7 @@ using MessagePack;
 namespace Cryptiklemur.RimObs.Wire;
 
 [MessagePackObject]
-public sealed class AllocationsBatch
-{
+public sealed class AllocationsBatch {
     [Key(0)]
     public long[] WindowStartTimestamps { get; set; } = [];
 

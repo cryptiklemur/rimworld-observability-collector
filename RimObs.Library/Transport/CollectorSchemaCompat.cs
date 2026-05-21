@@ -3,8 +3,7 @@ using System.Runtime.Serialization;
 namespace Cryptiklemur.RimObs.Transport;
 
 [DataContract]
-public sealed class CollectorSchemaCompat
-{
+public sealed class CollectorSchemaCompat {
     [DataMember(Name = "min")]
     public int Min { get; set; }
 

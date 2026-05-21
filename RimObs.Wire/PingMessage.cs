@@ -3,8 +3,7 @@ using MessagePack;
 namespace Cryptiklemur.RimObs.Wire;
 
 [MessagePackObject]
-public sealed class PingMessage
-{
+public sealed class PingMessage {
     [Key(0)]
     public string OwnerId { get; set; } = string.Empty;
 

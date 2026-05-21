@@ -2,17 +2,14 @@ using System.Runtime.CompilerServices;
 
 namespace Cryptiklemur.RimObs.Metrics;
 
-public readonly struct HistogramHandle
-{
+public readonly struct HistogramHandle {
     public readonly int Id;
 
-    internal HistogramHandle(int id)
-    {
+    internal HistogramHandle(int id) {
         Id = id;
     }
 
-    public bool IsValid
-    {
+    public bool IsValid {
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         get => Id >= 0;
     }

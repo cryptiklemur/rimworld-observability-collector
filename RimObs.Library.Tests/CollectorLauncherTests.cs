@@ -11,25 +11,21 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class CollectorLauncherTests
-{
+public sealed class CollectorLauncherTests {
     [Fact]
-    public void ParseLooseSemver_strips_prerelease_and_build_metadata()
-    {
+    public void ParseLooseSemver_strips_prerelease_and_build_metadata() {
         CollectorCandidate.ParseLooseSemver("1.2.3").Should().Be(new Version(1, 2, 3));
         CollectorCandidate.ParseLooseSemver("1.2.3-beta.5").Should().Be(new Version(1, 2, 3));
         CollectorCandidate.ParseLooseSemver("2.0.1+build.99").Should().Be(new Version(2, 0, 1));
     }
 
     [Fact]
-    public void SelectHighest_returns_null_for_empty()
-    {
+    public void SelectHighest_returns_null_for_empty() {
         CollectorDiscovery.SelectHighest(new List<CollectorCandidate>()).Should().BeNull();
     }
 
     [Fact]
-    public void SelectHighest_picks_greatest_version()
-    {
+    public void SelectHighest_picks_greatest_version() {
         List<CollectorCandidate> candidates =
         [
             new("/a/Collector", new Version(1, 0, 0)),
@@ -45,8 +41,7 @@ public sealed class CollectorLauncherTests
     }
 
     [Fact]
-    public void Parse_splits_core_version_from_prerelease()
-    {
+    public void Parse_splits_core_version_from_prerelease() {
         CollectorCandidate stable = CollectorCandidate.Parse("/x/Collector", "2.1.0");
         stable.Version.Should().Be(new Version(2, 1, 0));
         stable.IsPrerelease.Should().BeFalse();
@@ -59,8 +54,7 @@ public sealed class CollectorLauncherTests
     }
 
     [Fact]
-    public void SelectHighest_prefers_stable_over_prerelease_when_core_versions_tie()
-    {
+    public void SelectHighest_prefers_stable_over_prerelease_when_core_versions_tie() {
         List<CollectorCandidate> candidates =
         [
             CollectorCandidate.Parse("/pre", "2.1.0-beta.3"),
@@ -74,8 +68,7 @@ public sealed class CollectorLauncherTests
     }
 
     [Fact]
-    public void SelectHighest_prerelease_with_higher_core_beats_lower_stable()
-    {
+    public void SelectHighest_prerelease_with_higher_core_beats_lower_stable() {
         List<CollectorCandidate> candidates =
         [
             CollectorCandidate.Parse("/stable", "2.1.0"),
@@ -89,8 +82,7 @@ public sealed class CollectorLauncherTests
     }
 
     [Fact]
-    public void EnsureRunning_returns_running_without_launching_when_collector_already_live()
-    {
+    public void EnsureRunning_returns_running_without_launching_when_collector_already_live() {
         using PongResponder responder = new("5.5.5", "already-up");
         bool launched = false;
 
@@ -110,8 +102,7 @@ public sealed class CollectorLauncherTests
     }
 
     [Fact]
-    public void EnsureRunning_returns_not_running_when_no_candidates_and_dead_port()
-    {
+    public void EnsureRunning_returns_not_running_when_no_candidates_and_dead_port() {
         int deadPort = GetFreePort();
 
         CollectorLaunchResult result = CollectorLauncher.EnsureRunning(
@@ -128,12 +119,10 @@ public sealed class CollectorLauncherTests
     }
 
     [Fact]
-    public void EnsureRunning_launches_selected_candidate_then_succeeds_once_responder_comes_up()
-    {
+    public void EnsureRunning_launches_selected_candidate_then_succeeds_once_responder_comes_up() {
         int port = GetFreePort();
         PongResponder? responder = null;
-        try
-        {
+        try {
             CollectorLaunchResult result = CollectorLauncher.EnsureRunning(
                 [
                     new CollectorCandidate("/low", new Version(1, 0, 0)),
@@ -144,8 +133,7 @@ public sealed class CollectorLauncherTests
                 "owner",
                 TimeSpan.FromMilliseconds(200),
                 TimeSpan.FromSeconds(3),
-                candidate =>
-                {
+                candidate => {
                     candidate.ExecutablePath.Should().Be("/high");
                     responder = new PongResponder("7.0.0", "spawned", port);
                 });
@@ -155,15 +143,13 @@ public sealed class CollectorLauncherTests
             result.SelectedCandidate!.ExecutablePath.Should().Be("/high");
             result.Pong!.CollectorVersion.Should().Be("7.0.0");
         }
-        finally
-        {
+        finally {
             responder?.Dispose();
         }
     }
 
     [Fact]
-    public void EnsureRunning_reports_failure_when_launch_never_produces_a_pong()
-    {
+    public void EnsureRunning_reports_failure_when_launch_never_produces_a_pong() {
         int deadPort = GetFreePort();
         bool launched = false;
 
@@ -182,8 +168,7 @@ public sealed class CollectorLauncherTests
     }
 
     [Fact]
-    public void EnsureRunning_reports_failure_when_launch_action_throws()
-    {
+    public void EnsureRunning_reports_failure_when_launch_action_throws() {
         int deadPort = GetFreePort();
 
         CollectorLaunchResult result = CollectorLauncher.EnsureRunning(
@@ -199,22 +184,19 @@ public sealed class CollectorLauncherTests
         result.LaunchAttempted.Should().BeTrue();
     }
 
-    private static int GetFreePort()
-    {
+    private static int GetFreePort() {
         using UdpClient probe = new(new IPEndPoint(IPAddress.Loopback, 0));
         return ((IPEndPoint)probe.Client.LocalEndPoint!).Port;
     }
 
-    private sealed class PongResponder : IDisposable
-    {
+    private sealed class PongResponder : IDisposable {
         private readonly UdpClient _client;
         private readonly Thread _thread;
         private readonly string _version;
         private readonly string? _sessionId;
         private volatile bool _running = true;
 
-        public PongResponder(string version, string? sessionId, int? port = null)
-        {
+        public PongResponder(string version, string? sessionId, int? port = null) {
             _version = version;
             _sessionId = sessionId;
             _client = new UdpClient(new IPEndPoint(IPAddress.Loopback, port ?? 0));
@@ -225,41 +207,33 @@ public sealed class CollectorLauncherTests
 
         public int Port { get; }
 
-        private void Loop()
-        {
+        private void Loop() {
             _client.Client.ReceiveTimeout = 150;
-            while (_running)
-            {
+            while (_running) {
                 IPEndPoint remote = new(IPAddress.Any, 0);
                 byte[] datagram;
-                try
-                {
+                try {
                     datagram = _client.Receive(ref remote);
                 }
-                catch (SocketException)
-                {
+                catch (SocketException) {
                     continue;
                 }
-                catch (ObjectDisposedException)
-                {
+                catch (ObjectDisposedException) {
                     break;
                 }
 
-                try
-                {
+                try {
                     TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(datagram);
                     if (envelope.BatchType != BatchType.Ping)
                         continue;
                     PingMessage ping = MessagePackSerializer.Deserialize<PingMessage>(envelope.Payload);
-                    PongMessage pong = new()
-                    {
+                    PongMessage pong = new() {
                         OwnerId = ping.OwnerId,
                         PingSentAtUtcTicks = ping.SentAtUtcTicks,
                         CollectorVersion = _version,
                         SessionId = _sessionId,
                     };
-                    TelemetryBatch pongEnvelope = new()
-                    {
+                    TelemetryBatch pongEnvelope = new() {
                         SchemaVersion = SchemaVersion.Current,
                         Sequence = 0,
                         OwnerId = "collector",
@@ -269,15 +243,13 @@ public sealed class CollectorLauncherTests
                     byte[] bytes = MessagePackSerializer.Serialize(pongEnvelope);
                     _client.Send(bytes, bytes.Length, remote);
                 }
-                catch (MessagePackSerializationException)
-                {
+                catch (MessagePackSerializationException) {
                     // Ignore stray/malformed datagrams.
                 }
             }
         }
 
-        public void Dispose()
-        {
+        public void Dispose() {
             _running = false;
             _client.Dispose();
             _thread.Join(TimeSpan.FromSeconds(1));

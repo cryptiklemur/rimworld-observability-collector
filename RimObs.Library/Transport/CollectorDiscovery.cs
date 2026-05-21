@@ -2,15 +2,12 @@ using System.Collections.Generic;
 
 namespace Cryptiklemur.RimObs.Transport;
 
-public static class CollectorDiscovery
-{
-    public static CollectorCandidate? SelectHighest(IEnumerable<CollectorCandidate> candidates)
-    {
+public static class CollectorDiscovery {
+    public static CollectorCandidate? SelectHighest(IEnumerable<CollectorCandidate> candidates) {
         if (candidates is null)
             return null;
         CollectorCandidate? best = null;
-        foreach (CollectorCandidate c in candidates)
-        {
+        foreach (CollectorCandidate c in candidates) {
             if (c is null)
                 continue;
             if (best is null || CollectorCandidate.Compare(c, best) > 0)

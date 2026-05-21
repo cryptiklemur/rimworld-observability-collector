@@ -6,52 +6,42 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
-public sealed class SqliteSessionPersisterTests : IDisposable
-{
+public sealed class SqliteSessionPersisterTests : IDisposable {
     private readonly string _tempDir;
 
-    public SqliteSessionPersisterTests()
-    {
+    public SqliteSessionPersisterTests() {
         _tempDir = Path.Combine(Path.GetTempPath(), "rimobs-persister-" + Guid.NewGuid().ToString("N"));
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         SqliteConnection.ClearAllPools();
-        if (Directory.Exists(_tempDir))
-        {
-            try
-            {
+        if (Directory.Exists(_tempDir)) {
+            try {
                 Directory.Delete(_tempDir, recursive: true);
             }
-            catch (IOException)
-            {
+            catch (IOException) {
                 // SQLite may retain file handles briefly on Windows.
             }
         }
     }
 
     [Fact]
-    public void Ctor_creates_directory()
-    {
+    public void Ctor_creates_directory() {
         using SqliteSessionPersister persister = new(_tempDir);
         Directory.Exists(_tempDir).Should().BeTrue();
         persister.SessionsDirectory.Should().Be(_tempDir);
     }
 
     [Fact]
-    public void Ctor_rejects_empty_dir()
-    {
+    public void Ctor_rejects_empty_dir() {
         Action act = () => _ = new SqliteSessionPersister("   ");
         act.Should().Throw<ArgumentException>();
     }
 
     [Fact]
-    public void WriteSessionMeta_creates_per_session_db_file()
-    {
+    public void WriteSessionMeta_creates_per_session_db_file() {
         using SqliteSessionPersister persister = new(_tempDir);
-        SessionMeta meta = new()
-        {
+        SessionMeta meta = new() {
             SessionId = "alpha",
             StartedUtcTicks = 100L,
             StopwatchFrequency = 10_000L,
@@ -67,8 +57,7 @@ public sealed class SqliteSessionPersisterTests : IDisposable
     }
 
     [Fact]
-    public void WriteSessionMeta_for_different_sessions_creates_separate_db_files()
-    {
+    public void WriteSessionMeta_for_different_sessions_creates_separate_db_files() {
         using SqliteSessionPersister persister = new(_tempDir);
         persister.WriteSessionMeta(new SessionMeta { SessionId = "one" });
         persister.WriteSessionMeta(new SessionMeta { SessionId = "two" });
@@ -78,8 +67,7 @@ public sealed class SqliteSessionPersisterTests : IDisposable
     }
 
     [Fact]
-    public void WriteSessionMeta_for_same_session_is_idempotent()
-    {
+    public void WriteSessionMeta_for_same_session_is_idempotent() {
         using SqliteSessionPersister persister = new(_tempDir);
         persister.WriteSessionMeta(new SessionMeta { SessionId = "s", LibraryVersion = "old" });
         persister.WriteSessionMeta(new SessionMeta { SessionId = "s", LibraryVersion = "new" });
@@ -91,8 +79,7 @@ public sealed class SqliteSessionPersisterTests : IDisposable
     }
 
     [Fact]
-    public void WriteSessionMeta_sanitizes_invalid_characters_in_session_id()
-    {
+    public void WriteSessionMeta_sanitizes_invalid_characters_in_session_id() {
         using SqliteSessionPersister persister = new(_tempDir);
         // Build an id that includes every char the platform considers invalid in a filename.
         char[] invalid = Path.GetInvalidFileNameChars();
@@ -107,16 +94,14 @@ public sealed class SqliteSessionPersisterTests : IDisposable
     }
 
     [Fact]
-    public void WriteSessionMeta_rejects_empty_session_id()
-    {
+    public void WriteSessionMeta_rejects_empty_session_id() {
         using SqliteSessionPersister persister = new(_tempDir);
         Action act = () => persister.WriteSessionMeta(new SessionMeta { SessionId = "" });
         act.Should().Throw<ArgumentException>();
     }
 
     [Fact]
-    public void Disposed_persister_rejects_writes()
-    {
+    public void Disposed_persister_rejects_writes() {
         SqliteSessionPersister persister = new(_tempDir);
         persister.Dispose();
         Action act = () => persister.WriteSessionMeta(new SessionMeta { SessionId = "x" });

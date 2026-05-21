@@ -3,15 +3,11 @@ using Microsoft.AspNetCore.Http;
 
 namespace Cryptiklemur.RimObs.Collector.Security;
 
-internal static class OriginCheckMiddleware
-{
-    public static IApplicationBuilder UseOriginCheck(this IApplicationBuilder app, int port)
-    {
-        return app.Use(async (HttpContext ctx, RequestDelegate next) =>
-        {
+internal static class OriginCheckMiddleware {
+    public static IApplicationBuilder UseOriginCheck(this IApplicationBuilder app, int port) {
+        return app.Use(async (HttpContext ctx, RequestDelegate next) => {
             string method = ctx.Request.Method;
-            if (!OriginCheck.RequiresCheck(method))
-            {
+            if (!OriginCheck.RequiresCheck(method)) {
                 await next(ctx);
                 return;
             }
@@ -19,8 +15,7 @@ internal static class OriginCheckMiddleware
             string? origin = ctx.Request.Headers.Origin.Count > 0
                 ? ctx.Request.Headers.Origin.ToString()
                 : null;
-            if (!OriginCheck.IsAllowedOrigin(origin, port))
-            {
+            if (!OriginCheck.IsAllowedOrigin(origin, port)) {
                 ctx.Response.StatusCode = StatusCodes.Status403Forbidden;
                 await ctx.Response.WriteAsync("Forbidden: Origin header required for state-changing requests.");
                 return;

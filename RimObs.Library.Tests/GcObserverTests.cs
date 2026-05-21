@@ -5,11 +5,9 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class GcObserverTests
-{
+public sealed class GcObserverTests {
     [Fact]
-    public void Initial_poll_with_no_collection_returns_false()
-    {
+    public void Initial_poll_with_no_collection_returns_false() {
         GcObserver observer = new();
 
         bool detected = observer.TryPoll(currentTick: 0, out _);
@@ -19,8 +17,7 @@ public sealed class GcObserverTests
     }
 
     [Fact]
-    public void Forced_gen0_collection_is_detected()
-    {
+    public void Forced_gen0_collection_is_detected() {
         GcObserver observer = new();
         observer.TryPoll(0, out _);
 
@@ -36,8 +33,7 @@ public sealed class GcObserverTests
     }
 
     [Fact]
-    public void Highest_generation_change_is_reported_when_multiple_change()
-    {
+    public void Highest_generation_change_is_reported_when_multiple_change() {
         GcObserver observer = new();
         observer.TryPoll(0, out _);
 
@@ -50,8 +46,7 @@ public sealed class GcObserverTests
     }
 
     [Fact]
-    public void Subsequent_poll_after_event_returns_false_until_next_collection()
-    {
+    public void Subsequent_poll_after_event_returns_false_until_next_collection() {
         GcObserver observer = new();
         observer.TryPoll(0, out _);
 
@@ -64,8 +59,7 @@ public sealed class GcObserverTests
     }
 
     [Fact]
-    public void Allocation_rate_updates_on_heap_growth()
-    {
+    public void Allocation_rate_updates_on_heap_growth() {
         GcObserver observer = new();
         observer.TryPoll(0, out _);
         long initialRate = observer.AllocationRateBytesPerMinute;
@@ -81,8 +75,7 @@ public sealed class GcObserverTests
     }
 
     [Fact]
-    public void GcEventSample_carries_all_fields()
-    {
+    public void GcEventSample_carries_all_fields() {
         GcEventSample sample = new(generation: 1, pauseType: GcPauseType.Background, heapBefore: 100, heapAfter: 80, durationMicros: 250, tick: 99, allocationRateBytesPerMinute: 1024);
 
         sample.Generation.Should().Be(1);

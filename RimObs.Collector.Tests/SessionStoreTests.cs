@@ -7,36 +7,29 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
-public sealed class SessionStoreTests : IDisposable
-{
+public sealed class SessionStoreTests : IDisposable {
     private readonly string _tempDir;
     private readonly string _dbPath;
 
-    public SessionStoreTests()
-    {
+    public SessionStoreTests() {
         _tempDir = Path.Combine(Path.GetTempPath(), "rimobs-store-" + Guid.NewGuid().ToString("N"));
         _dbPath = Path.Combine(_tempDir, "session.db");
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         SqliteConnection.ClearAllPools();
-        if (Directory.Exists(_tempDir))
-        {
-            try
-            {
+        if (Directory.Exists(_tempDir)) {
+            try {
                 Directory.Delete(_tempDir, recursive: true);
             }
-            catch (IOException)
-            {
+            catch (IOException) {
                 // SQLite may briefly retain file handles via the connection pool on Windows.
             }
         }
     }
 
     [Fact]
-    public void Open_creates_directory_and_initializes_schema()
-    {
+    public void Open_creates_directory_and_initializes_schema() {
         using SessionStore store = SessionStore.Open(_dbPath);
 
         Directory.Exists(_tempDir).Should().BeTrue();
@@ -51,17 +44,14 @@ public sealed class SessionStoreTests : IDisposable
     }
 
     [Fact]
-    public void Open_rejects_empty_path()
-    {
+    public void Open_rejects_empty_path() {
         Action act = () => SessionStore.Open("   ");
         act.Should().Throw<ArgumentException>();
     }
 
     [Fact]
-    public void WriteSessionMeta_then_Read_returns_same_values()
-    {
-        SessionMeta meta = new()
-        {
+    public void WriteSessionMeta_then_Read_returns_same_values() {
+        SessionMeta meta = new() {
             SessionId = "abc-123",
             StartedUtcTicks = 638_500_000_000_000_000L,
             StopwatchFrequency = 10_000_000L,
@@ -70,8 +60,7 @@ public sealed class SessionStoreTests : IDisposable
             GameVersion = "1.6.4633",
         };
 
-        using (SessionStore store = SessionStore.Open(_dbPath))
-        {
+        using (SessionStore store = SessionStore.Open(_dbPath)) {
             store.WriteSessionMeta(meta);
         }
 
@@ -87,8 +76,7 @@ public sealed class SessionStoreTests : IDisposable
     }
 
     [Fact]
-    public void WriteSessionMeta_is_idempotent_on_same_session_id()
-    {
+    public void WriteSessionMeta_is_idempotent_on_same_session_id() {
         SessionMeta first = new() { SessionId = "s1", StartedUtcTicks = 1, StopwatchFrequency = 2, AnchorTimestamp = 3, LibraryVersion = "old", GameVersion = "1.6" };
         SessionMeta second = new() { SessionId = "s1", StartedUtcTicks = 10, StopwatchFrequency = 20, AnchorTimestamp = 30, LibraryVersion = "new", GameVersion = "1.6" };
 
@@ -103,18 +91,15 @@ public sealed class SessionStoreTests : IDisposable
     }
 
     [Fact]
-    public void ReadSessionMeta_returns_null_for_unknown_session()
-    {
+    public void ReadSessionMeta_returns_null_for_unknown_session() {
         using SessionStore store = SessionStore.Open(_dbPath);
         store.ReadSessionMeta("nope").Should().BeNull();
     }
 
     [Fact]
-    public void Open_with_mismatched_schema_drops_and_recreates_tables()
-    {
+    public void Open_with_mismatched_schema_drops_and_recreates_tables() {
         Directory.CreateDirectory(_tempDir);
-        using (SqliteConnection setup = new($"Data Source={_dbPath}"))
-        {
+        using (SqliteConnection setup = new($"Data Source={_dbPath}")) {
             setup.Open();
             using SqliteCommand create = setup.CreateCommand();
             create.CommandText = "CREATE TABLE stale_table (id INTEGER); PRAGMA user_version = 0;";
@@ -136,8 +121,7 @@ public sealed class SessionStoreTests : IDisposable
     }
 
     [Fact]
-    public void Open_uses_WAL_journal_mode()
-    {
+    public void Open_uses_WAL_journal_mode() {
         using SessionStore store = SessionStore.Open(_dbPath);
 
         using SqliteConnection probe = new($"Data Source={_dbPath}");
@@ -149,8 +133,7 @@ public sealed class SessionStoreTests : IDisposable
     }
 
     [Fact]
-    public void Disposed_store_rejects_writes()
-    {
+    public void Disposed_store_rejects_writes() {
         SessionStore store = SessionStore.Open(_dbPath);
         store.Dispose();
 
@@ -160,10 +143,8 @@ public sealed class SessionStoreTests : IDisposable
 
 
     [Fact]
-    public void WriteSectionsSnapshot_round_trips_per_section_stats()
-    {
-        SectionStats a = new()
-        {
+    public void WriteSectionsSnapshot_round_trips_per_section_stats() {
+        SectionStats a = new() {
             SectionId = 1,
             Name = "core.tick",
             SampleCount = 42,
@@ -172,8 +153,7 @@ public sealed class SessionStoreTests : IDisposable
             MaxElapsedTicks = 9999,
             LastStartTimestamp = 77L,
         };
-        SectionStats b = new()
-        {
+        SectionStats b = new() {
             SectionId = 2,
             Name = "core.draw",
             SampleCount = 7,
@@ -197,8 +177,7 @@ public sealed class SessionStoreTests : IDisposable
     }
 
     [Fact]
-    public void WriteSectionsSnapshot_is_idempotent_for_same_section_id()
-    {
+    public void WriteSectionsSnapshot_is_idempotent_for_same_section_id() {
         SectionStats stats = new() { SectionId = 1, Name = "s", SampleCount = 1, TotalElapsedTicks = 100, MinElapsedTicks = 10, MaxElapsedTicks = 100, LastStartTimestamp = 1 };
 
         using SessionStore store = SessionStore.Open(_dbPath);
@@ -219,8 +198,7 @@ public sealed class SessionStoreTests : IDisposable
     }
 
     [Fact]
-    public void WriteMetricsSnapshot_round_trips_metric_and_per_label_rows()
-    {
+    public void WriteMetricsSnapshot_round_trips_metric_and_per_label_rows() {
         MetricStats m = new(metricId: 10) { Name = "my.mod.frames", Kind = 0, Unit = "count" };
         m.Labels["scene=map"] = new MetricLabelStats("scene=map") { LatestValue = 99, TotalSampleCount = 4 };
         m.Labels["scene=ui"] = new MetricLabelStats("scene=ui") { LatestValue = 17, TotalSampleCount = 1 };
@@ -247,8 +225,7 @@ public sealed class SessionStoreTests : IDisposable
     }
 
     [Fact]
-    public void WriteMetricsSnapshot_is_idempotent_and_updates_latest_value()
-    {
+    public void WriteMetricsSnapshot_is_idempotent_and_updates_latest_value() {
         MetricStats m = new(metricId: 5) { Name = "g", Kind = 1, Unit = "b" };
         m.Labels[""] = new MetricLabelStats("") { LatestValue = 10, TotalSampleCount = 1 };
 
@@ -270,8 +247,7 @@ public sealed class SessionStoreTests : IDisposable
     }
 
     [Fact]
-    public void ReplaceGcEventsSnapshot_truncates_then_inserts_in_order()
-    {
+    public void ReplaceGcEventsSnapshot_truncates_then_inserts_in_order() {
         GcEventRecord a = new(generation: 0, pauseType: 1, heapBefore: 1000, heapAfter: 800, durationMicros: 50, ticks: 100, allocationRateBytesPerMinute: 5000);
         GcEventRecord b = new(generation: 2, pauseType: 0, heapBefore: 5000, heapAfter: 4500, durationMicros: 200, ticks: 200, allocationRateBytesPerMinute: 7500);
 
@@ -298,8 +274,7 @@ public sealed class SessionStoreTests : IDisposable
     }
 
     [Fact]
-    public void ReplaceGcEventsSnapshot_with_empty_array_clears_table()
-    {
+    public void ReplaceGcEventsSnapshot_with_empty_array_clears_table() {
         using SessionStore store = SessionStore.Open(_dbPath);
         store.ReplaceGcEventsSnapshot([new GcEventRecord(0, 0, 0, 0, 0, 0, 0)]);
         store.CountGcEvents().Should().Be(1);

@@ -1,7 +1,6 @@
 namespace Cryptiklemur.RimObs.Collector.Aggregation;
 
-public readonly struct GcEventRecord
-{
+public readonly struct GcEventRecord {
     public GcEventRecord(
         byte generation,
         byte pauseType,
@@ -10,8 +9,7 @@ public readonly struct GcEventRecord
         long durationMicros,
         long ticks,
         long allocationRateBytesPerMinute
-    )
-    {
+    ) {
         Generation = generation;
         PauseType = pauseType;
         HeapBefore = heapBefore;

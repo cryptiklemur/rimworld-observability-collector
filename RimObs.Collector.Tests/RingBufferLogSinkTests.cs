@@ -6,11 +6,9 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
-public sealed class RingBufferLogSinkTests
-{
+public sealed class RingBufferLogSinkTests {
     [Fact]
-    public void Ctor_rejects_zero_or_negative_capacity()
-    {
+    public void Ctor_rejects_zero_or_negative_capacity() {
         Action zero = () => _ = new RingBufferLogSink(0);
         Action neg = () => _ = new RingBufferLogSink(-1);
         zero.Should().Throw<ArgumentOutOfRangeException>();
@@ -18,8 +16,7 @@ public sealed class RingBufferLogSinkTests
     }
 
     [Fact]
-    public void Emit_appends_entries_and_Snapshot_returns_newest_first()
-    {
+    public void Emit_appends_entries_and_Snapshot_returns_newest_first() {
         RingBufferLogSink sink = new(capacity: 10);
         ILogger logger = NewLogger(sink);
 
@@ -35,8 +32,7 @@ public sealed class RingBufferLogSinkTests
     }
 
     [Fact]
-    public void Capacity_evicts_oldest_entries()
-    {
+    public void Capacity_evicts_oldest_entries() {
         RingBufferLogSink sink = new(capacity: 2);
         ILogger logger = NewLogger(sink);
 
@@ -51,8 +47,7 @@ public sealed class RingBufferLogSinkTests
     }
 
     [Fact]
-    public void Snapshot_with_minLevel_filters_below_threshold()
-    {
+    public void Snapshot_with_minLevel_filters_below_threshold() {
         RingBufferLogSink sink = new(capacity: 10);
         ILogger logger = NewLogger(sink);
 
@@ -66,8 +61,7 @@ public sealed class RingBufferLogSinkTests
     }
 
     [Fact]
-    public void Snapshot_with_unparseable_level_returns_all_entries()
-    {
+    public void Snapshot_with_unparseable_level_returns_all_entries() {
         RingBufferLogSink sink = new(capacity: 10);
         ILogger logger = NewLogger(sink);
         logger.Information("a");
@@ -78,8 +72,7 @@ public sealed class RingBufferLogSinkTests
     }
 
     [Fact]
-    public void Snapshot_limit_caps_returned_entries()
-    {
+    public void Snapshot_limit_caps_returned_entries() {
         RingBufferLogSink sink = new(capacity: 100);
         ILogger logger = NewLogger(sink);
         for (int i = 0; i < 20; i++)
@@ -90,8 +83,7 @@ public sealed class RingBufferLogSinkTests
     }
 
     [Fact]
-    public void Emit_captures_exception_as_string()
-    {
+    public void Emit_captures_exception_as_string() {
         RingBufferLogSink sink = new(capacity: 4);
         ILogger logger = NewLogger(sink);
         InvalidOperationException ex = new("boom");

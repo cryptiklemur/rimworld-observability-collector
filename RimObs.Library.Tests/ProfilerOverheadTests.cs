@@ -7,34 +7,28 @@ using Xunit.Abstractions;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class ProfilerOverheadTests
-{
+public sealed class ProfilerOverheadTests {
     private readonly ITestOutputHelper _out;
 
-    public ProfilerOverheadTests(ITestOutputHelper output)
-    {
+    public ProfilerOverheadTests(ITestOutputHelper output) {
         _out = output;
     }
 
-    private sealed class CountingSink : ISampleSink
-    {
+    private sealed class CountingSink : ISampleSink {
         public long Count;
 
-        public void RecordSection(int sectionId, long startTimestamp, long elapsedTicks)
-        {
+        public void RecordSection(int sectionId, long startTimestamp, long elapsedTicks) {
             Count++;
         }
     }
 
     [Fact]
-    public void Disabled_section_short_circuits_zero_alloc()
-    {
+    public void Disabled_section_short_circuits_zero_alloc() {
         SectionHandle handle = SectionRegistry.Register("alloc-test-disabled");
         SectionRegistry.SetActive(handle.Id, false);
         Profiler.SetSink(null);
 
-        for (int warm = 0; warm < 50_000; warm++)
-        {
+        for (int warm = 0; warm < 50_000; warm++) {
             long t = Profiler.Start(handle);
             Profiler.Stop(handle, t);
         }
@@ -43,8 +37,7 @@ public sealed class ProfilerOverheadTests
         GC.Collect();
 
         long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 100_000; i++)
-        {
+        for (int i = 0; i < 100_000; i++) {
             long t = Profiler.Start(handle);
             Profiler.Stop(handle, t);
         }
@@ -56,15 +49,13 @@ public sealed class ProfilerOverheadTests
     }
 
     [Fact]
-    public void Enabled_section_with_noop_sink_zero_alloc()
-    {
+    public void Enabled_section_with_noop_sink_zero_alloc() {
         SectionHandle handle = SectionRegistry.Register("alloc-test-enabled");
         SectionRegistry.SetActive(handle.Id, true);
         CountingSink sink = new();
         Profiler.SetSink(sink);
 
-        for (int warm = 0; warm < 50_000; warm++)
-        {
+        for (int warm = 0; warm < 50_000; warm++) {
             long t = Profiler.Start(handle);
             Profiler.Stop(handle, t);
         }
@@ -74,8 +65,7 @@ public sealed class ProfilerOverheadTests
         GC.Collect();
 
         long before = GC.GetAllocatedBytesForCurrentThread();
-        for (int i = 0; i < 100_000; i++)
-        {
+        for (int i = 0; i < 100_000; i++) {
             long t = Profiler.Start(handle);
             Profiler.Stop(handle, t);
         }
@@ -90,8 +80,7 @@ public sealed class ProfilerOverheadTests
     }
 
     [Fact]
-    public void Disabled_section_overhead_under_5ns()
-    {
+    public void Disabled_section_overhead_under_5ns() {
         SectionHandle handle = SectionRegistry.Register("perf-test-disabled");
         SectionRegistry.SetActive(handle.Id, false);
         Profiler.SetSink(null);
@@ -99,18 +88,15 @@ public sealed class ProfilerOverheadTests
         const int iterations = 10_000_000;
         const int trials = 5;
 
-        for (int warm = 0; warm < 10_000; warm++)
-        {
+        for (int warm = 0; warm < 10_000; warm++) {
             long t = Profiler.Start(handle);
             Profiler.Stop(handle, t);
         }
 
         double bestNsPerOp = double.MaxValue;
-        for (int trial = 0; trial < trials; trial++)
-        {
+        for (int trial = 0; trial < trials; trial++) {
             Stopwatch sw = Stopwatch.StartNew();
-            for (int i = 0; i < iterations; i++)
-            {
+            for (int i = 0; i < iterations; i++) {
                 long t = Profiler.Start(handle);
                 Profiler.Stop(handle, t);
             }
@@ -129,8 +115,7 @@ public sealed class ProfilerOverheadTests
     }
 
     [Fact]
-    public void Enabled_section_overhead_under_100ns()
-    {
+    public void Enabled_section_overhead_under_100ns() {
         SectionHandle handle = SectionRegistry.Register("perf-test-enabled");
         SectionRegistry.SetActive(handle.Id, true);
         CountingSink sink = new();
@@ -138,15 +123,13 @@ public sealed class ProfilerOverheadTests
 
         const int iterations = 1_000_000;
 
-        for (int warm = 0; warm < 10_000; warm++)
-        {
+        for (int warm = 0; warm < 10_000; warm++) {
             long t = Profiler.Start(handle);
             Profiler.Stop(handle, t);
         }
 
         Stopwatch sw = Stopwatch.StartNew();
-        for (int i = 0; i < iterations; i++)
-        {
+        for (int i = 0; i < iterations; i++) {
             long t = Profiler.Start(handle);
             Profiler.Stop(handle, t);
         }

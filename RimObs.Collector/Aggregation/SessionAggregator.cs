@@ -4,8 +4,7 @@ using Cryptiklemur.RimObs.Wire;
 
 namespace Cryptiklemur.RimObs.Collector.Aggregation;
 
-public sealed class SessionAggregator
-{
+public sealed class SessionAggregator {
     private const int GcEventRingCapacity = 1024;
 
     private readonly ConcurrentDictionary<int, SectionStats> _sections = new();
@@ -15,12 +14,10 @@ public sealed class SessionAggregator
     private SessionMeta? _meta;
 
     public SessionAggregator()
-        : this(persister: null)
-    {
+        : this(persister: null) {
     }
 
-    public SessionAggregator(ISessionPersister? persister)
-    {
+    public SessionAggregator(ISessionPersister? persister) {
         _persister = persister;
     }
 
@@ -48,24 +45,20 @@ public sealed class SessionAggregator
 
     public GcEventRecord[] SnapshotGcEvents(int limit) => _gcEvents.SnapshotNewestFirst(limit);
 
-    public void OnBatchReceived(int byteCount)
-    {
+    public void OnBatchReceived(int byteCount) {
         Interlocked.Increment(ref _totalBatches);
         Interlocked.Add(ref _totalBytes, byteCount);
         _lastBatchUtc = DateTime.UtcNow;
     }
 
-    public void OnSessionMeta(SessionMeta meta)
-    {
+    public void OnSessionMeta(SessionMeta meta) {
         _meta = meta;
         _persister?.WriteSessionMeta(meta);
     }
 
-    public void OnSectionRegistrations(SectionRegistrationsBatch batch)
-    {
+    public void OnSectionRegistrations(SectionRegistrationsBatch batch) {
         int n = Math.Min(batch.SectionIds.Length, batch.Names.Length);
-        for (int i = 0; i < n; i++)
-        {
+        for (int i = 0; i < n; i++) {
             int id = batch.SectionIds[i];
             string name = batch.Names[i];
             SectionStats stats = _sections.GetOrAdd(id, key => new SectionStats { SectionId = key });
@@ -73,14 +66,12 @@ public sealed class SessionAggregator
         }
     }
 
-    public void OnMetricRegistrations(MetricRegistrationsBatch batch)
-    {
+    public void OnMetricRegistrations(MetricRegistrationsBatch batch) {
         int n = Math.Min(
             batch.MetricIds.Length,
             Math.Min(batch.Names.Length, Math.Min(batch.Kinds.Length, batch.Units.Length))
         );
-        for (int i = 0; i < n; i++)
-        {
+        for (int i = 0; i < n; i++) {
             int id = batch.MetricIds[i];
             MetricStats stats = _metrics.GetOrAdd(id, key => new MetricStats(key));
             stats.Name = batch.Names[i];
@@ -89,14 +80,12 @@ public sealed class SessionAggregator
         }
     }
 
-    public void OnMetrics(MetricsBatch batch)
-    {
+    public void OnMetrics(MetricsBatch batch) {
         int n = Math.Min(
             batch.MetricIds.Length,
             Math.Min(batch.LabelCanonicals.Length, Math.Min(batch.Kinds.Length, Math.Min(batch.Values.Length, batch.SampleCounts.Length)))
         );
-        for (int i = 0; i < n; i++)
-        {
+        for (int i = 0; i < n; i++) {
             int id = batch.MetricIds[i];
             string canonical = batch.LabelCanonicals[i];
             long value = batch.Values[i];
@@ -110,8 +99,7 @@ public sealed class SessionAggregator
         Interlocked.Add(ref _totalMetricObservations, n);
     }
 
-    public void OnGcEvents(GcEventsBatch batch)
-    {
+    public void OnGcEvents(GcEventsBatch batch) {
         int n = batch.Generations.Length;
         int pauseLen = batch.PauseTypes.Length;
         int heapBeforeLen = batch.HeapBefore.Length;
@@ -119,8 +107,7 @@ public sealed class SessionAggregator
         int durLen = batch.DurationMicros.Length;
         int tickLen = batch.Ticks.Length;
         int rateLen = batch.AllocationRateBytesPerMinute.Length;
-        for (int i = 0; i < n; i++)
-        {
+        for (int i = 0; i < n; i++) {
             GcEventRecord record = new(
                 generation: batch.Generations[i],
                 pauseType: i < pauseLen ? batch.PauseTypes[i] : (byte)0,
@@ -135,17 +122,14 @@ public sealed class SessionAggregator
         Interlocked.Add(ref _totalGcEvents, n);
     }
 
-    public void OnAllocations(AllocationsBatch batch)
-    {
+    public void OnAllocations(AllocationsBatch batch) {
         int n = batch.WindowStartTimestamps.Length;
         Interlocked.Add(ref _totalAllocations, n);
     }
 
-    public void OnSectionBatch(SectionBatch batch)
-    {
+    public void OnSectionBatch(SectionBatch batch) {
         int n = Math.Min(batch.SectionIds.Length, Math.Min(batch.ElapsedTicks.Length, batch.StartTimestamps.Length));
-        for (int i = 0; i < n; i++)
-        {
+        for (int i = 0; i < n; i++) {
             int id = batch.SectionIds[i];
             long elapsed = batch.ElapsedTicks[i];
             long start = batch.StartTimestamps[i];
@@ -159,22 +143,18 @@ public sealed class SessionAggregator
         Interlocked.Add(ref _totalSamples, n);
     }
 
-    private static void UpdateMin(ref long location, long value)
-    {
+    private static void UpdateMin(ref long location, long value) {
         long current;
-        do
-        {
+        do {
             current = Interlocked.Read(ref location);
             if (value >= current)
                 return;
         } while (Interlocked.CompareExchange(ref location, value, current) != current);
     }
 
-    private static void UpdateMax(ref long location, long value)
-    {
+    private static void UpdateMax(ref long location, long value) {
         long current;
-        do
-        {
+        do {
             current = Interlocked.Read(ref location);
             if (value <= current)
                 return;

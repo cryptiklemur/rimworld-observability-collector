@@ -3,8 +3,7 @@ using System.Threading;
 
 namespace Cryptiklemur.RimObs.Observers;
 
-internal static class GcObserverHost
-{
+internal static class GcObserverHost {
     private static readonly object s_Lock = new();
     private static GcObserver? s_Instance;
     private static long s_Tick;
@@ -14,20 +13,15 @@ internal static class GcObserverHost
     private const int PollIntervalMs = 1000;
     private static readonly PollerLifecycle s_Lifecycle = new("RimObs.GcObserver", PollTick, PollIntervalMs);
 
-    public static void SetSink(IGcEventSink? sink)
-    {
-        lock (s_Lock)
-        {
+    public static void SetSink(IGcEventSink? sink) {
+        lock (s_Lock) {
             s_Sink = sink;
         }
     }
 
-    public static GcObserver Instance
-    {
-        get
-        {
-            lock (s_Lock)
-            {
+    public static GcObserver Instance {
+        get {
+            lock (s_Lock) {
                 return s_Instance ??= new GcObserver();
             }
         }
@@ -35,21 +29,16 @@ internal static class GcObserverHost
 
     public static bool IsRunning => s_Lifecycle.IsRunning;
 
-    public static IReadOnlyList<GcEventSample> RecentSamples
-    {
-        get
-        {
-            lock (s_Lock)
-            {
+    public static IReadOnlyList<GcEventSample> RecentSamples {
+        get {
+            lock (s_Lock) {
                 return s_RecentSamples.ToArray();
             }
         }
     }
 
-    public static void Start()
-    {
-        lock (s_Lock)
-        {
+    public static void Start() {
+        lock (s_Lock) {
             s_Instance ??= new GcObserver();
             s_Tick = 0;
         }
@@ -58,23 +47,19 @@ internal static class GcObserverHost
 
     public static void Stop() => s_Lifecycle.Stop();
 
-    public static void ClearRecentSamples()
-    {
-        lock (s_Lock)
-        {
+    public static void ClearRecentSamples() {
+        lock (s_Lock) {
             s_RecentSamples.Clear();
         }
     }
 
-    public static bool PollOnce(long currentTick)
-    {
+    public static bool PollOnce(long currentTick) {
         GcObserver observer = Instance;
         if (!observer.TryPoll(currentTick, out GcEventSample sample))
             return false;
 
         IGcEventSink? sink;
-        lock (s_Lock)
-        {
+        lock (s_Lock) {
             if (s_RecentSamples.Count >= MaxRecentSamples)
                 s_RecentSamples.RemoveAt(0);
             s_RecentSamples.Add(sample);

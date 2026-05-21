@@ -3,8 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Cryptiklemur.RimObs.Profile;
 
-internal static class SectionRegistry
-{
+internal static class SectionRegistry {
     public const int MaxSections = 4096;
 
     internal static readonly string[] s_Names = new string[MaxSections];
@@ -16,24 +15,19 @@ internal static class SectionRegistry
 
     private static readonly List<int> s_PendingRegistrations = [];
 
-    public static int Count
-    {
-        get
-        {
-            lock (s_Lock)
-            {
+    public static int Count {
+        get {
+            lock (s_Lock) {
                 return s_Count;
             }
         }
     }
 
-    public static SectionHandle Register(string name)
-    {
+    public static SectionHandle Register(string name) {
         if (string.IsNullOrEmpty(name))
             throw new ArgumentException("Section name must not be empty.", nameof(name));
 
-        lock (s_Lock)
-        {
+        lock (s_Lock) {
             if (s_Lookup.TryGetValue(name, out int existing))
                 return new SectionHandle(existing);
 
@@ -57,19 +51,15 @@ internal static class SectionRegistry
     public static string GetName(int id) =>
         (uint)id < (uint)s_Count ? s_Names[id] : string.Empty;
 
-    public static void SetActive(int id, bool active)
-    {
+    public static void SetActive(int id, bool active) {
         if ((uint)id < (uint)s_Count)
             s_Active[id] = active;
     }
 
-    public static int DrainPendingRegistrations(int[] ids, string[] names)
-    {
-        lock (s_Lock)
-        {
+    public static int DrainPendingRegistrations(int[] ids, string[] names) {
+        lock (s_Lock) {
             int n = Math.Min(s_PendingRegistrations.Count, Math.Min(ids.Length, names.Length));
-            for (int i = 0; i < n; i++)
-            {
+            for (int i = 0; i < n; i++) {
                 int id = s_PendingRegistrations[i];
                 ids[i] = id;
                 names[i] = s_Names[id];
@@ -79,10 +69,8 @@ internal static class SectionRegistry
         }
     }
 
-    public static void Clear()
-    {
-        lock (s_Lock)
-        {
+    public static void Clear() {
+        lock (s_Lock) {
             Array.Clear(s_Names, 0, s_Count);
             Array.Clear(s_Active, 0, s_Count);
             s_Lookup.Clear();

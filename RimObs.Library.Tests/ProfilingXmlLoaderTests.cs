@@ -9,27 +9,21 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class ProfilingXmlLoaderTests : IDisposable
-{
+public sealed class ProfilingXmlLoaderTests : IDisposable {
     private readonly List<string> _tempDirs = new();
 
-    public void Dispose()
-    {
-        foreach (string dir in _tempDirs)
-        {
-            try
-            {
+    public void Dispose() {
+        foreach (string dir in _tempDirs) {
+            try {
                 if (Directory.Exists(dir))
                     Directory.Delete(dir, recursive: true);
             }
-            catch
-            {
+            catch {
             }
         }
     }
 
-    private string CreateModDir(string packageId, string profilingXmlContent)
-    {
+    private string CreateModDir(string packageId, string profilingXmlContent) {
         string root = Path.Combine(Path.GetTempPath(), $"rimobs-profiling-{packageId}-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "About"));
         File.WriteAllText(Path.Combine(root, "About", ProfilingXmlLoader.FileName), profilingXmlContent);
@@ -38,8 +32,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Empty_mod_list_returns_zero_counts()
-    {
+    public void Empty_mod_list_returns_zero_counts() {
         ProfilingXmlLoader.LoadResult r = ProfilingXmlLoader.LoadFromMods(Array.Empty<(string, string)>());
 
         r.FilesScanned.Should().Be(0);
@@ -50,8 +43,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Missing_profiling_xml_is_silently_skipped()
-    {
+    public void Missing_profiling_xml_is_silently_skipped() {
         string root = Path.Combine(Path.GetTempPath(), $"rimobs-profiling-empty-{Guid.NewGuid():N}");
         Directory.CreateDirectory(Path.Combine(root, "About"));
         _tempDirs.Add(root);
@@ -63,8 +55,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Valid_single_section_registers_methods_with_owner_prefix()
-    {
+    public void Valid_single_section_registers_methods_with_owner_prefix() {
         const string xml = """
         <?xml version="1.0" encoding="utf-8"?>
         <Profiling>
@@ -90,8 +81,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
         IReadOnlyList<CatalogEntry> all = SectionCatalog.Entries;
         List<CatalogEntry> mine = all.Skip(catalogBefore).ToList();
         mine.Should().HaveCount(2);
-        mine.Should().AllSatisfy(e =>
-        {
+        mine.Should().AllSatisfy(e => {
             e.Name.Should().Be("test.single.combat");
             e.Declared.Should().BeTrue();
             e.Owner.Should().Be("test.single");
@@ -102,8 +92,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Multiple_sections_in_one_file_all_register()
-    {
+    public void Multiple_sections_in_one_file_all_register() {
         const string xml = """
         <Profiling>
             <Section name="ai">
@@ -129,8 +118,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Multiple_mods_each_with_profiling_xml_all_load()
-    {
+    public void Multiple_mods_each_with_profiling_xml_all_load() {
         const string xmlA = """
         <Profiling>
             <Section name="combat">
@@ -165,8 +153,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Wrong_root_element_warns_and_loads_nothing()
-    {
+    public void Wrong_root_element_warns_and_loads_nothing() {
         const string xml = """
         <NotProfiling>
             <Section name="x">
@@ -185,8 +172,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Section_missing_name_attribute_warns()
-    {
+    public void Section_missing_name_attribute_warns() {
         const string xml = """
         <Profiling>
             <Section>
@@ -204,8 +190,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Section_missing_methods_container_warns()
-    {
+    public void Section_missing_methods_container_warns() {
         const string xml = """
         <Profiling>
             <Section name="orphan"/>
@@ -221,8 +206,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Invalid_method_spec_warns_but_continues()
-    {
+    public void Invalid_method_spec_warns_but_continues() {
         const string xml = """
         <Profiling>
             <Section name="mixed">
@@ -246,8 +230,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Malformed_xml_warns_and_skips_file()
-    {
+    public void Malformed_xml_warns_and_skips_file() {
         string root = CreateModDir("malformed", "<Profiling><not closed>");
 
         ProfilingXmlLoader.LoadResult r = ProfilingXmlLoader.LoadFromMods(new[] { (root, "test.malformed") });
@@ -258,8 +241,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Empty_or_null_package_id_skips_mod()
-    {
+    public void Empty_or_null_package_id_skips_mod() {
         const string xml = """
         <Profiling>
             <Section name="x">
@@ -280,8 +262,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Method_spec_with_nested_namespace_splits_on_last_colon()
-    {
+    public void Method_spec_with_nested_namespace_splits_on_last_colon() {
         ProfilingXmlLoader.TrySplitMethodSpec("A.B.C:Method", out string typeA, out string methodA).Should().BeTrue();
         typeA.Should().Be("A.B.C");
         methodA.Should().Be("Method");
@@ -292,8 +273,7 @@ public sealed class ProfilingXmlLoaderTests : IDisposable
     }
 
     [Fact]
-    public void Null_mods_argument_throws()
-    {
+    public void Null_mods_argument_throws() {
         Action act = () => ProfilingXmlLoader.LoadFromMods(null!);
         act.Should().Throw<ArgumentNullException>();
     }

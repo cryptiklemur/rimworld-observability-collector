@@ -5,8 +5,7 @@ using System.Reflection;
 
 namespace Cryptiklemur.RimObs.Api;
 
-public static class OwnerRegistry
-{
+public static class OwnerRegistry {
     private static readonly Dictionary<Assembly, string> s_AssemblyToPackageId = new();
     private static readonly object s_Lock = new();
     private static Func<Assembly, string?>? s_LateResolver;
@@ -16,44 +15,35 @@ public static class OwnerRegistry
     /// RimObsMod wires this to a Verse-aware scan of LoadedModManager so consumer mods whose
     /// Mod ctor runs before RimObsMod still resolve. Pass null to clear (used by tests).
     /// </summary>
-    public static void SetLateResolver(Func<Assembly, string?>? resolver)
-    {
-        lock (s_Lock)
-        {
+    public static void SetLateResolver(Func<Assembly, string?>? resolver) {
+        lock (s_Lock) {
             s_LateResolver = resolver;
         }
     }
 
-    public static void RegisterMod(Assembly assembly, string packageId)
-    {
+    public static void RegisterMod(Assembly assembly, string packageId) {
         if (assembly == null)
             throw new ArgumentNullException(nameof(assembly));
         if (string.IsNullOrEmpty(packageId))
             throw new ArgumentException("packageId must not be empty.", nameof(packageId));
 
-        lock (s_Lock)
-        {
+        lock (s_Lock) {
             s_AssemblyToPackageId[assembly] = packageId;
         }
     }
 
-    public static bool TryGetPackageId(Assembly assembly, [MaybeNullWhen(false)] out string packageId)
-    {
+    public static bool TryGetPackageId(Assembly assembly, [MaybeNullWhen(false)] out string packageId) {
         Func<Assembly, string?>? resolver;
-        lock (s_Lock)
-        {
+        lock (s_Lock) {
             if (s_AssemblyToPackageId.TryGetValue(assembly, out packageId))
                 return true;
             resolver = s_LateResolver;
         }
 
-        if (resolver != null)
-        {
+        if (resolver != null) {
             string? resolved = resolver(assembly);
-            if (!string.IsNullOrEmpty(resolved))
-            {
-                lock (s_Lock)
-                {
+            if (!string.IsNullOrEmpty(resolved)) {
+                lock (s_Lock) {
                     s_AssemblyToPackageId[assembly] = resolved!;
                 }
                 packageId = resolved!;
@@ -65,8 +55,7 @@ public static class OwnerRegistry
         return false;
     }
 
-    public static string ResolveOrThrow(Assembly assembly)
-    {
+    public static string ResolveOrThrow(Assembly assembly) {
         if (assembly == null)
             throw new ArgumentNullException(nameof(assembly));
 
@@ -80,21 +69,16 @@ public static class OwnerRegistry
         );
     }
 
-    public static int Count
-    {
-        get
-        {
-            lock (s_Lock)
-            {
+    public static int Count {
+        get {
+            lock (s_Lock) {
                 return s_AssemblyToPackageId.Count;
             }
         }
     }
 
-    public static void Clear()
-    {
-        lock (s_Lock)
-        {
+    public static void Clear() {
+        lock (s_Lock) {
             s_AssemblyToPackageId.Clear();
             s_LateResolver = null;
         }

@@ -4,8 +4,7 @@ using System.Runtime.CompilerServices;
 
 namespace Cryptiklemur.RimObs.Metrics;
 
-internal static class MetricRegistry
-{
+internal static class MetricRegistry {
     public const int MaxMetrics = 4096;
 
     internal static readonly MetricDescriptor?[] s_Descriptors = new MetricDescriptor?[MaxMetrics];
@@ -14,19 +13,15 @@ internal static class MetricRegistry
     private static readonly object s_Lock = new();
     private static int s_Count;
 
-    public static int Count
-    {
-        get
-        {
-            lock (s_Lock)
-            {
+    public static int Count {
+        get {
+            lock (s_Lock) {
                 return s_Count;
             }
         }
     }
 
-    public static MetricDescriptor Register(string fullName, string ownerPackageId, MetricKind kind, string? subsystem, string? unit, int cardinalityLimit = MetricDescriptor.DefaultCardinalityLimit)
-    {
+    public static MetricDescriptor Register(string fullName, string ownerPackageId, MetricKind kind, string? subsystem, string? unit, int cardinalityLimit = MetricDescriptor.DefaultCardinalityLimit) {
         if (string.IsNullOrEmpty(fullName))
             throw new ArgumentException("fullName must not be empty.", nameof(fullName));
         if (string.IsNullOrEmpty(ownerPackageId))
@@ -34,10 +29,8 @@ internal static class MetricRegistry
         if (cardinalityLimit < 1)
             throw new ArgumentException("cardinalityLimit must be at least 1.", nameof(cardinalityLimit));
 
-        lock (s_Lock)
-        {
-            if (s_Lookup.TryGetValue(fullName, out int existingId))
-            {
+        lock (s_Lock) {
+            if (s_Lookup.TryGetValue(fullName, out int existingId)) {
                 MetricDescriptor existing = s_Descriptors[existingId]!;
                 if (existing.Kind != kind)
                     throw new InvalidOperationException(
@@ -63,10 +56,8 @@ internal static class MetricRegistry
     public static MetricDescriptor? Get(int id) =>
         (uint)id < (uint)s_Count ? s_Descriptors[id] : null;
 
-    public static void Clear()
-    {
-        lock (s_Lock)
-        {
+    public static void Clear() {
+        lock (s_Lock) {
             for (int i = 0; i < s_Count; i++)
                 s_Descriptors[i] = null;
             s_Lookup.Clear();

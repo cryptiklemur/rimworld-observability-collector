@@ -4,11 +4,9 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
-public sealed class PlaceholderTests
-{
+public sealed class PlaceholderTests {
     [Fact]
-    public void BuildInfo_revision_is_set()
-    {
+    public void BuildInfo_revision_is_set() {
         BuildInfo.Revision.Should().NotBeNullOrEmpty();
     }
 }

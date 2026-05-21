@@ -5,8 +5,7 @@ using HarmonyLib;
 
 namespace Cryptiklemur.RimObs.Patching;
 
-internal static class PatchInstaller
-{
+internal static class PatchInstaller {
     public const string HarmonyId = "cryptiklemur.rimobs.library";
 
     private static Harmony? s_Harmony;
@@ -15,37 +14,31 @@ internal static class PatchInstaller
     public static int FailedCount { get; private set; }
     public static int UnresolvedCount { get; private set; }
 
-    public static void InstallAll()
-    {
+    public static void InstallAll() {
         SectionCatalog.RegisterCorePack();
         SectionCatalog.ResolveAll();
 
         s_Harmony ??= new Harmony(HarmonyId);
 
-        HarmonyMethod transpiler = new(MethodTransplanter.TranspilerMethod)
-        {
+        HarmonyMethod transpiler = new(MethodTransplanter.TranspilerMethod) {
             priority = Priority.Low,
         };
 
-        foreach (CatalogEntry entry in SectionCatalog.Entries)
-        {
+        foreach (CatalogEntry entry in SectionCatalog.Entries) {
             if (entry.Installed)
                 continue;
 
-            if (entry.Resolved == null)
-            {
+            if (entry.Resolved == null) {
                 UnresolvedCount++;
                 continue;
             }
 
-            try
-            {
+            try {
                 s_Harmony.Patch(entry.Resolved, transpiler: transpiler);
                 entry.Installed = true;
                 InstalledCount++;
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 entry.InstallError = ex;
                 FailedCount++;
             }
@@ -54,13 +47,10 @@ internal static class PatchInstaller
         HarmonyConflictRecorder.RecordConflicts(s_Harmony);
     }
 
-    public static IReadOnlyList<CatalogEntry> InstalledEntries
-    {
-        get
-        {
+    public static IReadOnlyList<CatalogEntry> InstalledEntries {
+        get {
             List<CatalogEntry> list = new();
-            foreach (CatalogEntry entry in SectionCatalog.Entries)
-            {
+            foreach (CatalogEntry entry in SectionCatalog.Entries) {
                 if (entry.Installed)
                     list.Add(entry);
             }
@@ -70,29 +60,23 @@ internal static class PatchInstaller
 
     public static Harmony? Instance => s_Harmony;
 
-    internal static Harmony EnsureHarmony(string id)
-    {
+    internal static Harmony EnsureHarmony(string id) {
         s_Harmony ??= new Harmony(id);
         return s_Harmony;
     }
 
-    internal static void PatchSingleForTests(MethodBase target)
-    {
+    internal static void PatchSingleForTests(MethodBase target) {
         Harmony harmony = EnsureHarmony("cryptiklemur.rimobs.tests");
         HarmonyMethod transpiler = new(MethodTransplanter.TranspilerMethod);
         harmony.Patch(target, transpiler: transpiler);
     }
 
-    internal static void ResetForTests()
-    {
-        if (s_Harmony != null)
-        {
-            try
-            {
+    internal static void ResetForTests() {
+        if (s_Harmony != null) {
+            try {
                 s_Harmony.UnpatchAll(s_Harmony.Id);
             }
-            catch
-            {
+            catch {
                 // Best-effort cleanup; ignore failures during test teardown.
             }
         }

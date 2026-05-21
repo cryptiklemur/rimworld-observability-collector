@@ -2,10 +2,8 @@ using System;
 
 namespace Cryptiklemur.RimObs.Api;
 
-public static class NameValidator
-{
-    public static void ValidateBareName(string name, string paramName)
-    {
+public static class NameValidator {
+    public static void ValidateBareName(string name, string paramName) {
         if (string.IsNullOrEmpty(name))
             throw new ArgumentException("Name must not be empty.", paramName);
 
@@ -16,8 +14,7 @@ public static class NameValidator
                 paramName
             );
 
-        for (int i = 1; i < name.Length; i++)
-        {
+        for (int i = 1; i < name.Length; i++) {
             char c = name[i];
             bool ok = (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_';
             if (!ok)

@@ -5,19 +5,15 @@ using Cryptiklemur.RimObs.Profile;
 
 namespace Cryptiklemur.RimObs.Patching;
 
-internal static class SectionCatalog
-{
+internal static class SectionCatalog {
     private static readonly List<CatalogEntry> s_Entries = new();
     private static readonly Dictionary<MethodBase, int> s_MethodToSectionId = new();
     private static readonly object s_Lock = new();
     private static bool s_CorePackRegistered;
 
-    public static IReadOnlyList<CatalogEntry> Entries
-    {
-        get
-        {
-            lock (s_Lock)
-            {
+    public static IReadOnlyList<CatalogEntry> Entries {
+        get {
+            lock (s_Lock) {
                 return s_Entries.ToArray();
             }
         }
@@ -46,39 +42,32 @@ internal static class SectionCatalog
         ("Verse.Root_Play.Update", "Verse.Root_Play", "Update"),
     ];
 
-    public static void RegisterCorePack()
-    {
-        lock (s_Lock)
-        {
+    public static void RegisterCorePack() {
+        lock (s_Lock) {
             if (s_CorePackRegistered)
                 return;
             s_CorePackRegistered = true;
 
-            for (int i = 0; i < s_CorePackSections.Length; i++)
-            {
+            for (int i = 0; i < s_CorePackSections.Length; i++) {
                 (string name, string typeName, string methodName) = s_CorePackSections[i];
                 Register(name, typeName, methodName, null);
             }
         }
     }
 
-    public static CatalogEntry Register(string name, string typeName, string methodName, string[]? paramTypeNames)
-    {
-        lock (s_Lock)
-        {
+    public static CatalogEntry Register(string name, string typeName, string methodName, string[]? paramTypeNames) {
+        lock (s_Lock) {
             CatalogEntry entry = new(name, typeName, methodName, paramTypeNames);
             s_Entries.Add(entry);
             return entry;
         }
     }
 
-    public static CatalogEntry RegisterDirect(string name, MethodBase method)
-    {
+    public static CatalogEntry RegisterDirect(string name, MethodBase method) {
         if (method == null)
             throw new ArgumentNullException(nameof(method));
 
-        lock (s_Lock)
-        {
+        lock (s_Lock) {
             CatalogEntry entry = new(name, method.DeclaringType?.FullName ?? "?", method.Name, null);
             entry.Resolved = method;
             SectionHandle handle = SectionRegistry.Register(name);
@@ -90,27 +79,21 @@ internal static class SectionCatalog
         }
     }
 
-    public static void ResolveAll()
-    {
-        lock (s_Lock)
-        {
-            foreach (CatalogEntry entry in s_Entries)
-            {
+    public static void ResolveAll() {
+        lock (s_Lock) {
+            foreach (CatalogEntry entry in s_Entries) {
                 if (entry.Resolved != null)
                     continue;
 
-                try
-                {
+                try {
                     Type? type = FindType(entry.TypeName);
-                    if (type == null)
-                    {
+                    if (type == null) {
                         entry.ResolutionError = new TypeLoadException($"type '{entry.TypeName}' not found");
                         continue;
                     }
 
                     MethodInfo? method = ResolveMethod(type, entry.MethodName, entry.ParamTypeNames);
-                    if (method == null)
-                    {
+                    if (method == null) {
                         entry.ResolutionError = new MissingMethodException(entry.TypeName, entry.MethodName);
                         continue;
                     }
@@ -121,36 +104,29 @@ internal static class SectionCatalog
                     SectionRegistry.SetActive(handle.Id, true);
                     s_MethodToSectionId[method] = handle.Id;
                 }
-                catch (Exception ex)
-                {
+                catch (Exception ex) {
                     entry.ResolutionError = ex;
                 }
             }
         }
     }
 
-    public static bool TryGetSectionId(MethodBase method, out int sectionId)
-    {
-        lock (s_Lock)
-        {
+    public static bool TryGetSectionId(MethodBase method, out int sectionId) {
+        lock (s_Lock) {
             return s_MethodToSectionId.TryGetValue(method, out sectionId);
         }
     }
 
-    public static void Clear()
-    {
-        lock (s_Lock)
-        {
+    public static void Clear() {
+        lock (s_Lock) {
             s_Entries.Clear();
             s_MethodToSectionId.Clear();
             s_CorePackRegistered = false;
         }
     }
 
-    private static Type? FindType(string fullName)
-    {
-        foreach (Assembly asm in AppDomain.CurrentDomain.GetAssemblies())
-        {
+    private static Type? FindType(string fullName) {
+        foreach (Assembly asm in AppDomain.CurrentDomain.GetAssemblies()) {
             Type? t = asm.GetType(fullName, throwOnError: false);
             if (t != null)
                 return t;
@@ -158,8 +134,7 @@ internal static class SectionCatalog
         return null;
     }
 
-    private static MethodInfo? ResolveMethod(Type type, string methodName, string[]? paramTypeNames)
-    {
+    private static MethodInfo? ResolveMethod(Type type, string methodName, string[]? paramTypeNames) {
         List<MethodInfo> byName = GetMethodsByName(type, methodName);
         if (byName.Count == 0)
             return null;
@@ -170,14 +145,12 @@ internal static class SectionCatalog
         return ResolveByParamTypes(byName, paramTypeNames);
     }
 
-    private static List<MethodInfo> GetMethodsByName(Type type, string methodName)
-    {
+    private static List<MethodInfo> GetMethodsByName(Type type, string methodName) {
         const BindingFlags Flags = BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance | BindingFlags.Static | BindingFlags.DeclaredOnly;
 
         MethodInfo[] candidates = type.GetMethods(Flags);
         List<MethodInfo> byName = new();
-        for (int i = 0; i < candidates.Length; i++)
-        {
+        for (int i = 0; i < candidates.Length; i++) {
             if (candidates[i].Name == methodName)
                 byName.Add(candidates[i]);
         }
@@ -189,18 +162,15 @@ internal static class SectionCatalog
     // (FindPath, FindPathNow, MapPreTick, ...) are typically the canonical highest-arity
     // form; the lower-arity overloads are usually thin convenience wrappers that delegate
     // to the wide one, so patching the wide overload covers both call paths.
-    private static MethodInfo? ResolveByNameOnly(List<MethodInfo> byName)
-    {
+    private static MethodInfo? ResolveByNameOnly(List<MethodInfo> byName) {
         if (byName.Count == 1)
             return byName[0];
 
         MethodInfo best = byName[0];
         int bestArity = best.GetParameters().Length;
-        for (int i = 1; i < byName.Count; i++)
-        {
+        for (int i = 1; i < byName.Count; i++) {
             int arity = byName[i].GetParameters().Length;
-            if (arity > bestArity)
-            {
+            if (arity > bestArity) {
                 best = byName[i];
                 bestArity = arity;
             }
@@ -208,19 +178,15 @@ internal static class SectionCatalog
         return best;
     }
 
-    private static MethodInfo? ResolveByParamTypes(List<MethodInfo> byName, string[] paramTypeNames)
-    {
-        foreach (MethodInfo m in byName)
-        {
+    private static MethodInfo? ResolveByParamTypes(List<MethodInfo> byName, string[] paramTypeNames) {
+        foreach (MethodInfo m in byName) {
             ParameterInfo[] ps = m.GetParameters();
             if (ps.Length != paramTypeNames.Length)
                 continue;
 
             bool match = true;
-            for (int i = 0; i < ps.Length; i++)
-            {
-                if (!NameMatches(ps[i].ParameterType, paramTypeNames[i]))
-                {
+            for (int i = 0; i < ps.Length; i++) {
+                if (!NameMatches(ps[i].ParameterType, paramTypeNames[i])) {
                     match = false;
                     break;
                 }
@@ -231,14 +197,12 @@ internal static class SectionCatalog
         return null;
     }
 
-    private static bool NameMatches(Type t, string name)
-    {
+    private static bool NameMatches(Type t, string name) {
         if (t.FullName == name)
             return true;
         if (t.Name == name)
             return true;
-        if (t.IsGenericType)
-        {
+        if (t.IsGenericType) {
             string definition = t.GetGenericTypeDefinition().FullName ?? "";
             if (definition == name)
                 return true;

@@ -12,17 +12,14 @@ using Xunit.Abstractions;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
-public sealed class EndToEndSmokeTests
-{
+public sealed class EndToEndSmokeTests {
     private readonly ITestOutputHelper _out;
 
-    public EndToEndSmokeTests(ITestOutputHelper output)
-    {
+    public EndToEndSmokeTests(ITestOutputHelper output) {
         _out = output;
     }
 
-    private static int PickFreePort()
-    {
+    private static int PickFreePort() {
         TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
         int port = ((IPEndPoint)listener.LocalEndpoint).Port;
@@ -31,23 +28,19 @@ public sealed class EndToEndSmokeTests
     }
 
     [Fact]
-    public async Task Udp_batch_appears_in_status_and_sections()
-    {
+    public async Task Udp_batch_appears_in_status_and_sections() {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port);
         await app.StartAsync();
-        try
-        {
+        try {
             using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 HttpResponseMessage r = await http.GetAsync("/api/v1/status");
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta
-            {
+            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
                 SessionId = "smoke-session",
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
@@ -56,21 +49,18 @@ public sealed class EndToEndSmokeTests
                 GameVersion = "1.6",
             }));
 
-            SendBatch(port, BatchType.SectionRegistrations, MessagePackSerializer.Serialize(new SectionRegistrationsBatch
-            {
+            SendBatch(port, BatchType.SectionRegistrations, MessagePackSerializer.Serialize(new SectionRegistrationsBatch {
                 SectionIds = [42, 43],
                 Names = ["smoke.tick", "smoke.path"],
             }));
 
-            SendBatch(port, BatchType.Sections, MessagePackSerializer.Serialize(new SectionBatch
-            {
+            SendBatch(port, BatchType.Sections, MessagePackSerializer.Serialize(new SectionBatch {
                 SectionIds = [42, 42, 43],
                 StartTimestamps = [1000, 2000, 3000],
                 ElapsedTicks = [500, 600, 700],
             }));
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 string body = await http.GetStringAsync("/api/v1/status");
                 _out.WriteLine($"status: {body}");
                 using JsonDocument doc = JsonDocument.Parse(body);
@@ -95,8 +85,7 @@ public sealed class EndToEndSmokeTests
                 totalSamples += s.GetProperty("sample_count").GetInt32();
             totalSamples.Should().Be(3);
         }
-        finally
-        {
+        finally {
             await app.StopAsync();
             await app.DisposeAsync();
         }
@@ -104,23 +93,19 @@ public sealed class EndToEndSmokeTests
 
 
     [Fact]
-    public async Task GcEvents_and_Allocations_batches_increment_status_counters()
-    {
+    public async Task GcEvents_and_Allocations_batches_increment_status_counters() {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port);
         await app.StartAsync();
-        try
-        {
+        try {
             using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 HttpResponseMessage r = await http.GetAsync("/api/v1/status");
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.GcEvents, MessagePackSerializer.Serialize(new GcEventsBatch
-            {
+            SendBatch(port, BatchType.GcEvents, MessagePackSerializer.Serialize(new GcEventsBatch {
                 Generations = [0, 1, 2],
                 PauseTypes = [0, 0, 1],
                 HeapBefore = [100, 200, 300],
@@ -130,16 +115,14 @@ public sealed class EndToEndSmokeTests
                 AllocationRateBytesPerMinute = [1000, 2000, 3000],
             }));
 
-            SendBatch(port, BatchType.Allocations, MessagePackSerializer.Serialize(new AllocationsBatch
-            {
+            SendBatch(port, BatchType.Allocations, MessagePackSerializer.Serialize(new AllocationsBatch {
                 WindowStartTimestamps = [10, 20],
                 WindowDurationsMs = [5, 5],
                 BytesAllocated = [4096, 8192],
                 SamplesCount = [1, 1],
             }));
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 string body = await http.GetStringAsync("/api/v1/status");
                 _out.WriteLine($"status: {body}");
                 using JsonDocument doc = JsonDocument.Parse(body);
@@ -155,31 +138,26 @@ public sealed class EndToEndSmokeTests
             receive.GetProperty("total_gc_events").GetInt64().Should().Be(3);
             receive.GetProperty("total_allocations").GetInt64().Should().Be(2);
         }
-        finally
-        {
+        finally {
             await app.StopAsync();
             await app.DisposeAsync();
         }
     }
 
     [Fact]
-    public async Task Gc_endpoint_returns_recent_events_newest_first_and_honors_limit()
-    {
+    public async Task Gc_endpoint_returns_recent_events_newest_first_and_honors_limit() {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port);
         await app.StartAsync();
-        try
-        {
+        try {
             using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 HttpResponseMessage r = await http.GetAsync("/api/v1/status");
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.GcEvents, MessagePackSerializer.Serialize(new GcEventsBatch
-            {
+            SendBatch(port, BatchType.GcEvents, MessagePackSerializer.Serialize(new GcEventsBatch {
                 Generations = [0, 1, 2],
                 PauseTypes = [0, 0, 1],
                 HeapBefore = [100, 200, 300],
@@ -189,8 +167,7 @@ public sealed class EndToEndSmokeTests
                 AllocationRateBytesPerMinute = [1000, 2000, 3000],
             }));
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 string body = await http.GetStringAsync("/api/v1/sessions/current/gc");
                 using JsonDocument doc = JsonDocument.Parse(body);
                 return doc.RootElement.GetProperty("events").GetArrayLength() >= 3;
@@ -215,25 +192,21 @@ public sealed class EndToEndSmokeTests
             limEvents[0].GetProperty("ticks").GetInt64().Should().Be(333);
             limEvents[1].GetProperty("ticks").GetInt64().Should().Be(222);
         }
-        finally
-        {
+        finally {
             await app.StopAsync();
             await app.DisposeAsync();
         }
     }
 
     [Fact]
-    public async Task Post_without_origin_header_is_rejected_with_403()
-    {
+    public async Task Post_without_origin_header_is_rejected_with_403() {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port);
         await app.StartAsync();
-        try
-        {
+        try {
             using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 HttpResponseMessage r = await http.GetAsync("/api/v1/status");
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
@@ -241,16 +214,14 @@ public sealed class EndToEndSmokeTests
             HttpResponseMessage noOrigin = await http.PostAsync("/api/v1/anything", new StringContent(""));
             noOrigin.StatusCode.Should().Be(System.Net.HttpStatusCode.Forbidden);
 
-            using HttpRequestMessage wrongOrigin = new(HttpMethod.Post, "/api/v1/anything")
-            {
+            using HttpRequestMessage wrongOrigin = new(HttpMethod.Post, "/api/v1/anything") {
                 Content = new StringContent(""),
             };
             wrongOrigin.Headers.Add("Origin", "http://evil.example.com");
             HttpResponseMessage wrongResp = await http.SendAsync(wrongOrigin);
             wrongResp.StatusCode.Should().Be(System.Net.HttpStatusCode.Forbidden);
 
-            using HttpRequestMessage goodOrigin = new(HttpMethod.Post, "/api/v1/anything")
-            {
+            using HttpRequestMessage goodOrigin = new(HttpMethod.Post, "/api/v1/anything") {
                 Content = new StringContent(""),
             };
             goodOrigin.Headers.Add("Origin", $"http://127.0.0.1:{port}");
@@ -260,32 +231,27 @@ public sealed class EndToEndSmokeTests
             HttpResponseMessage getNoOrigin = await http.GetAsync("/api/v1/status");
             getNoOrigin.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
         }
-        finally
-        {
+        finally {
             await app.StopAsync();
             await app.DisposeAsync();
         }
     }
 
     [Fact]
-    public async Task Post_with_valid_origin_but_missing_bearer_is_rejected_with_401()
-    {
+    public async Task Post_with_valid_origin_but_missing_bearer_is_rejected_with_401() {
         int port = PickFreePort();
         Security.CollectorToken token = Security.CollectorToken.FromExplicitValue("test-bearer-token-abc");
         WebApplication app = Program.BuildApp([], port, token);
         await app.StartAsync();
-        try
-        {
+        try {
             using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 HttpResponseMessage r = await http.GetAsync("/api/v1/status");
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            using HttpRequestMessage noBearer = new(HttpMethod.Post, "/api/v1/anything")
-            {
+            using HttpRequestMessage noBearer = new(HttpMethod.Post, "/api/v1/anything") {
                 Content = new StringContent(""),
             };
             noBearer.Headers.Add("Origin", $"http://127.0.0.1:{port}");
@@ -293,8 +259,7 @@ public sealed class EndToEndSmokeTests
             noBearerResp.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);
             noBearerResp.Headers.WwwAuthenticate.ToString().Should().Contain("Bearer");
 
-            using HttpRequestMessage wrongBearer = new(HttpMethod.Post, "/api/v1/anything")
-            {
+            using HttpRequestMessage wrongBearer = new(HttpMethod.Post, "/api/v1/anything") {
                 Content = new StringContent(""),
             };
             wrongBearer.Headers.Add("Origin", $"http://127.0.0.1:{port}");
@@ -302,8 +267,7 @@ public sealed class EndToEndSmokeTests
             HttpResponseMessage wrongResp = await http.SendAsync(wrongBearer);
             wrongResp.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);
 
-            using HttpRequestMessage goodBearer = new(HttpMethod.Post, "/api/v1/anything")
-            {
+            using HttpRequestMessage goodBearer = new(HttpMethod.Post, "/api/v1/anything") {
                 Content = new StringContent(""),
             };
             goodBearer.Headers.Add("Origin", $"http://127.0.0.1:{port}");
@@ -315,31 +279,26 @@ public sealed class EndToEndSmokeTests
             HttpResponseMessage getNoAuth = await http.GetAsync("/api/v1/status");
             getNoAuth.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
         }
-        finally
-        {
+        finally {
             await app.StopAsync();
             await app.DisposeAsync();
         }
     }
 
     [Fact]
-    public async Task Hotspots_endpoint_returns_sections_sorted_by_total_descending_and_honors_limit()
-    {
+    public async Task Hotspots_endpoint_returns_sections_sorted_by_total_descending_and_honors_limit() {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port);
         await app.StartAsync();
-        try
-        {
+        try {
             using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 HttpResponseMessage r = await http.GetAsync("/api/v1/status");
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta
-            {
+            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
                 SessionId = "hot-session",
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
@@ -348,21 +307,18 @@ public sealed class EndToEndSmokeTests
                 GameVersion = "1.6",
             }));
 
-            SendBatch(port, BatchType.SectionRegistrations, MessagePackSerializer.Serialize(new SectionRegistrationsBatch
-            {
+            SendBatch(port, BatchType.SectionRegistrations, MessagePackSerializer.Serialize(new SectionRegistrationsBatch {
                 SectionIds = [10, 20, 30],
                 Names = ["hot.cold", "hot.warm", "hot.peak"],
             }));
 
-            SendBatch(port, BatchType.Sections, MessagePackSerializer.Serialize(new SectionBatch
-            {
+            SendBatch(port, BatchType.Sections, MessagePackSerializer.Serialize(new SectionBatch {
                 SectionIds = [10, 20, 20, 30, 30, 30],
                 StartTimestamps = [1, 2, 3, 4, 5, 6],
                 ElapsedTicks = [100, 500, 500, 1000, 1000, 1000],
             }));
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 string body = await http.GetStringAsync("/api/v1/status");
                 using JsonDocument doc = JsonDocument.Parse(body);
                 int sectionCount = doc.RootElement.GetProperty("receive").GetProperty("section_count").GetInt32();
@@ -382,8 +338,7 @@ public sealed class EndToEndSmokeTests
             hotspots[0].GetProperty("sample_count").GetInt32().Should().Be(3);
             hotspots[1].GetProperty("sample_count").GetInt32().Should().Be(2);
         }
-        finally
-        {
+        finally {
             await app.StopAsync();
             await app.DisposeAsync();
         }
@@ -391,23 +346,19 @@ public sealed class EndToEndSmokeTests
 
 
     [Fact]
-    public async Task Metrics_endpoint_returns_registered_metrics_with_labels()
-    {
+    public async Task Metrics_endpoint_returns_registered_metrics_with_labels() {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port);
         await app.StartAsync();
-        try
-        {
+        try {
             using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 HttpResponseMessage r = await http.GetAsync("/api/v1/status");
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta
-            {
+            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
                 SessionId = "metrics-session",
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
@@ -416,16 +367,14 @@ public sealed class EndToEndSmokeTests
                 GameVersion = "1.6",
             }));
 
-            SendBatch(port, BatchType.MetricRegistrations, MessagePackSerializer.Serialize(new MetricRegistrationsBatch
-            {
+            SendBatch(port, BatchType.MetricRegistrations, MessagePackSerializer.Serialize(new MetricRegistrationsBatch {
                 MetricIds = [101, 102],
                 Names = ["my.mod.frames_drawn", "my.mod.heap_used"],
                 Kinds = [0, 1],
                 Units = ["count", "bytes"],
             }));
 
-            SendBatch(port, BatchType.Metrics, MessagePackSerializer.Serialize(new MetricsBatch
-            {
+            SendBatch(port, BatchType.Metrics, MessagePackSerializer.Serialize(new MetricsBatch {
                 MetricIds = [101, 101, 102],
                 LabelCanonicals = ["scene=map", "scene=ui", ""],
                 Kinds = [0, 0, 1],
@@ -433,8 +382,7 @@ public sealed class EndToEndSmokeTests
                 SampleCounts = [3, 1, 1],
             }));
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 string body = await http.GetStringAsync("/api/v1/sessions/current/metrics");
                 using JsonDocument doc = JsonDocument.Parse(body);
                 return doc.RootElement.GetProperty("metrics").GetArrayLength() >= 2;
@@ -468,8 +416,7 @@ public sealed class EndToEndSmokeTests
             heapLabels.GetArrayLength().Should().Be(1);
             heapLabels[0].GetProperty("latest_value").GetInt64().Should().Be(1048576);
         }
-        finally
-        {
+        finally {
             await app.StopAsync();
             await app.DisposeAsync();
         }
@@ -477,17 +424,14 @@ public sealed class EndToEndSmokeTests
 
 
     [Fact]
-    public async Task Logs_endpoint_returns_ring_buffer_entries_newest_first()
-    {
+    public async Task Logs_endpoint_returns_ring_buffer_entries_newest_first() {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port);
         await app.StartAsync();
-        try
-        {
+        try {
             using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 HttpResponseMessage r = await http.GetAsync("/api/v1/status");
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
@@ -523,8 +467,7 @@ public sealed class EndToEndSmokeTests
             using JsonDocument capDoc = JsonDocument.Parse(capped);
             capDoc.RootElement.GetProperty("count").GetInt32().Should().Be(2);
         }
-        finally
-        {
+        finally {
             await app.StopAsync();
             await app.DisposeAsync();
         }
@@ -532,22 +475,18 @@ public sealed class EndToEndSmokeTests
 
 
     [Fact]
-    public async Task Ping_datagram_receives_pong_with_collector_version_and_session()
-    {
+    public async Task Ping_datagram_receives_pong_with_collector_version_and_session() {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port);
         await app.StartAsync();
-        try
-        {
+        try {
             using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 HttpResponseMessage r = await http.GetAsync("/api/v1/status");
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta
-            {
+            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
                 SessionId = "ping-session",
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
@@ -556,16 +495,14 @@ public sealed class EndToEndSmokeTests
                 GameVersion = "1.6",
             }));
 
-            await WaitFor(async () =>
-            {
+            await WaitFor(async () => {
                 string body = await http.GetStringAsync("/api/v1/status");
                 using JsonDocument doc = JsonDocument.Parse(body);
                 return doc.RootElement.GetProperty("session").GetProperty("id").GetString() == "ping-session";
             }, TimeSpan.FromSeconds(3));
 
             PingMessage ping = new() { OwnerId = "smoke.owner", SentAtUtcTicks = 999 };
-            TelemetryBatch envelope = new()
-            {
+            TelemetryBatch envelope = new() {
                 SchemaVersion = SchemaVersion.Current,
                 Sequence = 1,
                 OwnerId = "smoke",
@@ -589,17 +526,14 @@ public sealed class EndToEndSmokeTests
             pong.CollectorVersion.Should().Be(BuildInfo.Revision);
             pong.SessionId.Should().Be("ping-session");
         }
-        finally
-        {
+        finally {
             await app.StopAsync();
             await app.DisposeAsync();
         }
     }
 
-    private static void SendBatch(int port, BatchType type, byte[] payload)
-    {
-        TelemetryBatch envelope = new()
-        {
+    private static void SendBatch(int port, BatchType type, byte[] payload) {
+        TelemetryBatch envelope = new() {
             SchemaVersion = SchemaVersion.Current,
             Sequence = 1,
             OwnerId = "smoke",
@@ -611,18 +545,14 @@ public sealed class EndToEndSmokeTests
         client.Send(bytes, bytes.Length, "127.0.0.1", port);
     }
 
-    private static async Task WaitFor(Func<Task<bool>> condition, TimeSpan timeout)
-    {
+    private static async Task WaitFor(Func<Task<bool>> condition, TimeSpan timeout) {
         DateTime deadline = DateTime.UtcNow + timeout;
-        while (DateTime.UtcNow < deadline)
-        {
-            try
-            {
+        while (DateTime.UtcNow < deadline) {
+            try {
                 if (await condition())
                     return;
             }
-            catch
-            {
+            catch {
                 // retry
             }
             await Task.Delay(50);

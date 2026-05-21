@@ -4,25 +4,20 @@ using Cryptiklemur.RimObs.Metrics;
 
 namespace Cryptiklemur.RimObs.Api;
 
-public static class Diagnostics
-{
+public static class Diagnostics {
     private static long s_SamplesDroppedExternal;
 
     public static long SamplesDroppedExternal => Interlocked.Read(ref s_SamplesDroppedExternal);
 
-    public static void IncrementSamplesDropped(long count = 1)
-    {
+    public static void IncrementSamplesDropped(long count = 1) {
         Interlocked.Add(ref s_SamplesDroppedExternal, count);
     }
 
-    public static long CardinalityIncidentsTotal
-    {
-        get
-        {
+    public static long CardinalityIncidentsTotal {
+        get {
             long total = 0;
             int count = MetricRegistry.Count;
-            for (int i = 0; i < count; i++)
-            {
+            for (int i = 0; i < count; i++) {
                 MetricDescriptor? descriptor = MetricRegistry.Get(i);
                 if (descriptor == null)
                     continue;
@@ -32,11 +27,9 @@ public static class Diagnostics
         }
     }
 
-    public static IEnumerable<MetricCardinalityIncident> GetMetricsWithIncidents()
-    {
+    public static IEnumerable<MetricCardinalityIncident> GetMetricsWithIncidents() {
         int count = MetricRegistry.Count;
-        for (int i = 0; i < count; i++)
-        {
+        for (int i = 0; i < count; i++) {
             MetricDescriptor? descriptor = MetricRegistry.Get(i);
             if (descriptor == null)
                 continue;
@@ -57,12 +50,10 @@ public static class Diagnostics
     /// (counter sums, gauge readings, histogram buckets) are NOT touched.
     /// Intended for test isolation, not for production runtime use.
     /// </summary>
-    public static void Reset()
-    {
+    public static void Reset() {
         Interlocked.Exchange(ref s_SamplesDroppedExternal, 0);
         int count = MetricRegistry.Count;
-        for (int i = 0; i < count; i++)
-        {
+        for (int i = 0; i < count; i++) {
             MetricDescriptor? descriptor = MetricRegistry.Get(i);
             if (descriptor == null)
                 continue;

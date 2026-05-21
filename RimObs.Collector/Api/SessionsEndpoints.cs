@@ -10,24 +10,19 @@ using Microsoft.AspNetCore.Routing;
 
 namespace Cryptiklemur.RimObs.Collector.Api;
 
-public static class SessionsEndpoints
-{
+public static class SessionsEndpoints {
     private const int DefaultHotspotLimit = 50;
     private const int MaxHotspotLimit = 500;
     private const int DefaultGcEventLimit = 100;
     private const int MaxGcEventLimit = 1024;
 
-    public static IEndpointRouteBuilder MapSessionsEndpoints(this IEndpointRouteBuilder endpoints)
-    {
-        endpoints.MapGet("/api/v1/sessions/current/sections", (SessionAggregator aggregator) =>
-        {
+    public static IEndpointRouteBuilder MapSessionsEndpoints(this IEndpointRouteBuilder endpoints) {
+        endpoints.MapGet("/api/v1/sessions/current/sections", (SessionAggregator aggregator) => {
             long freq = aggregator.Meta?.StopwatchFrequency ?? Stopwatch.Frequency;
             double nsPerTick = 1_000_000_000.0 / freq;
-            return Results.Ok(new
-            {
+            return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
-                sections = aggregator.Sections.Select(s => new
-                {
+                sections = aggregator.Sections.Select(s => new {
                     id = s.SectionId,
                     name = s.Name,
                     sample_count = s.SampleCount,
@@ -38,19 +33,16 @@ public static class SessionsEndpoints
             });
         });
 
-        endpoints.MapGet("/api/v1/sessions/current/hotspots", (SessionAggregator aggregator, int? limit) =>
-        {
+        endpoints.MapGet("/api/v1/sessions/current/hotspots", (SessionAggregator aggregator, int? limit) => {
             long freq = aggregator.Meta?.StopwatchFrequency ?? Stopwatch.Frequency;
             double nsPerTick = 1_000_000_000.0 / freq;
             int take = limit is int l && l > 0 ? Math.Min(l, MaxHotspotLimit) : DefaultHotspotLimit;
-            return Results.Ok(new
-            {
+            return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
                 hotspots = aggregator.Sections
                     .OrderByDescending(s => s.TotalElapsedTicks)
                     .Take(take)
-                    .Select(s => new
-                    {
+                    .Select(s => new {
                         id = s.SectionId,
                         name = s.Name,
                         sample_count = s.SampleCount,
@@ -63,16 +55,13 @@ public static class SessionsEndpoints
             });
         });
 
-        endpoints.MapGet("/api/v1/sessions/current/gc", (SessionAggregator aggregator, int? limit) =>
-        {
+        endpoints.MapGet("/api/v1/sessions/current/gc", (SessionAggregator aggregator, int? limit) => {
             int take = limit is int l && l > 0 ? Math.Min(l, MaxGcEventLimit) : DefaultGcEventLimit;
             GcEventRecord[] snapshot = aggregator.SnapshotGcEvents(take);
-            return Results.Ok(new
-            {
+            return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
                 total_events = aggregator.TotalGcEvents,
-                events = snapshot.Select(e => new
-                {
+                events = snapshot.Select(e => new {
                     generation = e.Generation,
                     pause_type = e.PauseType,
                     heap_before = e.HeapBefore,
@@ -84,20 +73,16 @@ public static class SessionsEndpoints
             });
         });
 
-        endpoints.MapGet("/api/v1/sessions/current/metrics", (SessionAggregator aggregator) =>
-        {
-            return Results.Ok(new
-            {
+        endpoints.MapGet("/api/v1/sessions/current/metrics", (SessionAggregator aggregator) => {
+            return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
                 total_observations = aggregator.TotalMetricObservations,
-                metrics = aggregator.Metrics.Select(m => new
-                {
+                metrics = aggregator.Metrics.Select(m => new {
                     id = m.MetricId,
                     name = m.Name,
                     kind = m.Kind,
                     unit = m.Unit,
-                    labels = m.Labels.Values.Select(l => new
-                    {
+                    labels = m.Labels.Values.Select(l => new {
                         canonical = l.Canonical,
                         latest_value = Interlocked.Read(ref l.LatestValue),
                         total_sample_count = Interlocked.Read(ref l.TotalSampleCount),

@@ -9,13 +9,11 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class HarmonyConflictRecorderTests : IDisposable
-{
+public sealed class HarmonyConflictRecorderTests : IDisposable {
     private readonly Harmony _ourHarmony;
     private readonly Harmony _foreignHarmony;
 
-    public HarmonyConflictRecorderTests()
-    {
+    public HarmonyConflictRecorderTests() {
         SectionCatalog.Clear();
         SectionRegistry.Clear();
         HarmonyConflictRecorder.Clear();
@@ -23,8 +21,7 @@ public sealed class HarmonyConflictRecorderTests : IDisposable
         _foreignHarmony = new Harmony($"foreign.modder.{Guid.NewGuid():N}");
     }
 
-    public void Dispose()
-    {
+    public void Dispose() {
         try { _ourHarmony.UnpatchAll(_ourHarmony.Id); } catch { }
         try { _foreignHarmony.UnpatchAll(_foreignHarmony.Id); } catch { }
         SectionCatalog.Clear();
@@ -33,8 +30,7 @@ public sealed class HarmonyConflictRecorderTests : IDisposable
     }
 
     [Fact]
-    public void RecordConflicts_records_foreign_patches_on_tracked_section()
-    {
+    public void RecordConflicts_records_foreign_patches_on_tracked_section() {
         MethodInfo target = typeof(ConflictTargets).GetMethod(nameof(ConflictTargets.Tracked))!;
         SectionCatalog.RegisterDirect("test.conflict.tracked", target);
 
@@ -51,8 +47,7 @@ public sealed class HarmonyConflictRecorderTests : IDisposable
     }
 
     [Fact]
-    public void RecordConflicts_skips_patches_owned_by_us()
-    {
+    public void RecordConflicts_skips_patches_owned_by_us() {
         MethodInfo target = typeof(ConflictTargets).GetMethod(nameof(ConflictTargets.OwnedByUs))!;
         SectionCatalog.RegisterDirect("test.conflict.ours", target);
 
@@ -65,8 +60,7 @@ public sealed class HarmonyConflictRecorderTests : IDisposable
     }
 
     [Fact]
-    public void RecordConflicts_ignores_unresolved_entries()
-    {
+    public void RecordConflicts_ignores_unresolved_entries() {
         SectionCatalog.Register("test.conflict.unresolved", "NoSuchType.Ever", "Op", null);
 
         Action act = () => HarmonyConflictRecorder.RecordConflicts(_ourHarmony);
@@ -76,8 +70,7 @@ public sealed class HarmonyConflictRecorderTests : IDisposable
     }
 
     [Fact]
-    public void Clear_empties_the_conflict_list()
-    {
+    public void Clear_empties_the_conflict_list() {
         MethodInfo target = typeof(ConflictTargets).GetMethod(nameof(ConflictTargets.ClearedAfter))!;
         SectionCatalog.RegisterDirect("test.conflict.cleared", target);
 
@@ -92,8 +85,7 @@ public sealed class HarmonyConflictRecorderTests : IDisposable
         HarmonyConflictRecorder.Conflicts.Should().BeEmpty();
     }
 
-    public static class ConflictTargets
-    {
+    public static class ConflictTargets {
         [MethodImpl(MethodImplOptions.NoInlining)]
         public static void Tracked() { }
 

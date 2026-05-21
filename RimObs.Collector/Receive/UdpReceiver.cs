@@ -8,95 +8,75 @@ using Microsoft.Extensions.Logging;
 
 namespace Cryptiklemur.RimObs.Collector.Receive;
 
-public sealed class UdpReceiver : BackgroundService
-{
+public sealed class UdpReceiver : BackgroundService {
     private readonly SessionAggregator _aggregator;
     private readonly ILogger<UdpReceiver> _log;
     private readonly int _port;
     private UdpClient? _client;
 
-    public UdpReceiver(SessionAggregator aggregator, ILogger<UdpReceiver> log, int port = 17654)
-    {
+    public UdpReceiver(SessionAggregator aggregator, ILogger<UdpReceiver> log, int port = 17654) {
         _aggregator = aggregator;
         _log = log;
         _port = port;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
-    {
+    protected override async Task ExecuteAsync(CancellationToken stoppingToken) {
         _client = new UdpClient(new IPEndPoint(IPAddress.Loopback, _port));
         _log.LogInformation("UDP receiver listening on 127.0.0.1:{Port}", _port);
 
-        stoppingToken.Register(() =>
-        {
-            try
-            {
+        stoppingToken.Register(() => {
+            try {
                 _client?.Dispose();
             }
-            catch (ObjectDisposedException)
-            {
+            catch (ObjectDisposedException) {
                 // Already disposed by another path.
             }
         });
 
-        while (!stoppingToken.IsCancellationRequested)
-        {
-            try
-            {
+        while (!stoppingToken.IsCancellationRequested) {
+            try {
                 UdpReceiveResult result = await _client.ReceiveAsync(stoppingToken).ConfigureAwait(false);
                 byte[]? response = Dispatch(result.Buffer);
-                if (response is not null)
-                {
-                    try
-                    {
+                if (response is not null) {
+                    try {
                         await _client.SendAsync(response, response.Length, result.RemoteEndPoint).ConfigureAwait(false);
                     }
-                    catch (Exception sendEx)
-                    {
+                    catch (Exception sendEx) {
                         _log.LogWarning(sendEx, "Failed to send pong to {Remote}", result.RemoteEndPoint);
                     }
                 }
             }
-            catch (OperationCanceledException)
-            {
+            catch (OperationCanceledException) {
                 break;
             }
-            catch (ObjectDisposedException)
-            {
+            catch (ObjectDisposedException) {
                 break;
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _log.LogWarning(ex, "UDP receive error");
             }
         }
     }
 
-    internal byte[]? Dispatch(byte[] bytes)
-    {
+    internal byte[]? Dispatch(byte[] bytes) {
         TelemetryBatch envelope;
-        try
-        {
+        try {
             envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(bytes);
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             _log.LogWarning(ex, "Failed to deserialize TelemetryBatch envelope ({Bytes} bytes)", bytes.Length);
             return null;
         }
 
-        if (envelope.SchemaVersion != SchemaVersion.Current)
-        {
+        if (envelope.SchemaVersion != SchemaVersion.Current) {
             _log.LogWarning("Dropping batch with schema_version={Version} (expected {Expected})", envelope.SchemaVersion, SchemaVersion.Current);
             return null;
         }
 
         _aggregator.OnBatchReceived(bytes.Length);
 
-        try
-        {
-            switch (envelope.BatchType)
-            {
+        try {
+            switch (envelope.BatchType) {
                 case BatchType.SessionMeta:
                     _aggregator.OnSessionMeta(MessagePackSerializer.Deserialize<SessionMeta>(envelope.Payload));
                     break;
@@ -126,25 +106,21 @@ public sealed class UdpReceiver : BackgroundService
                     break;
             }
         }
-        catch (Exception ex)
-        {
+        catch (Exception ex) {
             _log.LogWarning(ex, "Failed to dispatch batch_type={Type}", envelope.BatchType);
         }
 
         return null;
     }
 
-    internal static byte[] BuildPongEnvelope(PingMessage ping, string collectorVersion, string? sessionId)
-    {
-        PongMessage pong = new()
-        {
+    internal static byte[] BuildPongEnvelope(PingMessage ping, string collectorVersion, string? sessionId) {
+        PongMessage pong = new() {
             OwnerId = ping.OwnerId,
             PingSentAtUtcTicks = ping.SentAtUtcTicks,
             CollectorVersion = collectorVersion,
             SessionId = sessionId,
         };
-        TelemetryBatch envelope = new()
-        {
+        TelemetryBatch envelope = new() {
             SchemaVersion = SchemaVersion.Current,
             Sequence = 0,
             OwnerId = "collector",

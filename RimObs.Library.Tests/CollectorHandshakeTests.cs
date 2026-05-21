@@ -10,11 +10,9 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class CollectorHandshakeTests
-{
+public sealed class CollectorHandshakeTests {
     [Fact]
-    public void BuildPingEnvelope_round_trips_to_ping_message_with_owner()
-    {
+    public void BuildPingEnvelope_round_trips_to_ping_message_with_owner() {
         byte[] datagram = CollectorHandshake.BuildPingEnvelope("my.mod");
 
         TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(datagram);
@@ -26,8 +24,7 @@ public sealed class CollectorHandshakeTests
     }
 
     [Fact]
-    public void ParsePong_returns_message_for_pong_envelope()
-    {
+    public void ParsePong_returns_message_for_pong_envelope() {
         byte[] datagram = ReceiverServer.BuildPong("owner", 42, "1.2.3", "sess-1");
 
         PongMessage? pong = CollectorHandshake.ParsePong(datagram);
@@ -38,22 +35,19 @@ public sealed class CollectorHandshakeTests
     }
 
     [Fact]
-    public void ParsePong_returns_null_for_non_pong_envelope()
-    {
+    public void ParsePong_returns_null_for_non_pong_envelope() {
         byte[] datagram = CollectorHandshake.BuildPingEnvelope("x");
 
         CollectorHandshake.ParsePong(datagram).Should().BeNull();
     }
 
     [Fact]
-    public void ParsePong_returns_null_for_garbage_bytes()
-    {
+    public void ParsePong_returns_null_for_garbage_bytes() {
         CollectorHandshake.ParsePong(new byte[] { 0xff, 0x00, 0x13, 0x37 }).Should().BeNull();
     }
 
     [Fact]
-    public void TryPing_receives_pong_from_live_listener()
-    {
+    public void TryPing_receives_pong_from_live_listener() {
         using ReceiverServer server = new(collectorVersion: "9.9.9", sessionId: "live");
 
         PongMessage? pong = CollectorHandshake.TryPing("127.0.0.1", server.Port, "the.owner", TimeSpan.FromSeconds(2));
@@ -65,8 +59,7 @@ public sealed class CollectorHandshakeTests
     }
 
     [Fact]
-    public void TryPing_returns_null_when_no_listener_responds()
-    {
+    public void TryPing_returns_null_when_no_listener_responds() {
         int deadPort = GetFreePort();
 
         PongMessage? pong = CollectorHandshake.TryPing("127.0.0.1", deadPort, "owner", TimeSpan.FromMilliseconds(300));
@@ -77,28 +70,24 @@ public sealed class CollectorHandshakeTests
     [Theory]
     [InlineData(0)]
     [InlineData(70000)]
-    public void TryPing_rejects_out_of_range_port(int port)
-    {
+    public void TryPing_rejects_out_of_range_port(int port) {
         Action act = () => CollectorHandshake.TryPing("127.0.0.1", port, "owner", TimeSpan.FromSeconds(1));
         act.Should().Throw<ArgumentOutOfRangeException>();
     }
 
-    private static int GetFreePort()
-    {
+    private static int GetFreePort() {
         using UdpClient probe = new(new IPEndPoint(IPAddress.Loopback, 0));
         return ((IPEndPoint)probe.Client.LocalEndPoint!).Port;
     }
 
-    private sealed class ReceiverServer : IDisposable
-    {
+    private sealed class ReceiverServer : IDisposable {
         private readonly UdpClient _client;
         private readonly Thread _thread;
         private readonly string _version;
         private readonly string? _sessionId;
         private volatile bool _running = true;
 
-        public ReceiverServer(string collectorVersion, string? sessionId)
-        {
+        public ReceiverServer(string collectorVersion, string? sessionId) {
             _version = collectorVersion;
             _sessionId = sessionId;
             _client = new UdpClient(new IPEndPoint(IPAddress.Loopback, 0));
@@ -109,23 +98,18 @@ public sealed class CollectorHandshakeTests
 
         public int Port { get; }
 
-        private void Loop()
-        {
+        private void Loop() {
             _client.Client.ReceiveTimeout = 200;
-            while (_running)
-            {
+            while (_running) {
                 IPEndPoint remote = new(IPAddress.Any, 0);
                 byte[] datagram;
-                try
-                {
+                try {
                     datagram = _client.Receive(ref remote);
                 }
-                catch (SocketException)
-                {
+                catch (SocketException) {
                     continue;
                 }
-                catch (ObjectDisposedException)
-                {
+                catch (ObjectDisposedException) {
                     break;
                 }
 
@@ -138,17 +122,14 @@ public sealed class CollectorHandshakeTests
             }
         }
 
-        public static byte[] BuildPong(string ownerId, long pingTicks, string version, string? sessionId)
-        {
-            PongMessage pong = new()
-            {
+        public static byte[] BuildPong(string ownerId, long pingTicks, string version, string? sessionId) {
+            PongMessage pong = new() {
                 OwnerId = ownerId,
                 PingSentAtUtcTicks = pingTicks,
                 CollectorVersion = version,
                 SessionId = sessionId,
             };
-            TelemetryBatch envelope = new()
-            {
+            TelemetryBatch envelope = new() {
                 SchemaVersion = SchemaVersion.Current,
                 Sequence = 0,
                 OwnerId = "collector",
@@ -158,8 +139,7 @@ public sealed class CollectorHandshakeTests
             return MessagePackSerializer.Serialize(envelope);
         }
 
-        public void Dispose()
-        {
+        public void Dispose() {
             _running = false;
             _client.Dispose();
             _thread.Join(TimeSpan.FromSeconds(1));

@@ -1,6 +1,5 @@
 namespace Cryptiklemur.RimObs.Profile;
 
-internal interface ISampleSink
-{
+internal interface ISampleSink {
     void RecordSection(int sectionId, long startTimestamp, long elapsedTicks);
 }

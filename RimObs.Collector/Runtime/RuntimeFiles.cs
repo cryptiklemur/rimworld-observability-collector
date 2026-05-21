@@ -2,13 +2,11 @@ using Cryptiklemur.RimObs.Collector.Security;
 
 namespace Cryptiklemur.RimObs.Collector.Runtime;
 
-public static class RuntimeFiles
-{
+public static class RuntimeFiles {
     public const string TokenFileName = "collector.token";
     public const string PortFileName = "collector.port";
 
-    public static void WriteAll(string configDir, CollectorToken token, int port)
-    {
+    public static void WriteAll(string configDir, CollectorToken token, int port) {
         if (string.IsNullOrWhiteSpace(configDir))
             throw new ArgumentException("Config directory must be provided.", nameof(configDir));
 
@@ -22,16 +20,13 @@ public static class RuntimeFiles
         File.WriteAllText(portPath, port.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
-    private static void TryRestrictFilePermissions(string path)
-    {
+    private static void TryRestrictFilePermissions(string path) {
         if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
             return;
-        try
-        {
+        try {
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
-        catch
-        {
+        catch {
         }
     }
 }

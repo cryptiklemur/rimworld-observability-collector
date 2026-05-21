@@ -6,8 +6,7 @@ using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
 
-public sealed class CollectorManifestTests
-{
+public sealed class CollectorManifestTests {
     private const string FullManifest = """
         {
           "schema_version": 1,
@@ -25,8 +24,7 @@ public sealed class CollectorManifestTests
         """;
 
     [Fact]
-    public void TryParse_reads_version_and_schema_compat_from_full_manifest()
-    {
+    public void TryParse_reads_version_and_schema_compat_from_full_manifest() {
         CollectorManifest? manifest = CollectorManifest.TryParse(FullManifest);
 
         manifest.Should().NotBeNull();
@@ -38,8 +36,7 @@ public sealed class CollectorManifestTests
     }
 
     [Fact]
-    public void TryParse_tolerates_missing_fields()
-    {
+    public void TryParse_tolerates_missing_fields() {
         CollectorManifest? manifest = CollectorManifest.TryParse("""{ "version": "2.0.0" }""");
 
         manifest.Should().NotBeNull();
@@ -52,31 +49,26 @@ public sealed class CollectorManifestTests
     [InlineData("   ")]
     [InlineData("not json")]
     [InlineData("{ broken")]
-    public void TryParse_returns_null_for_empty_or_malformed(string json)
-    {
+    public void TryParse_returns_null_for_empty_or_malformed(string json) {
         CollectorManifest.TryParse(json).Should().BeNull();
     }
 
     [Fact]
-    public void TryReadFile_returns_null_for_missing_path()
-    {
+    public void TryReadFile_returns_null_for_missing_path() {
         CollectorManifest.TryReadFile(Path.Combine(Path.GetTempPath(), "rimobs-does-not-exist.version")).Should().BeNull();
     }
 
     [Fact]
-    public void TryReadFile_round_trips_a_real_file()
-    {
+    public void TryReadFile_round_trips_a_real_file() {
         string path = Path.Combine(Path.GetTempPath(), $"rimobs-manifest-{Guid.NewGuid():N}.version");
         File.WriteAllText(path, FullManifest);
-        try
-        {
+        try {
             CollectorManifest? manifest = CollectorManifest.TryReadFile(path);
 
             manifest.Should().NotBeNull();
             manifest!.Version.Should().Be("1.4.2");
         }
-        finally
-        {
+        finally {
             File.Delete(path);
         }
     }

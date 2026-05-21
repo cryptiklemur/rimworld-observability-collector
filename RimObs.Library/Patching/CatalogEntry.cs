@@ -3,10 +3,8 @@ using System.Reflection;
 
 namespace Cryptiklemur.RimObs.Patching;
 
-internal sealed class CatalogEntry
-{
-    public CatalogEntry(string name, string typeName, string methodName, string[]? paramTypeNames)
-    {
+internal sealed class CatalogEntry {
+    public CatalogEntry(string name, string typeName, string methodName, string[]? paramTypeNames) {
         Name = name;
         TypeName = typeName;
         MethodName = methodName;

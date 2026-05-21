@@ -3,8 +3,7 @@ using System.Runtime.CompilerServices;
 
 namespace Cryptiklemur.RimObs.Profile;
 
-public static class Profiler
-{
+public static class Profiler {
     public const long DisabledToken = -1L;
 
     public static volatile bool Enabled = true;
@@ -20,8 +19,7 @@ public static class Profiler
     public static void Stop(SectionHandle handle, long token) => StopById(handle.Id, token);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static long StartById(int sectionId)
-    {
+    public static long StartById(int sectionId) {
         if (!Enabled)
             return DisabledToken;
         if ((uint)sectionId >= (uint)SectionRegistry.MaxSections)
@@ -32,8 +30,7 @@ public static class Profiler
     }
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public static void StopById(int sectionId, long token)
-    {
+    public static void StopById(int sectionId, long token) {
         if (token == DisabledToken)
             return;
         long elapsed = Stopwatch.GetTimestamp() - token;

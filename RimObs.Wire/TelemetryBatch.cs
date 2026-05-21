@@ -3,8 +3,7 @@ using MessagePack;
 namespace Cryptiklemur.RimObs.Wire;
 
 [MessagePackObject]
-public sealed class TelemetryBatch
-{
+public sealed class TelemetryBatch {
     [Key(0)]
     public int SchemaVersion { get; set; }
 

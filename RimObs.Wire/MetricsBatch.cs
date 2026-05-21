@@ -3,8 +3,7 @@ using MessagePack;
 namespace Cryptiklemur.RimObs.Wire;
 
 [MessagePackObject]
-public sealed class MetricsBatch
-{
+public sealed class MetricsBatch {
     [Key(0)]
     public int[] MetricIds { get; set; } = [];
 
