@@ -40,10 +40,16 @@ public static class Program
 
     public static WebApplication BuildApp(string[] args, int port)
     {
+        return BuildApp(args, port, CollectorToken.CreateFromEnvOrGenerate());
+    }
+
+    public static WebApplication BuildApp(string[] args, int port, CollectorToken token)
+    {
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
         builder.Host.UseSerilog();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
 
+        builder.Services.AddSingleton(token);
         builder.Services.AddSingleton<Aggregation.SessionAggregator>();
         builder.Services.AddSingleton<Receive.UdpReceiver>(sp =>
             new Receive.UdpReceiver(
@@ -55,6 +61,7 @@ public static class Program
 
         WebApplication app = builder.Build();
         app.UseOriginCheck(port);
+        app.UseBearerAuth(token);
         MapApiEndpoints(app);
         return app;
     }

@@ -267,6 +267,61 @@ public sealed class EndToEndSmokeTests
     }
 
     [Fact]
+    public async Task Post_with_valid_origin_but_missing_bearer_is_rejected_with_401()
+    {
+        int port = PickFreePort();
+        Security.CollectorToken token = Security.CollectorToken.FromExplicitValue("test-bearer-token-abc");
+        WebApplication app = Program.BuildApp([], port, token);
+        await app.StartAsync();
+        try
+        {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () =>
+            {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            using HttpRequestMessage noBearer = new(HttpMethod.Post, "/api/v1/anything")
+            {
+                Content = new StringContent(""),
+            };
+            noBearer.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+            HttpResponseMessage noBearerResp = await http.SendAsync(noBearer);
+            noBearerResp.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);
+            noBearerResp.Headers.WwwAuthenticate.ToString().Should().Contain("Bearer");
+
+            using HttpRequestMessage wrongBearer = new(HttpMethod.Post, "/api/v1/anything")
+            {
+                Content = new StringContent(""),
+            };
+            wrongBearer.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+            wrongBearer.Headers.Add("Authorization", "Bearer wrong-token");
+            HttpResponseMessage wrongResp = await http.SendAsync(wrongBearer);
+            wrongResp.StatusCode.Should().Be(System.Net.HttpStatusCode.Unauthorized);
+
+            using HttpRequestMessage goodBearer = new(HttpMethod.Post, "/api/v1/anything")
+            {
+                Content = new StringContent(""),
+            };
+            goodBearer.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+            goodBearer.Headers.Add("Authorization", $"Bearer {token.Value}");
+            HttpResponseMessage goodResp = await http.SendAsync(goodBearer);
+            goodResp.StatusCode.Should().NotBe(System.Net.HttpStatusCode.Unauthorized);
+            goodResp.StatusCode.Should().NotBe(System.Net.HttpStatusCode.Forbidden);
+
+            HttpResponseMessage getNoAuth = await http.GetAsync("/api/v1/status");
+            getNoAuth.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Hotspots_endpoint_returns_sections_sorted_by_total_descending_and_honors_limit()
     {
         int port = PickFreePort();
