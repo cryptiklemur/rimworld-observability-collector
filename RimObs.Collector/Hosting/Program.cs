@@ -1,4 +1,5 @@
 using Cryptiklemur.RimObs.Collector.Api;
+using Cryptiklemur.RimObs.Collector.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -53,6 +54,7 @@ public static class Program
         builder.Services.AddHostedService(sp => sp.GetRequiredService<Receive.UdpReceiver>());
 
         WebApplication app = builder.Build();
+        app.UseOriginCheck(port);
         MapApiEndpoints(app);
         return app;
     }

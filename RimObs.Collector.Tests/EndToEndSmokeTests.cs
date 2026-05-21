@@ -222,6 +222,51 @@ public sealed class EndToEndSmokeTests
     }
 
     [Fact]
+    public async Task Post_without_origin_header_is_rejected_with_403()
+    {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try
+        {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () =>
+            {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            HttpResponseMessage noOrigin = await http.PostAsync("/api/v1/anything", new StringContent(""));
+            noOrigin.StatusCode.Should().Be(System.Net.HttpStatusCode.Forbidden);
+
+            using HttpRequestMessage wrongOrigin = new(HttpMethod.Post, "/api/v1/anything")
+            {
+                Content = new StringContent(""),
+            };
+            wrongOrigin.Headers.Add("Origin", "http://evil.example.com");
+            HttpResponseMessage wrongResp = await http.SendAsync(wrongOrigin);
+            wrongResp.StatusCode.Should().Be(System.Net.HttpStatusCode.Forbidden);
+
+            using HttpRequestMessage goodOrigin = new(HttpMethod.Post, "/api/v1/anything")
+            {
+                Content = new StringContent(""),
+            };
+            goodOrigin.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+            HttpResponseMessage goodResp = await http.SendAsync(goodOrigin);
+            goodResp.StatusCode.Should().NotBe(System.Net.HttpStatusCode.Forbidden);
+
+            HttpResponseMessage getNoOrigin = await http.GetAsync("/api/v1/status");
+            getNoOrigin.StatusCode.Should().Be(System.Net.HttpStatusCode.OK);
+        }
+        finally
+        {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Hotspots_endpoint_returns_sections_sorted_by_total_descending_and_honors_limit()
     {
         int port = PickFreePort();
