@@ -102,6 +102,10 @@ public static class Program {
         if (hasPersister) {
             builder.Services.AddSingleton<Storage.ISessionPersister>(_ => new Storage.SqliteSessionPersister(sessionsDir!));
         }
+        string? configFilePath = hasPersister
+            ? System.IO.Path.Combine(System.IO.Path.GetDirectoryName(sessionsDir!.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)) ?? sessionsDir!, "config.json")
+            : null;
+        builder.Services.AddSingleton(new Config.ConfigStore(configFilePath));
         builder.Services.AddSingleton<Aggregation.SessionAggregator>();
         builder.Services.AddSingleton<Receive.UdpReceiver>(sp =>
             new Receive.UdpReceiver(
@@ -125,6 +129,7 @@ public static class Program {
         app.MapStatusEndpoints();
         app.MapSessionsEndpoints();
         app.MapVersionEndpoints();
+        app.MapConfigEndpoints();
         app.MapLogsEndpoints();
         app.MapSpaEndpoints();
     }
