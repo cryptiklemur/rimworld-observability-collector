@@ -633,6 +633,105 @@ public sealed class EndToEndSmokeTests {
     }
 
     [Fact]
+    public async Task Config_get_returns_full_default_document_with_snake_case_keys() {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            string body = await http.GetStringAsync("/api/v1/config");
+            _out.WriteLine($"config: {body}");
+            using JsonDocument doc = JsonDocument.Parse(body);
+            JsonElement root = doc.RootElement;
+            root.GetProperty("schema_version").GetInt32().Should().Be(1);
+            root.GetProperty("collector").GetProperty("listen_address").GetString().Should().Be("127.0.0.1");
+            root.GetProperty("collector").GetProperty("port").GetInt32().Should().Be(17654);
+            root.GetProperty("session").GetProperty("slow_tick_threshold_us").GetInt32().Should().Be(16667);
+            root.GetProperty("storage").GetProperty("sqlite_journal_mode").GetString().Should().Be("WAL");
+            root.GetProperty("privacy").GetProperty("include_assembly_versions_and_patches").GetBoolean().Should().BeTrue();
+            root.GetProperty("i18n").GetProperty("default_language").GetString().Should().Be("en");
+            root.GetProperty("exporters").GetProperty("prometheus_port").GetInt32().Should().Be(7879);
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Config_post_replaces_document_and_get_reflects_it() {
+        int port = PickFreePort();
+        Security.CollectorToken token = Security.CollectorToken.FromExplicitValue("config-bearer-token");
+        WebApplication app = Program.BuildApp([], port, token);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            using HttpRequestMessage post = new(HttpMethod.Post, "/api/v1/config") {
+                Content = new StringContent(
+                    "{\"schema_version\":1,\"collector\":{\"log_level\":\"Debug\",\"port\":18000}}",
+                    System.Text.Encoding.UTF8,
+                    "application/json"),
+            };
+            post.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+            post.Headers.Add("Authorization", $"Bearer {token.Value}");
+            HttpResponseMessage postResp = await http.SendAsync(post);
+            postResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            string after = await http.GetStringAsync("/api/v1/config");
+            _out.WriteLine($"config after: {after}");
+            using JsonDocument doc = JsonDocument.Parse(after);
+            JsonElement collector = doc.RootElement.GetProperty("collector");
+            collector.GetProperty("log_level").GetString().Should().Be("Debug");
+            collector.GetProperty("port").GetInt32().Should().Be(18000);
+            collector.GetProperty("listen_address").GetString().Should().Be("127.0.0.1");
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Config_post_with_unsupported_schema_version_returns_400() {
+        int port = PickFreePort();
+        Security.CollectorToken token = Security.CollectorToken.FromExplicitValue("config-bearer-token-2");
+        WebApplication app = Program.BuildApp([], port, token);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            using HttpRequestMessage post = new(HttpMethod.Post, "/api/v1/config") {
+                Content = new StringContent(
+                    "{\"schema_version\":999}",
+                    System.Text.Encoding.UTF8,
+                    "application/json"),
+            };
+            post.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+            post.Headers.Add("Authorization", $"Bearer {token.Value}");
+            HttpResponseMessage postResp = await http.SendAsync(post);
+            postResp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
     public async Task Sessions_endpoints_report_current_session_and_summary() {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port);
