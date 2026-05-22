@@ -106,6 +106,7 @@ public static class Program {
             ? System.IO.Path.Combine(System.IO.Path.GetDirectoryName(sessionsDir!.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)) ?? sessionsDir!, "config.json")
             : null;
         builder.Services.AddSingleton(new Config.ConfigStore(configFilePath));
+        builder.Services.AddSingleton<Panels.PanelRegistry>();
         builder.Services.AddSingleton<Aggregation.SessionAggregator>();
         builder.Services.AddSingleton<Receive.UdpReceiver>(sp =>
             new Receive.UdpReceiver(
@@ -130,6 +131,7 @@ public static class Program {
         app.MapSessionsEndpoints();
         app.MapVersionEndpoints();
         app.MapConfigEndpoints();
+        app.MapPanelsEndpoints();
         app.MapLogsEndpoints();
         app.MapSpaEndpoints();
     }

@@ -732,6 +732,148 @@ public sealed class EndToEndSmokeTests {
     }
 
     [Fact]
+    public async Task Panels_register_and_list_round_trips_per_owner() {
+        int port = PickFreePort();
+        Security.CollectorToken token = Security.CollectorToken.FromExplicitValue("panels-bearer-token");
+        WebApplication app = Program.BuildApp([], port, token);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            string empty = await http.GetStringAsync("/api/v1/panels");
+            using (JsonDocument emptyDoc = JsonDocument.Parse(empty))
+                emptyDoc.RootElement.GetProperty("owners").GetArrayLength().Should().Be(0);
+
+            await RegisterPanels(http, token, port,
+                "{\"schema_version\":1,\"owner_id\":\"mod.a\",\"panels\":[{\"id\":\"combat\",\"title\":\"Combat\",\"icon\":\"sword\",\"layout\":[{\"metric\":\"mod_a_hits\",\"widget\":\"counter\"}]}]}");
+            await RegisterPanels(http, token, port,
+                "{\"schema_version\":1,\"owner_id\":\"mod.b\",\"panels\":[{\"id\":\"econ\",\"title\":\"Economy\",\"icon\":\"coin\",\"layout\":[{\"metric\":\"mod_b_silver\",\"widget\":\"gauge\"}]}]}");
+
+            string both = await http.GetStringAsync("/api/v1/panels");
+            _out.WriteLine($"panels: {both}");
+            using (JsonDocument bothDoc = JsonDocument.Parse(both)) {
+                JsonElement owners = bothDoc.RootElement.GetProperty("owners");
+                owners.GetArrayLength().Should().Be(2);
+                JsonElement a = FindOwner(owners, "mod.a");
+                a.GetProperty("panels")[0].GetProperty("id").GetString().Should().Be("combat");
+                a.GetProperty("panels")[0].GetProperty("layout")[0].GetProperty("widget").GetString().Should().Be("counter");
+            }
+
+            await RegisterPanels(http, token, port,
+                "{\"schema_version\":1,\"owner_id\":\"mod.a\",\"panels\":[{\"id\":\"medical\",\"title\":\"Medical\",\"icon\":\"cross\",\"layout\":[{\"metric\":\"mod_a_surgeries\",\"widget\":\"top_n\"}]}]}");
+
+            string replaced = await http.GetStringAsync("/api/v1/panels");
+            using (JsonDocument replacedDoc = JsonDocument.Parse(replaced)) {
+                JsonElement owners = replacedDoc.RootElement.GetProperty("owners");
+                owners.GetArrayLength().Should().Be(2);
+                JsonElement a = FindOwner(owners, "mod.a");
+                a.GetProperty("panels").GetArrayLength().Should().Be(1);
+                a.GetProperty("panels")[0].GetProperty("id").GetString().Should().Be("medical");
+                FindOwner(owners, "mod.b").GetProperty("panels")[0].GetProperty("id").GetString().Should().Be("econ");
+            }
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Panels_register_rejects_unknown_widget() {
+        int port = PickFreePort();
+        Security.CollectorToken token = Security.CollectorToken.FromExplicitValue("panels-bearer-token-2");
+        WebApplication app = Program.BuildApp([], port, token);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            using HttpRequestMessage post = new(HttpMethod.Post, "/api/v1/panels/register") {
+                Content = new StringContent(
+                    "{\"schema_version\":1,\"owner_id\":\"mod.a\",\"panels\":[{\"id\":\"x\",\"title\":\"X\",\"icon\":\"i\",\"layout\":[{\"metric\":\"m\",\"widget\":\"frobnicator\"}]}]}",
+                    System.Text.Encoding.UTF8,
+                    "application/json"),
+            };
+            post.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+            post.Headers.Add("Authorization", $"Bearer {token.Value}");
+            HttpResponseMessage resp = await http.SendAsync(post);
+            resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+            using (JsonDocument list = JsonDocument.Parse(await http.GetStringAsync("/api/v1/panels")))
+                list.RootElement.GetProperty("owners").GetArrayLength().Should().Be(0);
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Panels_refresh_flag_sets_and_reports_ttl() {
+        int port = PickFreePort();
+        Security.CollectorToken token = Security.CollectorToken.FromExplicitValue("panels-bearer-token-3");
+        WebApplication app = Program.BuildApp([], port, token);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            string before = await http.GetStringAsync("/api/v1/panels/refresh_requested");
+            using (JsonDocument beforeDoc = JsonDocument.Parse(before))
+                beforeDoc.RootElement.GetProperty("refresh_requested").GetBoolean().Should().BeFalse();
+
+            using HttpRequestMessage post = new(HttpMethod.Post, "/api/v1/panels/refresh_requested") {
+                Content = new StringContent("", System.Text.Encoding.UTF8, "application/json"),
+            };
+            post.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+            post.Headers.Add("Authorization", $"Bearer {token.Value}");
+            HttpResponseMessage postResp = await http.SendAsync(post);
+            postResp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            string after = await http.GetStringAsync("/api/v1/panels/refresh_requested");
+            _out.WriteLine($"refresh: {after}");
+            using JsonDocument afterDoc = JsonDocument.Parse(after);
+            afterDoc.RootElement.GetProperty("refresh_requested").GetBoolean().Should().BeTrue();
+            int remaining = afterDoc.RootElement.GetProperty("ttl_seconds_remaining").GetInt32();
+            remaining.Should().BeGreaterThan(0);
+            remaining.Should().BeLessThanOrEqualTo(30);
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    private static async Task RegisterPanels(HttpClient http, Security.CollectorToken token, int port, string json) {
+        using HttpRequestMessage post = new(HttpMethod.Post, "/api/v1/panels/register") {
+            Content = new StringContent(json, System.Text.Encoding.UTF8, "application/json"),
+        };
+        post.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+        post.Headers.Add("Authorization", $"Bearer {token.Value}");
+        HttpResponseMessage resp = await http.SendAsync(post);
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    private static JsonElement FindOwner(JsonElement owners, string ownerId) {
+        foreach (JsonElement owner in owners.EnumerateArray()) {
+            if (owner.GetProperty("owner_id").GetString() == ownerId)
+                return owner;
+        }
+
+        throw new Xunit.Sdk.XunitException($"owner '{ownerId}' not found");
+    }
+
+    [Fact]
     public async Task Sessions_endpoints_report_current_session_and_summary() {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port);
