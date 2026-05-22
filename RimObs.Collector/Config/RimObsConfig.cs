@@ -8,6 +8,7 @@ public sealed class RimObsConfig {
     public int SchemaVersion { get; set; } = Version;
     public CollectorOptions Collector { get; set; } = new();
     public SessionOptions Session { get; set; } = new();
+    public SectionsOptions Sections { get; set; } = new();
     public StorageOptions Storage { get; set; } = new();
     public SamplingOptions Sampling { get; set; } = new();
     public CaptureOptions Capture { get; set; } = new();
