@@ -56,6 +56,16 @@ internal static class SectionRegistry {
             s_Active[id] = active;
     }
 
+    public static void ApplyDisabledSet(HashSet<string> disabled) {
+        if (disabled == null)
+            throw new ArgumentNullException(nameof(disabled));
+
+        lock (s_Lock) {
+            for (int id = 0; id < s_Count; id++)
+                s_Active[id] = !disabled.Contains(s_Names[id]);
+        }
+    }
+
     public static int DrainPendingRegistrations(int[] ids, string[] names) {
         lock (s_Lock) {
             int n = Math.Min(s_PendingRegistrations.Count, Math.Min(ids.Length, names.Length));
