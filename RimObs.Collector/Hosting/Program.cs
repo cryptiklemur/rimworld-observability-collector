@@ -126,6 +126,7 @@ public static class Program {
         app.MapSessionsEndpoints();
         app.MapVersionEndpoints();
         app.MapLogsEndpoints();
+        app.MapSpaEndpoints();
     }
 
     private const string UpdateOwner = "cryptiklemur";
