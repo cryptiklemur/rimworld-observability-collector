@@ -57,6 +57,24 @@ describe('api endpoint URLs', () => {
         await api.logs(10, 'Warning');
         expect(f.mock.calls[0][0]).toBe('/api/v1/logs?limit=10&level=Warning');
     });
+
+    it('builds the sessions list URL', async () => {
+        const f = mockFetch({ sessions: [] });
+        await api.sessions();
+        expect(f.mock.calls[0][0]).toBe('/api/v1/sessions');
+    });
+
+    it('builds the current session URL', async () => {
+        const f = mockFetch({ session: {}, receive: {} });
+        await api.currentSession();
+        expect(f.mock.calls[0][0]).toBe('/api/v1/sessions/current');
+    });
+
+    it('builds the session summary URL', async () => {
+        const f = mockFetch({ session: {} });
+        await api.sessionSummary();
+        expect(f.mock.calls[0][0]).toBe('/api/v1/sessions/current/summary');
+    });
 });
 
 describe('error handling', () => {
