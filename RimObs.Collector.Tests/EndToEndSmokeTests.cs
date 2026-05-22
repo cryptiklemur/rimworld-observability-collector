@@ -540,6 +540,39 @@ public sealed class EndToEndSmokeTests {
         }
     }
 
+    [Fact]
+    public async Task Root_serves_embedded_dashboard_spa_html() {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            HttpResponseMessage rootResponse = await http.GetAsync("/");
+            rootResponse.IsSuccessStatusCode.Should().BeTrue();
+            rootResponse.Content.Headers.ContentType!.MediaType.Should().Be("text/html");
+            string html = await rootResponse.Content.ReadAsStringAsync();
+            html.Should().Contain("<!doctype html>");
+            html.Should().Contain("/assets/");
+
+            HttpResponseMessage unknownRoute = await http.GetAsync("/overview");
+            unknownRoute.IsSuccessStatusCode.Should().BeTrue();
+            (await unknownRoute.Content.ReadAsStringAsync()).Should().Contain("<!doctype html>");
+
+            HttpResponseMessage unknownApi = await http.GetAsync("/api/v1/does-not-exist");
+            unknownApi.StatusCode.Should().Be(System.Net.HttpStatusCode.NotFound);
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
 
     [Fact]
     public async Task Ping_datagram_receives_pong_with_collector_version_and_session() {

@@ -13,10 +13,6 @@ public static class VersionEndpoints {
             built_at = BuildInfo.BuildTime,
         }));
 
-        endpoints.MapGet("/", () => Results.Text(
-            "RimObs Collector is running. Dashboard SPA will be served here.",
-            "text/plain"));
-
         return endpoints;
     }
 }
