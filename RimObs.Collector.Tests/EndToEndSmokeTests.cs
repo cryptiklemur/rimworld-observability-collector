@@ -632,6 +632,134 @@ public sealed class EndToEndSmokeTests {
         }
     }
 
+    [Fact]
+    public async Task Sessions_endpoints_report_current_session_and_summary() {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            HttpResponseMessage beforeCurrent = await http.GetAsync("/api/v1/sessions/current");
+            beforeCurrent.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            HttpResponseMessage beforeSummary = await http.GetAsync("/api/v1/sessions/current/summary");
+            beforeSummary.StatusCode.Should().Be(HttpStatusCode.NotFound);
+
+            string emptyList = await http.GetStringAsync("/api/v1/sessions");
+            using (JsonDocument emptyDoc = JsonDocument.Parse(emptyList))
+                emptyDoc.RootElement.GetProperty("sessions").GetArrayLength().Should().Be(0);
+
+            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
+                SessionId = "sessions-smoke",
+                StartedUtcTicks = DateTime.UtcNow.Ticks,
+                StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                LibraryVersion = "0.0.0-smoke",
+                GameVersion = "1.6",
+            }));
+
+            SendBatch(port, BatchType.SectionRegistrations, MessagePackSerializer.Serialize(new SectionRegistrationsBatch {
+                SectionIds = [42, 43],
+                Names = ["smoke.tick", "smoke.path"],
+            }));
+
+            SendBatch(port, BatchType.Sections, MessagePackSerializer.Serialize(new SectionBatch {
+                SectionIds = [42, 42, 43],
+                StartTimestamps = [1000, 2000, 3000],
+                ElapsedTicks = [500, 600, 700],
+            }));
+
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/sessions/current");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            string listBody = await http.GetStringAsync("/api/v1/sessions");
+            _out.WriteLine($"sessions: {listBody}");
+            using (JsonDocument listDoc = JsonDocument.Parse(listBody)) {
+                JsonElement sessions = listDoc.RootElement.GetProperty("sessions");
+                sessions.GetArrayLength().Should().Be(1);
+                JsonElement only = sessions[0];
+                only.GetProperty("id").GetString().Should().Be("sessions-smoke");
+                only.GetProperty("is_current").GetBoolean().Should().BeTrue();
+                only.GetProperty("library_version").GetString().Should().Be("0.0.0-smoke");
+                only.GetProperty("game_version").GetString().Should().Be("1.6");
+            }
+
+            string currentBody = await http.GetStringAsync("/api/v1/sessions/current");
+            using (JsonDocument currentDoc = JsonDocument.Parse(currentBody)) {
+                JsonElement root = currentDoc.RootElement;
+                root.GetProperty("session").GetProperty("id").GetString().Should().Be("sessions-smoke");
+                root.GetProperty("session").GetProperty("is_current").GetBoolean().Should().BeTrue();
+                root.GetProperty("receive").GetProperty("total_samples").GetInt32().Should().BeGreaterThanOrEqualTo(3);
+                root.GetProperty("receive").GetProperty("section_count").GetInt32().Should().Be(2);
+            }
+
+            string summaryBody = await http.GetStringAsync("/api/v1/sessions/current/summary");
+            _out.WriteLine($"summary: {summaryBody}");
+            using (JsonDocument summaryDoc = JsonDocument.Parse(summaryBody)) {
+                JsonElement root = summaryDoc.RootElement;
+                root.GetProperty("session").GetProperty("id").GetString().Should().Be("sessions-smoke");
+                root.GetProperty("section_count").GetInt32().Should().Be(2);
+                root.GetProperty("total_samples").GetInt32().Should().BeGreaterThanOrEqualTo(3);
+                root.GetProperty("total_section_ns").GetInt64().Should().BeGreaterThan(0);
+            }
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Sessions_list_includes_persisted_sessions_from_disk() {
+        int port = PickFreePort();
+        string sessionsDir = Path.Combine(Path.GetTempPath(), "rimobs-sessions-" + Guid.NewGuid().ToString("N"));
+        using (Storage.SqliteSessionPersister seed = new(sessionsDir)) {
+            seed.WriteSessionMeta(new SessionMeta {
+                SessionId = "persisted-old",
+                StartedUtcTicks = DateTime.UtcNow.AddHours(-1).Ticks,
+                StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                LibraryVersion = "0.0.0-old",
+                GameVersion = "1.6",
+            });
+        }
+
+        WebApplication app = Program.BuildApp([], port, Security.CollectorToken.CreateFromEnvOrGenerate(), sessionsDir);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            string listBody = await http.GetStringAsync("/api/v1/sessions");
+            _out.WriteLine($"persisted sessions: {listBody}");
+            using JsonDocument listDoc = JsonDocument.Parse(listBody);
+            JsonElement sessions = listDoc.RootElement.GetProperty("sessions");
+            bool sawPersisted = false;
+            foreach (JsonElement s in sessions.EnumerateArray()) {
+                if (s.GetProperty("id").GetString() == "persisted-old") {
+                    sawPersisted = true;
+                    s.GetProperty("is_current").GetBoolean().Should().BeFalse();
+                }
+            }
+            sawPersisted.Should().BeTrue();
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+            try { Directory.Delete(sessionsDir, recursive: true); } catch { }
+        }
+    }
+
     private static void SendBatch(int port, BatchType type, byte[] payload) {
         TelemetryBatch envelope = new() {
             SchemaVersion = SchemaVersion.Current,

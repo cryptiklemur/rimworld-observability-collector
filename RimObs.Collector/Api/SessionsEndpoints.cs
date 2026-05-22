@@ -4,10 +4,12 @@ using System.Diagnostics;
 using System.Linq;
 using System.Threading;
 using Cryptiklemur.RimObs.Collector.Aggregation;
+using Cryptiklemur.RimObs.Collector.Storage;
 using Cryptiklemur.RimObs.Wire;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Cryptiklemur.RimObs.Collector.Api;
 
@@ -20,6 +22,76 @@ public static class SessionsEndpoints {
     private const int MaxCallTreeTopN = 256;
 
     public static IEndpointRouteBuilder MapSessionsEndpoints(this IEndpointRouteBuilder endpoints) {
+        endpoints.MapGet("/api/v1/sessions", (SessionAggregator aggregator, IServiceProvider services) => {
+            SessionMeta? current = aggregator.Meta;
+            List<object> sessions = new List<object>();
+            HashSet<string> seen = new HashSet<string>(StringComparer.Ordinal);
+
+            if (current is not null) {
+                sessions.Add(MapSession(current, isCurrent: true));
+                seen.Add(current.SessionId);
+            }
+
+            if (services.GetService<ISessionPersister>() is SqliteSessionPersister persister) {
+                foreach (SessionMeta meta in SessionCatalog.List(persister.SessionsDirectory)) {
+                    if (seen.Add(meta.SessionId))
+                        sessions.Add(MapSession(meta, isCurrent: meta.SessionId == current?.SessionId));
+                }
+            }
+
+            return Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                sessions = sessions.ToArray(),
+            });
+        });
+
+        endpoints.MapGet("/api/v1/sessions/current", (SessionAggregator aggregator) => {
+            SessionMeta? meta = aggregator.Meta;
+            if (meta is null)
+                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "no active session" });
+
+            return Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                session = MapSession(meta, isCurrent: true),
+                receive = new {
+                    total_batches = aggregator.TotalBatches,
+                    total_samples = aggregator.TotalSamples,
+                    total_bytes = aggregator.TotalBytes,
+                    last_batch_utc = aggregator.LastBatchUtc == default ? (DateTime?)null : aggregator.LastBatchUtc,
+                    section_count = aggregator.SectionCount,
+                    total_gc_events = aggregator.TotalGcEvents,
+                    total_allocations = aggregator.TotalAllocations,
+                },
+            });
+        });
+
+        endpoints.MapGet("/api/v1/sessions/current/summary", (SessionAggregator aggregator) => {
+            SessionMeta? meta = aggregator.Meta;
+            if (meta is null)
+                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "no active session" });
+
+            long freq = meta.StopwatchFrequency > 0 ? meta.StopwatchFrequency : Stopwatch.Frequency;
+            double nsPerTick = 1_000_000_000.0 / freq;
+            long totalSectionTicks = 0;
+            foreach (SectionStats section in aggregator.Sections)
+                totalSectionTicks += section.TotalElapsedTicks;
+
+            return Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                session = MapSession(meta, isCurrent: true),
+                section_count = aggregator.SectionCount,
+                metric_count = aggregator.MetricCount,
+                total_batches = aggregator.TotalBatches,
+                total_samples = aggregator.TotalSamples,
+                total_bytes = aggregator.TotalBytes,
+                total_gc_events = aggregator.TotalGcEvents,
+                total_allocations = aggregator.TotalAllocations,
+                total_metric_observations = aggregator.TotalMetricObservations,
+                total_section_ns = (long)(totalSectionTicks * nsPerTick),
+                last_batch_utc = aggregator.LastBatchUtc == default ? (DateTime?)null : aggregator.LastBatchUtc,
+            });
+        });
+
         endpoints.MapGet("/api/v1/sessions/current/sections", (SessionAggregator aggregator) => {
             long freq = aggregator.Meta?.StopwatchFrequency ?? Stopwatch.Frequency;
             double nsPerTick = 1_000_000_000.0 / freq;
@@ -112,6 +184,16 @@ public static class SessionsEndpoints {
         });
 
         return endpoints;
+    }
+
+    private static object MapSession(SessionMeta meta, bool isCurrent) {
+        return new {
+            id = meta.SessionId,
+            started_utc = new DateTime(meta.StartedUtcTicks, DateTimeKind.Utc),
+            library_version = meta.LibraryVersion,
+            game_version = meta.GameVersion,
+            is_current = isCurrent,
+        };
     }
 
     private static object MapCallNode(CallTreeNode node) {
