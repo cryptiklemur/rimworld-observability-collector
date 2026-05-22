@@ -118,6 +118,40 @@ export interface LogsResponse {
     entries: LogEntry[];
 }
 
+export interface SessionInfo {
+    id: string;
+    started_utc: string;
+    library_version: string;
+    game_version: string;
+    is_current: boolean;
+}
+
+export interface SessionsResponse {
+    schema_version: number;
+    sessions: SessionInfo[];
+}
+
+export interface CurrentSessionResponse {
+    schema_version: number;
+    session: SessionInfo;
+    receive: StatusResponse['receive'];
+}
+
+export interface SessionSummaryResponse {
+    schema_version: number;
+    session: SessionInfo;
+    section_count: number;
+    metric_count: number;
+    total_batches: number;
+    total_samples: number;
+    total_bytes: number;
+    total_gc_events: number;
+    total_allocations: number;
+    total_metric_observations: number;
+    total_section_ns: number;
+    last_batch_utc: string | null;
+}
+
 export class ApiError extends Error {
     constructor(
         public readonly status: number,
@@ -149,4 +183,7 @@ export const api = {
         get<LogsResponse>(
             `/api/v1/logs?limit=${limit}${level ? `&level=${encodeURIComponent(level)}` : ''}`,
         ),
+    sessions: () => get<SessionsResponse>('/api/v1/sessions'),
+    currentSession: () => get<CurrentSessionResponse>('/api/v1/sessions/current'),
+    sessionSummary: () => get<SessionSummaryResponse>('/api/v1/sessions/current/summary'),
 };
