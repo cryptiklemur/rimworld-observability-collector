@@ -651,6 +651,7 @@ public sealed class EndToEndSmokeTests {
             root.GetProperty("schema_version").GetInt32().Should().Be(1);
             root.GetProperty("collector").GetProperty("listen_address").GetString().Should().Be("127.0.0.1");
             root.GetProperty("collector").GetProperty("port").GetInt32().Should().Be(17654);
+            root.GetProperty("sections").GetProperty("disabled").GetArrayLength().Should().Be(0);
             root.GetProperty("session").GetProperty("slow_tick_threshold_us").GetInt32().Should().Be(16667);
             root.GetProperty("storage").GetProperty("sqlite_journal_mode").GetString().Should().Be("WAL");
             root.GetProperty("privacy").GetProperty("include_assembly_versions_and_patches").GetBoolean().Should().BeTrue();
@@ -678,7 +679,7 @@ public sealed class EndToEndSmokeTests {
 
             using HttpRequestMessage post = new(HttpMethod.Post, "/api/v1/config") {
                 Content = new StringContent(
-                    "{\"schema_version\":1,\"collector\":{\"log_level\":\"Debug\",\"port\":18000}}",
+                    "{\"schema_version\":1,\"collector\":{\"log_level\":\"Debug\",\"port\":18000},\"sections\":{\"disabled\":[\"core.tick\",\"core.path\"]}}",
                     System.Text.Encoding.UTF8,
                     "application/json"),
             };
@@ -694,6 +695,10 @@ public sealed class EndToEndSmokeTests {
             collector.GetProperty("log_level").GetString().Should().Be("Debug");
             collector.GetProperty("port").GetInt32().Should().Be(18000);
             collector.GetProperty("listen_address").GetString().Should().Be("127.0.0.1");
+            JsonElement disabled = doc.RootElement.GetProperty("sections").GetProperty("disabled");
+            disabled.GetArrayLength().Should().Be(2);
+            disabled[0].GetString().Should().Be("core.tick");
+            disabled[1].GetString().Should().Be("core.path");
         }
         finally {
             await app.StopAsync();
