@@ -1,9 +1,10 @@
-.PHONY: help all clean restore build build-library build-collector build-dashboard test format lint watch publish-collector
+.PHONY: help all clean restore build build-library build-collector build-dashboard deploy-collector test format lint watch publish-collector
 
 CONFIG ?= Debug
 RIDS ?= win-x64 linux-x64 osx-arm64 osx-x64
 DASHBOARD_DIR := RimObs.Dashboard
 SLN := RimObs.sln
+COLLECTOR_DEPLOY_DIR := Assemblies/Collector
 
 help:
 	@echo "Targets:"
@@ -14,6 +15,7 @@ help:
 	@echo "  build-library       build only RimObs.Library"
 	@echo "  build-collector     build only RimObs.Collector"
 	@echo "  build-dashboard     build the Svelte SPA into dist/"
+	@echo "  deploy-collector    framework-dependent host publish into Assemblies/Collector for in-game auto-launch"
 	@echo "  test                run xUnit suites"
 	@echo "  format              dotnet format + prettier"
 	@echo "  lint                dotnet format --verify-no-changes + eslint"
@@ -37,6 +39,7 @@ restore:
 
 build: build-dashboard
 	dotnet build $(SLN) -c $(CONFIG) --nologo
+	$(MAKE) deploy-collector CONFIG=$(CONFIG)
 
 build-library:
 	dotnet build RimObs.Library/RimObs.Library.csproj -c $(CONFIG) --nologo
@@ -46,6 +49,13 @@ build-collector: build-dashboard
 
 build-dashboard:
 	cd $(DASHBOARD_DIR) && pnpm build
+
+deploy-collector:
+	dotnet publish RimObs.Collector/RimObs.Collector.csproj \
+		-c $(CONFIG) --use-current-runtime --no-self-contained \
+		-p:PublishSingleFile=false \
+		-o $(COLLECTOR_DEPLOY_DIR) --nologo
+	printf '{"schema_version":1,"version":"0.0.0-dev","library_schema_compat":{"min":1,"max":1}}\n' > $(COLLECTOR_DEPLOY_DIR)/Collector.version
 
 test:
 	dotnet test $(SLN) -c $(CONFIG) --nologo --no-build
