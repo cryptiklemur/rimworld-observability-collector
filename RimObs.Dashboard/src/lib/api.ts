@@ -1,0 +1,152 @@
+export interface StatusResponse {
+    schema_version: number;
+    status: string;
+    version: string;
+    session: {
+        id: string;
+        started_utc: string;
+        library_version: string;
+    } | null;
+    receive: {
+        total_batches: number;
+        total_samples: number;
+        total_bytes: number;
+        last_batch_utc: string | null;
+        section_count: number;
+        total_gc_events: number;
+        total_allocations: number;
+    };
+    update: {
+        available: boolean;
+        latest_version: string | null;
+        url: string | null;
+    };
+}
+
+export interface Hotspot {
+    id: number;
+    name: string;
+    sample_count: number;
+    total_ns: number;
+    mean_ns: number;
+    min_ns: number;
+    max_ns: number;
+}
+
+export interface HotspotsResponse {
+    schema_version: number;
+    hotspots: Hotspot[];
+}
+
+export interface Section {
+    id: number;
+    name: string;
+    sample_count: number;
+    total_ns: number;
+    min_ns: number;
+    max_ns: number;
+}
+
+export interface SectionsResponse {
+    schema_version: number;
+    sections: Section[];
+}
+
+export interface MetricLabel {
+    canonical: string;
+    latest_value: number;
+    total_sample_count: number;
+}
+
+export type MetricKind = 0 | 1 | 2;
+
+export interface Metric {
+    id: number;
+    name: string;
+    kind: MetricKind;
+    unit: string;
+    labels: MetricLabel[];
+}
+
+export interface MetricsResponse {
+    schema_version: number;
+    total_observations: number;
+    metrics: Metric[];
+}
+
+export interface GcEvent {
+    generation: number;
+    pause_type: string;
+    heap_before: number;
+    heap_after: number;
+    duration_micros: number;
+    ticks: number;
+    allocation_rate_bpm: number;
+}
+
+export interface GcResponse {
+    schema_version: number;
+    total_events: number;
+    events: GcEvent[];
+}
+
+export interface CallNode {
+    id: number;
+    name: string;
+    call_count: number;
+    total_ns: number;
+    is_other: boolean;
+    children: CallNode[];
+}
+
+export interface CallTreeResponse {
+    schema_version: number;
+    depth_cap: number;
+    top_n: number;
+    roots: CallNode[];
+}
+
+export interface LogEntry {
+    timestamp: string;
+    level: string;
+    message: string;
+    exception: string | null;
+}
+
+export interface LogsResponse {
+    count: number;
+    entries: LogEntry[];
+}
+
+export class ApiError extends Error {
+    constructor(
+        public readonly status: number,
+        message: string,
+    ) {
+        super(message);
+        this.name = 'ApiError';
+    }
+}
+
+async function get<T>(path: string): Promise<T> {
+    const res = await fetch(path, { headers: { accept: 'application/json' } });
+    if (!res.ok) {
+        throw new ApiError(res.status, `${res.status} ${res.statusText}`);
+    }
+    return (await res.json()) as T;
+}
+
+export const api = {
+    status: () => get<StatusResponse>('/api/v1/status'),
+    hotspots: (limit = 50) =>
+        get<HotspotsResponse>(`/api/v1/sessions/current/hotspots?limit=${limit}`),
+    sections: () => get<SectionsResponse>('/api/v1/sessions/current/sections'),
+    metrics: () => get<MetricsResponse>('/api/v1/sessions/current/metrics'),
+    gc: (limit = 200) => get<GcResponse>(`/api/v1/sessions/current/gc?limit=${limit}`),
+    callTree: (depth = 10, top = 16) =>
+        get<CallTreeResponse>(`/api/v1/sessions/current/call_tree?depth=${depth}&top=${top}`),
+    logs: (limit = 200, level?: string) =>
+        get<LogsResponse>(
+            `/api/v1/logs?limit=${limit}${level ? `&level=${encodeURIComponent(level)}` : ''}`,
+        ),
+};

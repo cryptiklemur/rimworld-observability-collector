@@ -1,0 +1,125 @@
+@import '@fontsource/chakra-petch/500.css';
+@import '@fontsource/chakra-petch/600.css';
+@import '@fontsource/chakra-petch/700.css';
+@import '@fontsource/hanken-grotesk/400.css';
+@import '@fontsource/hanken-grotesk/500.css';
+@import '@fontsource/hanken-grotesk/600.css';
+@import '@fontsource/ibm-plex-mono/400.css';
+@import '@fontsource/ibm-plex-mono/500.css';
+@import '@fontsource/ibm-plex-mono/600.css';
+
+:root {
+    --bg-void: #080a0f;
+    --bg-base: #0b0e14;
+    --bg-surface: #131925;
+    --bg-surface-2: #1a2230;
+    --bg-elev: #20293a;
+
+    --border: #28344a;
+    --border-soft: #1c2535;
+    --border-strong: #3a4a66;
+
+    --text: #d4dded;
+    --text-dim: #93a1ba;
+    --text-faint: #5f6e88;
+
+    --ember: #ff7a45;
+    --ember-soft: #ff9d6e;
+    --ember-deep: #d65a28;
+    --cyan: #39c4d4;
+    --cyan-soft: #6fe0ec;
+
+    --good: #5fcf80;
+    --warn: #e8b53e;
+    --bad: #f25d63;
+    --bad-deep: #c2393e;
+
+    --grade-0: #5fcf80;
+    --grade-1: #9ed457;
+    --grade-2: #e8b53e;
+    --grade-3: #ff9d4e;
+    --grade-4: #f25d63;
+
+    --font-display: 'Chakra Petch', ui-sans-serif, sans-serif;
+    --font-ui: 'Hanken Grotesk', ui-sans-serif, system-ui, sans-serif;
+    --font-mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', monospace;
+
+    --r-sm: 4px;
+    --r-md: 8px;
+    --r-lg: 14px;
+
+    --sb-w: 232px;
+    --topbar-h: 58px;
+
+    --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.02) inset, 0 8px 24px rgba(0, 0, 0, 0.35);
+    --ring-focus: 0 0 0 2px var(--bg-base), 0 0 0 4px var(--cyan);
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html,
+body {
+    margin: 0;
+    padding: 0;
+    height: 100%;
+}
+
+body {
+    background:
+        radial-gradient(1100px 700px at 82% -8%, rgba(255, 122, 69, 0.08), transparent 60%),
+        radial-gradient(900px 600px at -6% 4%, rgba(57, 196, 212, 0.07), transparent 55%),
+        linear-gradient(180deg, var(--bg-base), var(--bg-void));
+    background-attachment: fixed;
+    color: var(--text);
+    font-family: var(--font-ui);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+}
+
+#app {
+    height: 100%;
+}
+
+h1,
+h2,
+h3,
+h4 {
+    font-family: var(--font-display);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    margin: 0;
+}
+
+a {
+    color: var(--cyan);
+    text-decoration: none;
+}
+
+code,
+.mono {
+    font-family: var(--font-mono);
+    font-feature-settings: 'tnum' 1;
+}
+
+::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+}
+::-webkit-scrollbar-thumb {
+    background: var(--border-strong);
+    border-radius: 99px;
+    border: 2px solid var(--bg-base);
+}
+::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+:focus-visible {
+    outline: none;
+    box-shadow: var(--ring-focus);
+    border-radius: var(--r-sm);
+}
