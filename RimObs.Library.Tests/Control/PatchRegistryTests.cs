@@ -1,0 +1,60 @@
+using System.Reflection;
+using Cryptiklemur.RimObs.Library.Control;
+using Cryptiklemur.RimObs.Patching;
+using Cryptiklemur.RimObs.Profile;
+using FluentAssertions;
+using RimObsTest.Fixtures;
+using Xunit;
+
+namespace Cryptiklemur.RimObs.Library.Tests.Control;
+
+public class PatchRegistryTests : IDisposable {
+    public PatchRegistryTests() {
+        PatchInstaller.ResetForTests();
+        PatchRegistry.ResetForTests();
+        SectionRegistry.Clear();
+    }
+
+    public void Dispose() {
+        PatchRegistry.ResetForTests();
+        PatchInstaller.ResetForTests();
+        SectionRegistry.Clear();
+    }
+
+    [Fact]
+    public void Apply_registers_section_and_records_patch_id() {
+        MethodInfo target = typeof(ResolverTargets).GetMethod(
+            "Add", [typeof(int), typeof(int)])!;
+
+        ApplyResult applied = PatchRegistry.Apply("test.pkg", target, "ResolverTargets:Add(Int32,Int32)");
+
+        applied.Status.Should().Be("active");
+        applied.PatchId.Should().BeGreaterThan(0);
+        applied.SectionName.Should().StartWith("test.pkg.dynamic.");
+        SectionRegistry.Count.Should().Be(1);
+    }
+
+    [Fact]
+    public void Apply_is_idempotent_for_same_signature() {
+        MethodInfo target = typeof(ResolverTargets).GetMethod(
+            "Add", [typeof(int), typeof(int)])!;
+
+        ApplyResult first = PatchRegistry.Apply("test.pkg", target, "ResolverTargets:Add(Int32,Int32)");
+        ApplyResult second = PatchRegistry.Apply("test.pkg", target, "ResolverTargets:Add(Int32,Int32)");
+
+        second.PatchId.Should().Be(first.PatchId);
+        SectionRegistry.Count.Should().Be(1);
+    }
+
+    [Fact]
+    public void Remove_unpatches_and_deactivates_section() {
+        MethodInfo target = typeof(ResolverTargets).GetMethod(
+            "Add", [typeof(int), typeof(int)])!;
+        ApplyResult applied = PatchRegistry.Apply("test.pkg", target, "ResolverTargets:Add(Int32,Int32)");
+
+        bool removed = PatchRegistry.Remove(applied.PatchId);
+
+        removed.Should().BeTrue();
+        SectionRegistry.IsActive(applied.SectionId).Should().BeFalse();
+    }
+}
