@@ -28,7 +28,7 @@ public sealed class RingBufferLogSink : ILogEventSink {
 
         string message = logEvent.RenderMessage();
         string? exception = logEvent.Exception?.ToString();
-        LogEntry entry = new(logEvent.Timestamp, logEvent.Level.ToString(), message, exception);
+        LogEntry entry = new(logEvent.Timestamp, logEvent.Level, message, exception);
 
         _entries.Enqueue(entry);
         while (_entries.Count > _capacity && _entries.TryDequeue(out _)) {
@@ -47,14 +47,10 @@ public sealed class RingBufferLogSink : ILogEventSink {
         List<LogEntry> filtered = new(Math.Min(snapshot.Length, limit));
         for (int i = snapshot.Length - 1; i >= 0 && filtered.Count < limit; i--) {
             LogEntry entry = snapshot[i];
-            if (minLevelEnum is null || LevelAtLeast(entry.Level, minLevelEnum.Value))
+            if (minLevelEnum is null || entry.Level >= minLevelEnum.Value)
                 filtered.Add(entry);
         }
 
         return filtered;
-    }
-
-    private static bool LevelAtLeast(string entryLevel, LogEventLevel min) {
-        return Enum.TryParse<LogEventLevel>(entryLevel, ignoreCase: true, out LogEventLevel l) && l >= min;
     }
 }

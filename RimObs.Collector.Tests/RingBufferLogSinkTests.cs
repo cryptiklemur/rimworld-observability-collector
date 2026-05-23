@@ -57,7 +57,7 @@ public sealed class RingBufferLogSinkTests {
 
         IReadOnlyList<LogEntry> warnPlus = sink.Snapshot(minLevel: "Warning", limit: 10);
         warnPlus.Should().HaveCount(2);
-        warnPlus.Select(e => e.Level).Should().NotContain("Information");
+        warnPlus.Select(e => e.Level).Should().NotContain(LogEventLevel.Information);
     }
 
     [Fact]

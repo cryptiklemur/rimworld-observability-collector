@@ -1,4 +1,3 @@
-using System;
 using Cryptiklemur.RimObs.Collector.Aggregation;
 using Cryptiklemur.RimObs.Wire;
 using Microsoft.AspNetCore.Builder;
@@ -16,20 +15,8 @@ public static class StatusEndpoints {
                 schema_version = SchemaVersion.Current,
                 status = "running",
                 version = BuildInfo.Revision,
-                session = meta is null ? null : new {
-                    id = meta.SessionId,
-                    started_utc = new DateTime(meta.StartedUtcTicks, DateTimeKind.Utc),
-                    library_version = meta.LibraryVersion,
-                },
-                receive = new {
-                    total_batches = aggregator.TotalBatches,
-                    total_samples = aggregator.TotalSamples,
-                    total_bytes = aggregator.TotalBytes,
-                    last_batch_utc = aggregator.LastBatchUtc == default ? (DateTime?)null : aggregator.LastBatchUtc,
-                    section_count = aggregator.SectionCount,
-                    total_gc_events = aggregator.TotalGcEvents,
-                    total_allocations = aggregator.TotalAllocations,
-                },
+                session = meta is null ? null : SessionsEndpoints.MapSession(meta, isCurrent: true),
+                receive = ReceiveCounters.Project(aggregator),
                 update = new {
                     available = latest is not null,
                     latest_version = latest?.TagName,
