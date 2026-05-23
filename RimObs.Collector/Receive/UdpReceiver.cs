@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Sockets;
 using Cryptiklemur.RimObs.Collector.Aggregation;
+using Cryptiklemur.RimObs.Collector.Instrumentation;
 using Cryptiklemur.RimObs.Wire;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
@@ -9,12 +10,14 @@ namespace Cryptiklemur.RimObs.Collector.Receive;
 
 public sealed class UdpReceiver : BackgroundService {
     private readonly SessionAggregator _aggregator;
+    private readonly SessionMetaRegistry _registry;
     private readonly ILogger<UdpReceiver> _log;
     private readonly int _port;
     private UdpClient? _client;
 
-    public UdpReceiver(SessionAggregator aggregator, ILogger<UdpReceiver> log, int port = 17654) {
+    public UdpReceiver(SessionAggregator aggregator, SessionMetaRegistry registry, ILogger<UdpReceiver> log, int port = 17654) {
         _aggregator = aggregator;
+        _registry = registry;
         _log = log;
         _port = port;
     }
@@ -77,7 +80,9 @@ public sealed class UdpReceiver : BackgroundService {
         try {
             switch (envelope.BatchType) {
                 case BatchType.SessionMeta:
-                    _aggregator.OnSessionMeta(WireCodec.Deserialize<SessionMeta>(envelope.Payload));
+                    SessionMeta meta = WireCodec.Deserialize<SessionMeta>(envelope.Payload);
+                    _aggregator.OnSessionMeta(meta);
+                    _registry.OnSessionMeta(meta);
                     break;
                 case BatchType.SectionRegistrations:
                     _aggregator.OnSectionRegistrations(WireCodec.Deserialize<SectionRegistrationsBatch>(envelope.Payload));

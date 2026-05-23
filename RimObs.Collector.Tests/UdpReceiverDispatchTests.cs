@@ -1,4 +1,5 @@
 using Cryptiklemur.RimObs.Collector.Aggregation;
+using Cryptiklemur.RimObs.Collector.Instrumentation;
 using Cryptiklemur.RimObs.Collector.Receive;
 using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
@@ -191,7 +192,7 @@ public sealed class UdpReceiverDispatchTests {
     }
 
     private static UdpReceiver NewReceiver(SessionAggregator agg) {
-        return new UdpReceiver(agg, NullLogger<UdpReceiver>.Instance, port: 0);
+        return new UdpReceiver(agg, new SessionMetaRegistry(), NullLogger<UdpReceiver>.Instance, port: 0);
     }
 
     private static byte[] SerializeEnvelope(BatchType batchType, byte[] payload, int? schemaVersion = null) {
