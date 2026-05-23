@@ -41,7 +41,7 @@ internal static class ControlSearchService {
                 }
             }
         }
-        done:
+    done:
         return new ControlSearchResponse { Results = hits.ToArray() };
     }
 
