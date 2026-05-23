@@ -7,6 +7,7 @@
     import TopBar from './lib/components/TopBar.svelte';
     import Overview from './routes/Overview.svelte';
     import Hotspots from './routes/Hotspots.svelte';
+    import Instrumentation from './routes/Instrumentation.svelte';
     import CallTree from './routes/CallTree.svelte';
     import Memory from './routes/Memory.svelte';
     import Metrics from './routes/Metrics.svelte';
@@ -37,6 +38,8 @@
                     <Overview status={status.data} />
                 {:else if route.id === 'hotspots'}
                     <Hotspots />
+                {:else if route.id === 'instrumentation'}
+                    <Instrumentation />
                 {:else if route.id === 'calltree'}
                     <CallTree />
                 {:else if route.id === 'memory'}
