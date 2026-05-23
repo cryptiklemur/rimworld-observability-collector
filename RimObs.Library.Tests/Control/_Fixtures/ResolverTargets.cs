@@ -1,4 +1,4 @@
-namespace Cryptiklemur.RimObs.Library.Tests.Control._Fixtures;
+namespace RimObsTest.Fixtures;
 
 public class ResolverTargets {
     public int Add(int a, int b) => a + b;

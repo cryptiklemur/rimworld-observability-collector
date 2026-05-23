@@ -7,30 +7,29 @@ namespace Cryptiklemur.RimObs.Library.Control;
 
 internal static class MethodResolver {
     private static readonly string[] s_BlocklistedNamespaces = [
-        "Cryptiklemur.RimObs.Library.Profile.",
-        "Cryptiklemur.RimObs.Library.Transport.",
-        "Cryptiklemur.RimObs.Library.Patching.",
-        "Cryptiklemur.RimObs.Library.Api.",
-        "Cryptiklemur.RimObs.Library.Metrics.",
-        "Cryptiklemur.RimObs.Library.Observers.",
-        "Cryptiklemur.RimObs.Library.Config.",
-        "Cryptiklemur.RimObs.Library.Session.",
-        "Cryptiklemur.RimObs.Library.Control.",
+        "Cryptiklemur.RimObs.Library.",
         "Cryptiklemur.RimObs.Wire.",
         "HarmonyLib.",
         "MonoMod.",
     ];
 
-    public static MethodResolveResult Resolve(string typeFullName, string methodName, string[] paramTypeFullNames) {
+    public static MethodResolveResult Resolve(string typeFullName, string methodName, string[] paramTypeFullNames) =>
+        Resolve(typeFullName, methodName, paramTypeFullNames, AssemblyIndex.Enumerate());
+
+    public static MethodResolveResult Resolve(
+        string typeFullName,
+        string methodName,
+        string[] paramTypeFullNames,
+        IEnumerable<Assembly> assemblies
+    ) {
         for (int i = 0; i < s_BlocklistedNamespaces.Length; i++) {
             if (typeFullName.StartsWith(s_BlocklistedNamespaces[i], StringComparison.Ordinal))
                 return MethodResolveResult.Refuse("blocklist: cannot instrument RimObs internals");
         }
 
         Type? type = null;
-        Assembly[] allAssemblies = AppDomain.CurrentDomain.GetAssemblies();
-        for (int i = 0; i < allAssemblies.Length; i++) {
-            type = allAssemblies[i].GetType(typeFullName, throwOnError: false, ignoreCase: false);
+        foreach (Assembly assembly in assemblies) {
+            type = assembly.GetType(typeFullName, throwOnError: false, ignoreCase: false);
             if (type is not null)
                 break;
         }
