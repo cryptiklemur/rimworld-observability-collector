@@ -8,4 +8,5 @@ public sealed class SectionStats {
     public long MinElapsedTicks = long.MaxValue;
     public long MaxElapsedTicks;
     public long LastStartTimestamp;
+    public SectionDistribution Distribution { get; } = new();
 }

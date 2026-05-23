@@ -217,6 +217,83 @@ public sealed class SessionAggregatorTests {
         agg.TotalAllocations.Should().Be(2);
     }
 
+    [Fact]
+    public void OnPatchConflicts_records_conflicts() {
+        SessionAggregator agg = new();
+        PatchConflictsBatch batch = new() {
+            SectionNames = ["core.tick", "core.map"],
+            TargetMethods = ["Verse.TickManager:DoSingleTick", "Verse.Map:MapPreTick"],
+            OtherOwners = ["Dubs.PerformanceAnalyzer", "Some.OtherMod"],
+            PatchTypes = [1, 3],
+            Priorities = [400, 0],
+            PatchMethods = ["Dubs.Patch:Prefix", "Some.Patch:Transpiler"],
+        };
+
+        agg.OnPatchConflicts(batch);
+
+        agg.PatchConflicts.Should().HaveCount(2);
+        agg.PatchConflicts.Should().Contain(c =>
+            c.SectionName == "core.tick" && c.OtherOwner == "Dubs.PerformanceAnalyzer" && c.PatchType == 1 && c.Priority == 400);
+    }
+
+    [Fact]
+    public void OnPatchConflicts_tolerates_length_mismatch_by_truncating() {
+        SessionAggregator agg = new();
+        PatchConflictsBatch batch = new() {
+            SectionNames = ["a", "b", "c"],
+            TargetMethods = ["t1", "t2"],
+            OtherOwners = ["o1", "o2", "o3"],
+            PatchTypes = [1, 2, 3],
+            Priorities = [0, 0, 0],
+            PatchMethods = ["p1", "p2", "p3"],
+        };
+
+        agg.OnPatchConflicts(batch);
+
+        agg.PatchConflicts.Should().HaveCount(2);
+    }
+
+    [Fact]
+    public void OnPatchConflicts_replaces_previous_snapshot() {
+        SessionAggregator agg = new();
+        agg.OnPatchConflicts(new() {
+            SectionNames = ["a"], TargetMethods = ["t"], OtherOwners = ["o"],
+            PatchTypes = [1], Priorities = [0], PatchMethods = ["p"],
+        });
+        agg.OnPatchConflicts(new() {
+            SectionNames = ["b", "c"], TargetMethods = ["t1", "t2"], OtherOwners = ["o1", "o2"],
+            PatchTypes = [2, 3], Priorities = [0, 0], PatchMethods = ["p1", "p2"],
+        });
+
+        agg.PatchConflicts.Should().HaveCount(2);
+        agg.PatchConflicts.Should().Contain(c => c.SectionName == "b");
+        agg.PatchConflicts.Should().NotContain(c => c.SectionName == "a");
+    }
+
+    [Fact]
+    public void OnTpsFps_records_latest_values() {
+        SessionAggregator agg = new();
+        agg.HasTpsFps.Should().BeFalse();
+
+        agg.OnTpsFps(new TpsFpsBatch { Tps = 59.5, Fps = 144.2, Tick = 9000 });
+
+        agg.HasTpsFps.Should().BeTrue();
+        agg.LatestTps.Should().Be(59.5);
+        agg.LatestFps.Should().Be(144.2);
+        agg.LatestTpsFpsTick.Should().Be(9000);
+    }
+
+    [Fact]
+    public void OnTpsFps_replaces_previous_values() {
+        SessionAggregator agg = new();
+        agg.OnTpsFps(new TpsFpsBatch { Tps = 30.0, Fps = 60.0, Tick = 100 });
+        agg.OnTpsFps(new TpsFpsBatch { Tps = 60.0, Fps = 120.0, Tick = 200 });
+
+        agg.LatestTps.Should().Be(60.0);
+        agg.LatestFps.Should().Be(120.0);
+        agg.LatestTpsFpsTick.Should().Be(200);
+    }
+
 
     [Fact]
     public void OnMetricRegistrations_records_name_kind_and_unit() {
@@ -233,11 +310,11 @@ public sealed class SessionAggregatorTests {
         agg.MetricCount.Should().Be(2);
         MetricStats m10 = agg.Metrics.Single(m => m.MetricId == 10);
         m10.Name.Should().Be("my.mod.frames_drawn");
-        m10.Kind.Should().Be((byte)0);
+        m10.Kind.Should().Be(MetricKind.Counter);
         m10.Unit.Should().Be("count");
         MetricStats m11 = agg.Metrics.Single(m => m.MetricId == 11);
         m11.Name.Should().Be("my.mod.heap_used");
-        m11.Kind.Should().Be((byte)1);
+        m11.Kind.Should().Be(MetricKind.Gauge);
         m11.Unit.Should().Be("bytes");
     }
 
@@ -289,8 +366,47 @@ public sealed class SessionAggregatorTests {
 
         MetricStats stats = agg.Metrics.Single();
         stats.MetricId.Should().Be(99);
-        stats.Kind.Should().Be((byte)2);
+        stats.Kind.Should().Be(MetricKind.Histogram);
         stats.Labels[""].LatestValue.Should().Be(123);
+    }
+
+    [Fact]
+    public void OnSectionBatch_feeds_distribution_with_percentiles() {
+        SessionAggregator agg = new();
+        long[] elapsed = new long[200];
+        for (int i = 0; i < elapsed.Length; i++)
+            elapsed[i] = i + 1;
+        int[] ids = new int[elapsed.Length];
+        long[] starts = new long[elapsed.Length];
+        for (int i = 0; i < elapsed.Length; i++) {
+            ids[i] = 7;
+            starts[i] = i;
+        }
+
+        agg.OnSectionBatch(new SectionBatch {
+            SectionIds = ids,
+            StartTimestamps = starts,
+            ElapsedTicks = elapsed,
+        });
+
+        SectionStats stats = agg.Sections.Single(s => s.SectionId == 7);
+        PercentileSnapshot snap = stats.Distribution.SnapshotPercentiles();
+        snap.P50Ticks.Should().BeInRange(95, 105);
+        snap.P95Ticks.Should().BeInRange(185, 200);
+        snap.P99Ticks.Should().BeInRange(195, 200);
+    }
+
+    [Fact]
+    public void FindSection_returns_known_section_and_null_for_unknown() {
+        SessionAggregator agg = new();
+        agg.OnSectionRegistrations(new SectionRegistrationsBatch {
+            SectionIds = [42],
+            Names = ["the.section"],
+        });
+
+        agg.FindSection(42).Should().NotBeNull();
+        agg.FindSection(42)!.Name.Should().Be("the.section");
+        agg.FindSection(999).Should().BeNull();
     }
 
     [Fact]

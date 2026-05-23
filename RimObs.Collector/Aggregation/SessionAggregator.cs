@@ -13,6 +13,7 @@ public sealed class SessionAggregator {
     private readonly BoundedRecordRing<GcEventRecord> _gcEvents = new(GcEventRingCapacity);
     private readonly ISessionPersister? _persister;
     private SessionMeta? _meta;
+    private PatchConflictRecord[] _patchConflicts = [];
 
     public SessionAggregator()
         : this(persister: null) {
@@ -28,6 +29,10 @@ public sealed class SessionAggregator {
     private long _totalGcEvents;
     private long _totalAllocations;
     private long _totalMetricObservations;
+    private long _latestTpsBits;
+    private long _latestFpsBits;
+    private long _latestTpsFpsTick;
+    private long _hasTpsFps;
     private DateTime _lastBatchUtc;
 
     public SessionMeta? Meta => _meta;
@@ -41,11 +46,20 @@ public sealed class SessionAggregator {
     public long TotalMetricObservations => Interlocked.Read(ref _totalMetricObservations);
     public int MetricCount => _metrics.Count;
 
+    public bool HasTpsFps => Interlocked.Read(ref _hasTpsFps) != 0;
+    public double LatestTps => BitConverter.Int64BitsToDouble(Interlocked.Read(ref _latestTpsBits));
+    public double LatestFps => BitConverter.Int64BitsToDouble(Interlocked.Read(ref _latestFpsBits));
+    public long LatestTpsFpsTick => Interlocked.Read(ref _latestTpsFpsTick);
+
     public IReadOnlyCollection<SectionStats> Sections => _sections.Values.ToArray();
     public IReadOnlyCollection<MetricStats> Metrics => _metrics.Values.ToArray();
     public IReadOnlyCollection<CallEdgeStats> CallEdges => _callEdges.Values.ToArray();
 
+    public SectionStats? FindSection(int id) => _sections.TryGetValue(id, out SectionStats? stats) ? stats : null;
+
     public GcEventRecord[] SnapshotGcEvents(int limit) => _gcEvents.SnapshotNewestFirst(limit);
+
+    public IReadOnlyList<PatchConflictRecord> PatchConflicts => Volatile.Read(ref _patchConflicts);
 
     public void OnBatchReceived(int byteCount) {
         Interlocked.Increment(ref _totalBatches);
@@ -68,6 +82,38 @@ public sealed class SessionAggregator {
         }
     }
 
+    public void OnPatchConflicts(PatchConflictsBatch batch) {
+        int n = Math.Min(
+            batch.SectionNames.Length,
+            Math.Min(
+                batch.TargetMethods.Length,
+                Math.Min(
+                    batch.OtherOwners.Length,
+                    Math.Min(batch.PatchTypes.Length, Math.Min(batch.Priorities.Length, batch.PatchMethods.Length))
+                )
+            )
+        );
+        PatchConflictRecord[] records = new PatchConflictRecord[n];
+        for (int i = 0; i < n; i++) {
+            records[i] = new PatchConflictRecord(
+                SectionName: batch.SectionNames[i],
+                TargetMethod: batch.TargetMethods[i],
+                OtherOwner: batch.OtherOwners[i],
+                PatchType: batch.PatchTypes[i],
+                Priority: batch.Priorities[i],
+                PatchMethod: batch.PatchMethods[i]
+            );
+        }
+        Volatile.Write(ref _patchConflicts, records);
+    }
+
+    public void OnTpsFps(TpsFpsBatch batch) {
+        Interlocked.Exchange(ref _latestTpsBits, BitConverter.DoubleToInt64Bits(batch.Tps));
+        Interlocked.Exchange(ref _latestFpsBits, BitConverter.DoubleToInt64Bits(batch.Fps));
+        Interlocked.Exchange(ref _latestTpsFpsTick, batch.Tick);
+        Interlocked.Exchange(ref _hasTpsFps, 1);
+    }
+
     public void OnMetricRegistrations(MetricRegistrationsBatch batch) {
         int n = Math.Min(
             batch.MetricIds.Length,
@@ -77,7 +123,7 @@ public sealed class SessionAggregator {
             int id = batch.MetricIds[i];
             MetricStats stats = _metrics.GetOrAdd(id, key => new MetricStats(key));
             stats.Name = batch.Names[i];
-            stats.Kind = batch.Kinds[i];
+            stats.Kind = (MetricKind)batch.Kinds[i];
             stats.Unit = batch.Units[i];
         }
     }
@@ -93,7 +139,7 @@ public sealed class SessionAggregator {
             long value = batch.Values[i];
             long samples = batch.SampleCounts[i];
             MetricStats stats = _metrics.GetOrAdd(id, key => new MetricStats(key));
-            stats.Kind = batch.Kinds[i];
+            stats.Kind = (MetricKind)batch.Kinds[i];
             MetricLabelStats labelStats = stats.Labels.GetOrAdd(canonical, key => new MetricLabelStats(key));
             Interlocked.Exchange(ref labelStats.LatestValue, value);
             Interlocked.Add(ref labelStats.TotalSampleCount, samples);
@@ -112,7 +158,7 @@ public sealed class SessionAggregator {
         for (int i = 0; i < n; i++) {
             GcEventRecord record = new(
                 generation: batch.Generations[i],
-                pauseType: i < pauseLen ? batch.PauseTypes[i] : (byte)0,
+                pauseType: (GcPauseType)(i < pauseLen ? batch.PauseTypes[i] : (byte)0),
                 heapBefore: i < heapBeforeLen ? batch.HeapBefore[i] : 0L,
                 heapAfter: i < heapAfterLen ? batch.HeapAfter[i] : 0L,
                 durationMicros: i < durLen ? batch.DurationMicros[i] : 0L,
@@ -132,6 +178,7 @@ public sealed class SessionAggregator {
     public void OnSectionBatch(SectionBatch batch) {
         int n = Math.Min(batch.SectionIds.Length, Math.Min(batch.ElapsedTicks.Length, batch.StartTimestamps.Length));
         int parentLen = batch.ParentIds.Length;
+        long nowEpochSeconds = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
         for (int i = 0; i < n; i++) {
             int id = batch.SectionIds[i];
             long elapsed = batch.ElapsedTicks[i];
@@ -142,6 +189,7 @@ public sealed class SessionAggregator {
             stats.LastStartTimestamp = start;
             UpdateMin(ref stats.MinElapsedTicks, elapsed);
             UpdateMax(ref stats.MaxElapsedTicks, elapsed);
+            stats.Distribution.Record(nowEpochSeconds, elapsed);
 
             int parentId = i < parentLen ? batch.ParentIds[i] : CallTreeBuilder.NoParent;
             long edgeKey = ((long)(uint)parentId << 32) | (uint)id;

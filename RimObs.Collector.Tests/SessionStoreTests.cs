@@ -199,7 +199,7 @@ public sealed class SessionStoreTests : IDisposable {
 
     [Fact]
     public void WriteMetricsSnapshot_round_trips_metric_and_per_label_rows() {
-        MetricStats m = new(metricId: 10) { Name = "my.mod.frames", Kind = 0, Unit = "count" };
+        MetricStats m = new(metricId: 10) { Name = "my.mod.frames", Kind = MetricKind.Counter, Unit = "count" };
         m.Labels["scene=map"] = new MetricLabelStats("scene=map") { LatestValue = 99, TotalSampleCount = 4 };
         m.Labels["scene=ui"] = new MetricLabelStats("scene=ui") { LatestValue = 17, TotalSampleCount = 1 };
 
@@ -226,7 +226,7 @@ public sealed class SessionStoreTests : IDisposable {
 
     [Fact]
     public void WriteMetricsSnapshot_is_idempotent_and_updates_latest_value() {
-        MetricStats m = new(metricId: 5) { Name = "g", Kind = 1, Unit = "b" };
+        MetricStats m = new(metricId: 5) { Name = "g", Kind = MetricKind.Gauge, Unit = "b" };
         m.Labels[""] = new MetricLabelStats("") { LatestValue = 10, TotalSampleCount = 1 };
 
         using SessionStore store = SessionStore.Open(_dbPath);
@@ -248,8 +248,8 @@ public sealed class SessionStoreTests : IDisposable {
 
     [Fact]
     public void ReplaceGcEventsSnapshot_truncates_then_inserts_in_order() {
-        GcEventRecord a = new(generation: 0, pauseType: 1, heapBefore: 1000, heapAfter: 800, durationMicros: 50, ticks: 100, allocationRateBytesPerMinute: 5000);
-        GcEventRecord b = new(generation: 2, pauseType: 0, heapBefore: 5000, heapAfter: 4500, durationMicros: 200, ticks: 200, allocationRateBytesPerMinute: 7500);
+        GcEventRecord a = new(generation: 0, pauseType: GcPauseType.Background, heapBefore: 1000, heapAfter: 800, durationMicros: 50, ticks: 100, allocationRateBytesPerMinute: 5000);
+        GcEventRecord b = new(generation: 2, pauseType: GcPauseType.Foreground, heapBefore: 5000, heapAfter: 4500, durationMicros: 200, ticks: 200, allocationRateBytesPerMinute: 7500);
 
         using SessionStore store = SessionStore.Open(_dbPath);
         store.ReplaceGcEventsSnapshot([a, b]);
@@ -276,7 +276,7 @@ public sealed class SessionStoreTests : IDisposable {
     [Fact]
     public void ReplaceGcEventsSnapshot_with_empty_array_clears_table() {
         using SessionStore store = SessionStore.Open(_dbPath);
-        store.ReplaceGcEventsSnapshot([new GcEventRecord(0, 0, 0, 0, 0, 0, 0)]);
+        store.ReplaceGcEventsSnapshot([new GcEventRecord(0, GcPauseType.Foreground, 0, 0, 0, 0, 0)]);
         store.CountGcEvents().Should().Be(1);
         store.ReplaceGcEventsSnapshot([]);
         store.CountGcEvents().Should().Be(0);

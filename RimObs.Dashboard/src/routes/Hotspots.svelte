@@ -1,7 +1,8 @@
 <script lang="ts">
-    import { api, type HotspotsResponse } from '../lib/api';
+    import { api, type HotspotsResponse, type SectionTimeseriesResponse } from '../lib/api';
     import { Resource } from '../lib/poll.svelte';
     import DataState from '../lib/components/DataState.svelte';
+    import LineChart from '../lib/components/LineChart.svelte';
     import { ns, count, gradeFromShare } from '../lib/format';
     import { t } from '../lib/i18n';
     import { onMount, onDestroy } from 'svelte';
@@ -12,6 +13,41 @@
 
     let rows = $derived(res.data?.hotspots ?? []);
     let max = $derived(rows.reduce((m, h) => Math.max(m, h.total_ns), 1));
+
+    let expandedId = $state<number | null>(null);
+    let trend = $state<SectionTimeseriesResponse | null>(null);
+    let trendLoading = $state(false);
+
+    async function toggle(id: number) {
+        if (expandedId === id) {
+            expandedId = null;
+            return;
+        }
+        expandedId = id;
+        trend = null;
+        trendLoading = true;
+        try {
+            const data = await api.sectionTimeseries(id);
+            if (expandedId === id) trend = data;
+        } finally {
+            if (expandedId === id) trendLoading = false;
+        }
+    }
+
+    let trendX = $derived.by(() => {
+        const points = trend?.points ?? [];
+        if (points.length === 0) return [];
+        const last = points[points.length - 1].t;
+        return points.map((p) => p.t - last);
+    });
+    let trendSeries = $derived.by(() => [
+        {
+            label: t('hotspots.trend.mean'),
+            values: (trend?.points ?? []).map((p) => p.mean_ns),
+            stroke: '--accent',
+            fill: '--accent-soft',
+        },
+    ]);
 </script>
 
 <DataState
@@ -20,18 +56,25 @@
     empty={rows.length === 0}
     onretry={() => res.refresh()}
 >
+    <p class="hint">{t('hotspots.hint')}</p>
     <div class="table">
         <div class="head">
             <span>{t('hotspots.col.section')}</span>
             <span class="num">{t('hotspots.col.total')}</span>
             <span class="num">{t('hotspots.col.mean')}</span>
+            <span class="num">{t('hotspots.col.p50')}</span>
+            <span class="num">{t('hotspots.col.p95')}</span>
+            <span class="num">{t('hotspots.col.p99')}</span>
             <span class="num">{t('hotspots.col.samples')}</span>
-            <span class="num">{t('hotspots.col.min')}</span>
-            <span class="num">{t('hotspots.col.max')}</span>
         </div>
         {#each rows as h (h.id)}
             {@const share = h.total_ns / max}
-            <div class="rowline">
+            <button
+                class="rowline"
+                class:expanded={expandedId === h.id}
+                aria-expanded={expandedId === h.id}
+                onclick={() => toggle(h.id)}
+            >
                 <div class="section">
                     <span class="name mono">{h.name}</span>
                     <span class="bar"
@@ -41,15 +84,44 @@
                 </div>
                 <span class="num strong mono">{ns(h.total_ns)}</span>
                 <span class="num mono">{ns(h.mean_ns)}</span>
-                <span class="num mono">{count(h.sample_count)}</span>
-                <span class="num dim mono">{ns(h.min_ns)}</span>
-                <span class="num dim mono">{ns(h.max_ns)}</span>
-            </div>
+                <span class="num mono">{ns(h.p50_ns)}</span>
+                <span class="num mono">{ns(h.p95_ns)}</span>
+                <span class="num warn mono">{ns(h.p99_ns)}</span>
+                <span class="num dim mono">{count(h.sample_count)}</span>
+            </button>
+            {#if expandedId === h.id}
+                <div class="trend">
+                    <div class="trend-head">
+                        <span class="trend-title">{t('hotspots.trend.title')}</span>
+                        <span class="trend-meta dim mono"
+                            >min {ns(h.min_ns)} / max {ns(h.max_ns)}</span
+                        >
+                    </div>
+                    {#if trendLoading}
+                        <p class="trend-state dim">{t('hotspots.trend.loading')}</p>
+                    {:else if (trend?.points.length ?? 0) === 0}
+                        <p class="trend-state dim">{t('hotspots.trend.empty')}</p>
+                    {:else}
+                        <LineChart
+                            x={trendX}
+                            series={trendSeries}
+                            height={180}
+                            format={(n) => ns(n)}
+                            xFormat={(n) => `${n}s`}
+                        />
+                    {/if}
+                </div>
+            {/if}
         {/each}
     </div>
 </DataState>
 
 <style>
+    .hint {
+        margin: 0 0 0.6rem;
+        font-size: 0.78rem;
+        color: var(--text-faint);
+    }
     .table {
         display: flex;
         flex-direction: column;
@@ -57,7 +129,7 @@
     .head,
     .rowline {
         display: grid;
-        grid-template-columns: minmax(0, 2.4fr) repeat(5, minmax(72px, 0.7fr));
+        grid-template-columns: minmax(0, 2.4fr) repeat(6, minmax(64px, 0.7fr));
         gap: 0.75rem;
         align-items: center;
         padding: 0.55rem 0.9rem;
@@ -73,9 +145,17 @@
         background: var(--bg-base);
     }
     .rowline {
+        border: none;
         border-bottom: 1px solid var(--border-soft);
+        background: transparent;
+        color: inherit;
+        font: inherit;
+        text-align: left;
+        width: 100%;
+        cursor: pointer;
     }
-    .rowline:hover {
+    .rowline:hover,
+    .rowline.expanded {
         background: var(--bg-surface);
     }
     .num {
@@ -85,6 +165,9 @@
     .strong {
         color: var(--text);
         font-weight: 600;
+    }
+    .warn {
+        color: var(--warn, var(--text));
     }
     .dim {
         color: var(--text-faint);
@@ -112,6 +195,30 @@
         display: block;
         height: 100%;
         border-radius: 99px;
+    }
+    .trend {
+        padding: 0.8rem 0.9rem 1rem;
+        border-bottom: 1px solid var(--border-soft);
+        background: var(--bg-surface);
+    }
+    .trend-head {
+        display: flex;
+        justify-content: space-between;
+        align-items: baseline;
+        margin-bottom: 0.5rem;
+    }
+    .trend-title {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-faint);
+    }
+    .trend-meta {
+        font-size: 0.78rem;
+    }
+    .trend-state {
+        margin: 0;
+        font-size: 0.82rem;
     }
     .g0 {
         background: var(--grade-0);

@@ -2,11 +2,7 @@ export interface StatusResponse {
     schema_version: number;
     status: string;
     version: string;
-    session: {
-        id: string;
-        started_utc: string;
-        library_version: string;
-    } | null;
+    session: SessionInfo | null;
     receive: {
         total_batches: number;
         total_samples: number;
@@ -15,6 +11,9 @@ export interface StatusResponse {
         section_count: number;
         total_gc_events: number;
         total_allocations: number;
+        tps: number | null;
+        fps: number | null;
+        tps_fps_tick: number | null;
     };
     update: {
         available: boolean;
@@ -31,6 +30,9 @@ export interface Hotspot {
     mean_ns: number;
     min_ns: number;
     max_ns: number;
+    p50_ns: number;
+    p95_ns: number;
+    p99_ns: number;
 }
 
 export interface HotspotsResponse {
@@ -45,11 +47,29 @@ export interface Section {
     total_ns: number;
     min_ns: number;
     max_ns: number;
+    p50_ns: number;
+    p95_ns: number;
+    p99_ns: number;
 }
 
 export interface SectionsResponse {
     schema_version: number;
     sections: Section[];
+}
+
+export interface SectionTimeseriesPoint {
+    t: number;
+    count: number;
+    mean_ns: number;
+    total_ns: number;
+}
+
+export interface SectionTimeseriesResponse {
+    schema_version: number;
+    id: number;
+    name: string;
+    bucket_seconds: number;
+    points: SectionTimeseriesPoint[];
 }
 
 export interface MetricLabel {
@@ -76,7 +96,7 @@ export interface MetricsResponse {
 
 export interface GcEvent {
     generation: number;
-    pause_type: string;
+    pause_type: number;
     heap_before: number;
     heap_after: number;
     duration_micros: number;
@@ -116,6 +136,20 @@ export interface LogEntry {
 export interface LogsResponse {
     count: number;
     entries: LogEntry[];
+}
+
+export interface PatchConflict {
+    section: string;
+    target_method: string;
+    other_owner: string;
+    patch_type: number;
+    priority: number;
+    patch_method: string;
+}
+
+export interface PatchesResponse {
+    schema_version: number;
+    conflicts: PatchConflict[];
 }
 
 export interface SessionInfo {
@@ -175,6 +209,8 @@ export const api = {
     hotspots: (limit = 50) =>
         get<HotspotsResponse>(`/api/v1/sessions/current/hotspots?limit=${limit}`),
     sections: () => get<SectionsResponse>('/api/v1/sessions/current/sections'),
+    sectionTimeseries: (id: number) =>
+        get<SectionTimeseriesResponse>(`/api/v1/sessions/current/sections/${id}/timeseries`),
     metrics: () => get<MetricsResponse>('/api/v1/sessions/current/metrics'),
     gc: (limit = 200) => get<GcResponse>(`/api/v1/sessions/current/gc?limit=${limit}`),
     callTree: (depth = 10, top = 16) =>
@@ -186,4 +222,5 @@ export const api = {
     sessions: () => get<SessionsResponse>('/api/v1/sessions'),
     currentSession: () => get<CurrentSessionResponse>('/api/v1/sessions/current'),
     sessionSummary: () => get<SessionSummaryResponse>('/api/v1/sessions/current/summary'),
+    patches: () => get<PatchesResponse>('/api/v1/sessions/current/patches'),
 };

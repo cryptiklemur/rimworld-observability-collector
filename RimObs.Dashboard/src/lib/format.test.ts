@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
-import { ns, bytes, count, metricKind, relativeTime, gradeFromShare } from './format';
+import { ns, bytes, count, rate, metricKind, patchType, relativeTime, gradeFromShare } from './format';
 
 describe('ns', () => {
     it('renders zero and negatives as 0', () => {
@@ -47,6 +47,25 @@ describe('count', () => {
     });
 });
 
+describe('rate', () => {
+    it('formats numbers to one decimal', () => {
+        expect(rate(0)).toBe('0.0');
+        expect(rate(60)).toBe('60.0');
+        expect(rate(59.94)).toBe('59.9');
+        expect(rate(60.16)).toBe('60.2');
+    });
+
+    it('renders null and NaN as dash', () => {
+        expect(rate(null)).toBe('-');
+        expect(rate(Number.NaN)).toBe('-');
+    });
+
+    it('renders infinities with symbols', () => {
+        expect(rate(Number.POSITIVE_INFINITY)).toBe('∞');
+        expect(rate(Number.NEGATIVE_INFINITY)).toBe('-∞');
+    });
+});
+
 describe('metricKind', () => {
     it('maps known kinds', () => {
         expect(metricKind(0)).toBe('counter');
@@ -56,6 +75,21 @@ describe('metricKind', () => {
 
     it('falls back for unknown kinds', () => {
         expect(metricKind(7)).toBe('kind:7');
+    });
+});
+
+describe('patchType', () => {
+    it('maps known harmony patch types', () => {
+        expect(patchType(0)).toBe('all');
+        expect(patchType(1)).toBe('prefix');
+        expect(patchType(2)).toBe('postfix');
+        expect(patchType(3)).toBe('transpiler');
+        expect(patchType(4)).toBe('finalizer');
+        expect(patchType(5)).toBe('reverse');
+    });
+
+    it('falls back for unknown types', () => {
+        expect(patchType(9)).toBe('type:9');
     });
 });
 

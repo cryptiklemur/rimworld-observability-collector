@@ -53,15 +53,7 @@ public static class SessionsEndpoints {
             return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
                 session = MapSession(meta, isCurrent: true),
-                receive = new {
-                    total_batches = aggregator.TotalBatches,
-                    total_samples = aggregator.TotalSamples,
-                    total_bytes = aggregator.TotalBytes,
-                    last_batch_utc = aggregator.LastBatchUtc == default ? (DateTime?)null : aggregator.LastBatchUtc,
-                    section_count = aggregator.SectionCount,
-                    total_gc_events = aggregator.TotalGcEvents,
-                    total_allocations = aggregator.TotalAllocations,
-                },
+                receive = ReceiveCounters.Project(aggregator),
             });
         });
 
@@ -70,8 +62,7 @@ public static class SessionsEndpoints {
             if (meta is null)
                 return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "no active session" });
 
-            long freq = meta.StopwatchFrequency > 0 ? meta.StopwatchFrequency : Stopwatch.Frequency;
-            double nsPerTick = 1_000_000_000.0 / freq;
+            double nsPerTick = NsPerTick(meta);
             long totalSectionTicks = 0;
             foreach (SectionStats section in aggregator.Sections)
                 totalSectionTicks += section.TotalElapsedTicks;
@@ -93,52 +84,84 @@ public static class SessionsEndpoints {
         });
 
         endpoints.MapGet("/api/v1/sessions/current/sections", (SessionAggregator aggregator) => {
-            long freq = aggregator.Meta?.StopwatchFrequency ?? Stopwatch.Frequency;
-            double nsPerTick = 1_000_000_000.0 / freq;
+            double nsPerTick = NsPerTick(aggregator.Meta);
             return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
-                sections = aggregator.Sections.Select(s => new {
-                    id = s.SectionId,
-                    name = s.Name,
-                    sample_count = s.SampleCount,
-                    total_ns = (long)(s.TotalElapsedTicks * nsPerTick),
-                    min_ns = s.MinElapsedTicks == long.MaxValue ? 0 : (long)(s.MinElapsedTicks * nsPerTick),
-                    max_ns = (long)(s.MaxElapsedTicks * nsPerTick),
+                sections = aggregator.Sections.Select(s => {
+                    PercentileSnapshot p = s.Distribution.SnapshotPercentiles();
+                    return new {
+                        id = s.SectionId,
+                        name = s.Name,
+                        sample_count = s.SampleCount,
+                        total_ns = (long)(s.TotalElapsedTicks * nsPerTick),
+                        min_ns = s.MinElapsedTicks == long.MaxValue ? 0 : (long)(s.MinElapsedTicks * nsPerTick),
+                        max_ns = (long)(s.MaxElapsedTicks * nsPerTick),
+                        p50_ns = (long)(p.P50Ticks * nsPerTick),
+                        p95_ns = (long)(p.P95Ticks * nsPerTick),
+                        p99_ns = (long)(p.P99Ticks * nsPerTick),
+                    };
                 }).ToArray(),
             });
         });
 
         endpoints.MapGet("/api/v1/sessions/current/hotspots", (SessionAggregator aggregator, int? limit) => {
-            long freq = aggregator.Meta?.StopwatchFrequency ?? Stopwatch.Frequency;
-            double nsPerTick = 1_000_000_000.0 / freq;
-            int take = limit is int l && l > 0 ? Math.Min(l, MaxHotspotLimit) : DefaultHotspotLimit;
+            double nsPerTick = NsPerTick(aggregator.Meta);
+            int take = QueryLimit.Clamp(limit, DefaultHotspotLimit, MaxHotspotLimit);
             return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
                 hotspots = aggregator.Sections
                     .OrderByDescending(s => s.TotalElapsedTicks)
                     .Take(take)
-                    .Select(s => new {
-                        id = s.SectionId,
-                        name = s.Name,
-                        sample_count = s.SampleCount,
-                        total_ns = (long)(s.TotalElapsedTicks * nsPerTick),
-                        mean_ns = s.SampleCount == 0 ? 0 : (long)(s.TotalElapsedTicks * nsPerTick / s.SampleCount),
-                        min_ns = s.MinElapsedTicks == long.MaxValue ? 0 : (long)(s.MinElapsedTicks * nsPerTick),
-                        max_ns = (long)(s.MaxElapsedTicks * nsPerTick),
+                    .Select(s => {
+                        PercentileSnapshot p = s.Distribution.SnapshotPercentiles();
+                        return new {
+                            id = s.SectionId,
+                            name = s.Name,
+                            sample_count = s.SampleCount,
+                            total_ns = (long)(s.TotalElapsedTicks * nsPerTick),
+                            mean_ns = s.SampleCount == 0 ? 0 : (long)(s.TotalElapsedTicks * nsPerTick / s.SampleCount),
+                            min_ns = s.MinElapsedTicks == long.MaxValue ? 0 : (long)(s.MinElapsedTicks * nsPerTick),
+                            max_ns = (long)(s.MaxElapsedTicks * nsPerTick),
+                            p50_ns = (long)(p.P50Ticks * nsPerTick),
+                            p95_ns = (long)(p.P95Ticks * nsPerTick),
+                            p99_ns = (long)(p.P99Ticks * nsPerTick),
+                        };
                     })
                     .ToArray(),
             });
         });
 
+        endpoints.MapGet("/api/v1/sessions/current/sections/{id:int}/timeseries", (SessionAggregator aggregator, int id) => {
+            SectionStats? stats = aggregator.FindSection(id);
+            if (stats is null)
+                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown section" });
+
+            double nsPerTick = NsPerTick(aggregator.Meta);
+            long nowEpoch = DateTimeOffset.UtcNow.ToUnixTimeSeconds();
+            TimelineBucket[] buckets = stats.Distribution.SnapshotTimeline(nowEpoch);
+            return Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                id = stats.SectionId,
+                name = stats.Name,
+                bucket_seconds = 1,
+                points = buckets.Select(b => new {
+                    t = b.EpochSeconds,
+                    count = b.Count,
+                    mean_ns = b.Count == 0 ? 0 : (long)(b.TotalTicks * nsPerTick / b.Count),
+                    total_ns = (long)(b.TotalTicks * nsPerTick),
+                }).ToArray(),
+            });
+        });
+
         endpoints.MapGet("/api/v1/sessions/current/gc", (SessionAggregator aggregator, int? limit) => {
-            int take = limit is int l && l > 0 ? Math.Min(l, MaxGcEventLimit) : DefaultGcEventLimit;
+            int take = QueryLimit.Clamp(limit, DefaultGcEventLimit, MaxGcEventLimit);
             GcEventRecord[] snapshot = aggregator.SnapshotGcEvents(take);
             return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
                 total_events = aggregator.TotalGcEvents,
                 events = snapshot.Select(e => new {
                     generation = e.Generation,
-                    pause_type = e.PauseType,
+                    pause_type = (byte)e.PauseType,
                     heap_before = e.HeapBefore,
                     heap_after = e.HeapAfter,
                     duration_micros = e.DurationMicros,
@@ -155,7 +178,7 @@ public static class SessionsEndpoints {
                 metrics = aggregator.Metrics.Select(m => new {
                     id = m.MetricId,
                     name = m.Name,
-                    kind = m.Kind,
+                    kind = (byte)m.Kind,
                     unit = m.Unit,
                     labels = m.Labels.Values.Select(l => new {
                         canonical = l.Canonical,
@@ -166,9 +189,22 @@ public static class SessionsEndpoints {
             });
         });
 
+        endpoints.MapGet("/api/v1/sessions/current/patches", (SessionAggregator aggregator) => {
+            return Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                conflicts = aggregator.PatchConflicts.Select(c => new {
+                    section = c.SectionName,
+                    target_method = c.TargetMethod,
+                    other_owner = c.OtherOwner,
+                    patch_type = c.PatchType,
+                    priority = c.Priority,
+                    patch_method = c.PatchMethod,
+                }).ToArray(),
+            });
+        });
+
         endpoints.MapGet("/api/v1/sessions/current/call_tree", (SessionAggregator aggregator, int? depth, int? top) => {
-            long freq = aggregator.Meta?.StopwatchFrequency ?? Stopwatch.Frequency;
-            double nsPerTick = 1_000_000_000.0 / freq;
+            double nsPerTick = NsPerTick(aggregator.Meta);
             int depthCap = depth is int d && d > 0 ? Math.Min(d, MaxCallTreeDepth) : CallTreeBuilder.DefaultDepthCap;
             int topN = top is int t && t > 0 ? Math.Min(t, MaxCallTreeTopN) : CallTreeBuilder.DefaultTopN;
 
@@ -186,7 +222,12 @@ public static class SessionsEndpoints {
         return endpoints;
     }
 
-    private static object MapSession(SessionMeta meta, bool isCurrent) {
+    private static double NsPerTick(SessionMeta? meta) {
+        long freq = meta is { StopwatchFrequency: > 0 } ? meta.StopwatchFrequency : Stopwatch.Frequency;
+        return 1_000_000_000.0 / freq;
+    }
+
+    internal static object MapSession(SessionMeta meta, bool isCurrent) {
         return new {
             id = meta.SessionId,
             started_utc = new DateTime(meta.StartedUtcTicks, DateTimeKind.Utc),

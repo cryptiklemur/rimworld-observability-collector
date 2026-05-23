@@ -10,6 +10,7 @@
     import CallTree from './routes/CallTree.svelte';
     import Memory from './routes/Memory.svelte';
     import Metrics from './routes/Metrics.svelte';
+    import Patches from './routes/Patches.svelte';
     import Sessions from './routes/Sessions.svelte';
     import Logs from './routes/Logs.svelte';
     import Settings from './routes/Settings.svelte';
@@ -42,6 +43,8 @@
                     <Memory />
                 {:else if route.id === 'metrics'}
                     <Metrics />
+                {:else if route.id === 'patches'}
+                    <Patches />
                 {:else if route.id === 'sessions'}
                     <Sessions />
                 {:else if route.id === 'logs'}
