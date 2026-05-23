@@ -6,17 +6,18 @@ using System.Threading;
 using Cryptiklemur.RimObs.Observers;
 using Cryptiklemur.RimObs.Profile;
 using Cryptiklemur.RimObs.Wire;
-using MessagePack;
 
 using Cryptiklemur.RimObs.Session;
 
 namespace Cryptiklemur.RimObs.Transport;
 
-internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationSink, IDisposable {
+internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationSink, ITpsFpsSink, IDisposable {
     public const int DefaultPort = 17654;
     private const int RingCapacity = 16384;
     private const int BatchSize = 256;
     private const int DrainIntervalMs = 100;
+    private const int MetaInitialBurstTicks = 10;
+    private const int MetaHeartbeatTicks = 50;
 
     private readonly UdpClient _client;
     private readonly IPEndPoint _endpoint;
@@ -38,8 +39,10 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
     private readonly BoundedSampleQueue<AllocationSample> _allocQueue = new(ObserverQueueCapacity);
     private readonly AllocationSample[] _allocSnapshot = new AllocationSample[ObserverQueueCapacity];
 
+    private PatchConflictsBatch? _patchConflicts;
+    private TpsFpsBatch? _pendingTpsFps;
     private ulong _sequence;
-    private bool _metaSent;
+    private long _metaTicks;
     private long _sent;
     private long _bytesSent;
     private long _sendErrors;
@@ -76,18 +79,35 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
 
     public void RecordAllocation(in AllocationSample sample) => _allocQueue.TryEnqueue(sample);
 
+    public void RecordTpsFps(in TpsFpsSample sample) {
+        Interlocked.Exchange(ref _pendingTpsFps, new TpsFpsBatch {
+            Tps = sample.Tps,
+            Fps = sample.Fps,
+            Tick = sample.Tick,
+        });
+    }
+
     private void SenderLoop() {
         while (!_stop.IsSet) {
             try {
-                if (!_metaSent && SessionAnchor.IsInitialized) {
-                    SendSessionMeta();
-                    _metaSent = true;
+                if (SessionAnchor.IsInitialized) {
+                    // SessionMeta is a one-shot control message: without it the collector never
+                    // creates a session, so a single dropped loopback datagram blanks the whole run.
+                    // Resend on every tick for the first second, then heartbeat every ~5s so the
+                    // session survives packet loss and is re-learned if the collector restarts.
+                    // OnSessionMeta is idempotent, so resends are harmless.
+                    if (_metaTicks < MetaInitialBurstTicks || _metaTicks % MetaHeartbeatTicks == 0) {
+                        SendSessionMeta();
+                        SendPatchConflicts();
+                    }
+                    _metaTicks++;
                 }
 
                 FlushRegistrations();
                 FlushSamples();
                 FlushGcEvents();
                 FlushAllocations();
+                FlushTpsFps();
             }
             catch (Exception ex) when (ex is SocketException or ObjectDisposedException or InvalidOperationException) {
                 // Expected when the collector is absent or the socket has been torn down.
@@ -108,6 +128,17 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
             GameVersion = string.Empty,
         };
         SendBatch(BatchType.SessionMeta, meta);
+    }
+
+    public void SetPatchConflicts(PatchConflictsBatch batch) {
+        Volatile.Write(ref _patchConflicts, batch);
+    }
+
+    private void SendPatchConflicts() {
+        PatchConflictsBatch? batch = Volatile.Read(ref _patchConflicts);
+        if (batch == null)
+            return;
+        SendBatch(BatchType.PatchConflicts, batch);
     }
 
     private void FlushRegistrations() {
@@ -186,8 +217,15 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
         SendBatch(BatchType.Allocations, batch);
     }
 
-    private void SendBatch<TBatch>(BatchType type, TBatch batch) {
-        byte[] payload = MessagePackSerializer.Serialize(batch);
+    private void FlushTpsFps() {
+        TpsFpsBatch? batch = Interlocked.Exchange(ref _pendingTpsFps, null);
+        if (batch == null)
+            return;
+        SendBatch(BatchType.TpsFps, batch);
+    }
+
+    private void SendBatch<TBatch>(BatchType type, TBatch batch) where TBatch : class {
+        byte[] payload = WireCodec.Serialize(batch);
         SendBatch(type, payload);
     }
 
@@ -199,7 +237,7 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
             BatchType = type,
             Payload = payload,
         };
-        byte[] bytes = MessagePackSerializer.Serialize(envelope);
+        byte[] bytes = WireCodec.Serialize(envelope);
         _client.Send(bytes, bytes.Length, _endpoint);
         Interlocked.Add(ref _bytesSent, bytes.Length);
     }

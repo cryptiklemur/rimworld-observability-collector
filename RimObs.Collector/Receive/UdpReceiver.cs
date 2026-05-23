@@ -2,7 +2,6 @@ using System.Net;
 using System.Net.Sockets;
 using Cryptiklemur.RimObs.Collector.Aggregation;
 using Cryptiklemur.RimObs.Wire;
-using MessagePack;
 using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Logging;
 
@@ -61,7 +60,7 @@ public sealed class UdpReceiver : BackgroundService {
     internal byte[]? Dispatch(byte[] bytes) {
         TelemetryBatch envelope;
         try {
-            envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(bytes);
+            envelope = WireCodec.Deserialize<TelemetryBatch>(bytes);
         }
         catch (Exception ex) {
             _log.LogWarning(ex, "Failed to deserialize TelemetryBatch envelope ({Bytes} bytes)", bytes.Length);
@@ -78,28 +77,34 @@ public sealed class UdpReceiver : BackgroundService {
         try {
             switch (envelope.BatchType) {
                 case BatchType.SessionMeta:
-                    _aggregator.OnSessionMeta(MessagePackSerializer.Deserialize<SessionMeta>(envelope.Payload));
+                    _aggregator.OnSessionMeta(WireCodec.Deserialize<SessionMeta>(envelope.Payload));
                     break;
                 case BatchType.SectionRegistrations:
-                    _aggregator.OnSectionRegistrations(MessagePackSerializer.Deserialize<SectionRegistrationsBatch>(envelope.Payload));
+                    _aggregator.OnSectionRegistrations(WireCodec.Deserialize<SectionRegistrationsBatch>(envelope.Payload));
                     break;
                 case BatchType.Sections:
-                    _aggregator.OnSectionBatch(MessagePackSerializer.Deserialize<SectionBatch>(envelope.Payload));
+                    _aggregator.OnSectionBatch(WireCodec.Deserialize<SectionBatch>(envelope.Payload));
                     break;
                 case BatchType.MetricRegistrations:
-                    _aggregator.OnMetricRegistrations(MessagePackSerializer.Deserialize<MetricRegistrationsBatch>(envelope.Payload));
+                    _aggregator.OnMetricRegistrations(WireCodec.Deserialize<MetricRegistrationsBatch>(envelope.Payload));
                     break;
                 case BatchType.Metrics:
-                    _aggregator.OnMetrics(MessagePackSerializer.Deserialize<MetricsBatch>(envelope.Payload));
+                    _aggregator.OnMetrics(WireCodec.Deserialize<MetricsBatch>(envelope.Payload));
                     break;
                 case BatchType.GcEvents:
-                    _aggregator.OnGcEvents(MessagePackSerializer.Deserialize<GcEventsBatch>(envelope.Payload));
+                    _aggregator.OnGcEvents(WireCodec.Deserialize<GcEventsBatch>(envelope.Payload));
                     break;
                 case BatchType.Allocations:
-                    _aggregator.OnAllocations(MessagePackSerializer.Deserialize<AllocationsBatch>(envelope.Payload));
+                    _aggregator.OnAllocations(WireCodec.Deserialize<AllocationsBatch>(envelope.Payload));
+                    break;
+                case BatchType.PatchConflicts:
+                    _aggregator.OnPatchConflicts(WireCodec.Deserialize<PatchConflictsBatch>(envelope.Payload));
+                    break;
+                case BatchType.TpsFps:
+                    _aggregator.OnTpsFps(WireCodec.Deserialize<TpsFpsBatch>(envelope.Payload));
                     break;
                 case BatchType.Ping:
-                    PingMessage ping = MessagePackSerializer.Deserialize<PingMessage>(envelope.Payload);
+                    PingMessage ping = WireCodec.Deserialize<PingMessage>(envelope.Payload);
                     return BuildPongEnvelope(ping, BuildInfo.Revision, _aggregator.Meta?.SessionId);
                 default:
                     _log.LogDebug("Ignoring batch_type={Type} (not implemented in M0)", envelope.BatchType);
@@ -125,8 +130,8 @@ public sealed class UdpReceiver : BackgroundService {
             Sequence = 0,
             OwnerId = "collector",
             BatchType = BatchType.Pong,
-            Payload = MessagePackSerializer.Serialize(pong),
+            Payload = WireCodec.Serialize(pong),
         };
-        return MessagePackSerializer.Serialize(envelope);
+        return WireCodec.Serialize(envelope);
     }
 }

@@ -7,7 +7,6 @@ using Cryptiklemur.RimObs.Session;
 using Cryptiklemur.RimObs.Transport;
 using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
-using MessagePack;
 using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
@@ -68,7 +67,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable {
         while (DateTime.UtcNow < deadline && !sawSection) {
             try {
                 byte[] bytes = receiver.Receive(ref any);
-                TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(bytes);
+                TelemetryBatch envelope = WireCodec.Deserialize<TelemetryBatch>(bytes);
                 if (envelope.BatchType == BatchType.Sections)
                     sawSection = true;
             }
@@ -100,6 +99,36 @@ public sealed class UdpTelemetrySinkTests : IDisposable {
 
 
     [Fact]
+    public void SessionMeta_is_resent_so_a_dropped_first_datagram_does_not_blank_the_session() {
+        int port = GetFreePort();
+        SessionAnchor.Initialize("test-session");
+
+        using UdpClient receiver = new(new IPEndPoint(IPAddress.Loopback, port));
+        receiver.Client.ReceiveTimeout = 2000;
+
+        using UdpTelemetrySink sink = new(ownerId: "test.owner", port: port);
+        sink.Start();
+
+        int metaCount = 0;
+        DateTime deadline = DateTime.UtcNow.AddSeconds(3);
+        IPEndPoint any = new(IPAddress.Any, 0);
+        while (DateTime.UtcNow < deadline && metaCount < 2) {
+            try {
+                byte[] bytes = receiver.Receive(ref any);
+                TelemetryBatch envelope = WireCodec.Deserialize<TelemetryBatch>(bytes);
+                if (envelope.BatchType == BatchType.SessionMeta)
+                    metaCount++;
+            }
+            catch (SocketException) {
+                break;
+            }
+        }
+
+        metaCount.Should().BeGreaterThan(1,
+            "SessionMeta must be resent (not fire-and-forget) so a single dropped loopback datagram does not leave the collector without a session");
+    }
+
+    [Fact]
     public void Profiler_routed_through_setsink_reaches_loopback_receiver() {
         int port = GetFreePort();
         SessionAnchor.Initialize("test-session");
@@ -125,7 +154,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable {
             while (DateTime.UtcNow < deadline && !sawSection) {
                 try {
                     byte[] bytes = receiver.Receive(ref any);
-                    TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(bytes);
+                    TelemetryBatch envelope = WireCodec.Deserialize<TelemetryBatch>(bytes);
                     if (envelope.BatchType == BatchType.Sections)
                         sawSection = true;
                 }
