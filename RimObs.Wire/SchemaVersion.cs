@@ -1,8 +1,9 @@
 namespace Cryptiklemur.RimObs.Wire;
 
 public static class SchemaVersion {
-    // The wire/API envelope version. Every collector HTTP response carries this in its
-    // schema_version field. Domain bodies (config, panel registration) version their own
-    // payloads independently and are validated against their own constants on ingest.
-    public const int Current = 1;
+    // v1: initial release.
+    // v2: SessionMeta gains ControlPort + ControlSecret for dynamic instrumentation;
+    //     adds Control* request/response types. Readers built for v1 still decode v2
+    //     SessionMeta (back-compat in ReadSessionMeta via array-header count branch).
+    public const int Current = 2;
 }

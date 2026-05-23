@@ -142,7 +142,7 @@ public sealed class CollectorScannerTests {
     private static string Manifest(string version) =>
         $$"""
         {
-          "schema_version": 1,
+          "schema_version": 2,
           "version": "{{version}}",
           "library_schema_compat": { "min": 1, "max": 3 }
         }
