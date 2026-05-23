@@ -24,6 +24,7 @@
         <Compile Include="..\RimObs.Library\Observers\**\*.cs" LinkBase="LinkedSource\Observers"/>
         <Compile Include="..\RimObs.Library\Config\**\*.cs" LinkBase="LinkedSource\Config"/>
         <Compile Include="..\RimObs.Library\Session\**\*.cs" LinkBase="LinkedSource\Session"/>
+        <Compile Include="..\RimObs.Library\Control\**\*.cs" LinkBase="LinkedSource\Control"/>
     </ItemGroup>
 
     <ItemGroup>
