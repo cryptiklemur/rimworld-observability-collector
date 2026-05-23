@@ -1,0 +1,33 @@
+using System.Reflection;
+using Cryptiklemur.RimObs.Observers;
+using HarmonyLib;
+
+namespace Cryptiklemur.RimObs.Patching;
+
+// Installs zero-arg Harmony postfixes on the game's per-tick and per-frame entry points so the
+// TpsFpsObserver can derive live TPS/FPS by differencing call counts. These compose with the
+// timing transpiler already applied to the same methods (Harmony chains postfix + transpiler).
+internal static class FrameTickPatches {
+    public static int InstalledCount { get; private set; }
+
+    public static void InstallAll() {
+        Harmony harmony = PatchInstaller.EnsureHarmony(PatchInstaller.HarmonyId);
+
+        TryPatch(harmony, "Verse.TickManager:DoSingleTick", nameof(TickPostfix));
+        TryPatch(harmony, "Verse.Root_Play:Update", nameof(FramePostfix));
+    }
+
+    private static void TryPatch(Harmony harmony, string targetName, string postfixName) {
+        MethodBase? target = AccessTools.Method(targetName);
+        if (target == null)
+            return;
+
+        MethodInfo postfix = AccessTools.Method(typeof(FrameTickPatches), postfixName);
+        harmony.Patch(target, postfix: new HarmonyMethod(postfix));
+        InstalledCount++;
+    }
+
+    private static void TickPostfix() => FrameTickCounters.RecordTick();
+
+    private static void FramePostfix() => FrameTickCounters.RecordFrame();
+}

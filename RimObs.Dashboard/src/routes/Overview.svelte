@@ -2,7 +2,7 @@
     import type { StatusResponse } from '../lib/api';
     import StatCard from '../lib/components/StatCard.svelte';
     import Card from '../lib/components/Card.svelte';
-    import { count, bytes, relativeTime } from '../lib/format';
+    import { count, bytes, rate, relativeTime } from '../lib/format';
     import { t } from '../lib/i18n';
 
     let { status }: { status: StatusResponse | null } = $props();
@@ -11,6 +11,22 @@
 
 {#if r}
     <div class="grid">
+        {#if r.tps !== null}
+            <StatCard
+                icon="gauge"
+                tone="good"
+                label={t('overview.tps')}
+                value={rate(r.tps)}
+            />
+        {/if}
+        {#if r.fps !== null}
+            <StatCard
+                icon="gauge"
+                tone="cyan"
+                label={t('overview.fps')}
+                value={rate(r.fps)}
+            />
+        {/if}
         <StatCard
             icon="stack"
             tone="cyan"
