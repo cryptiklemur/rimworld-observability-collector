@@ -19,13 +19,14 @@ internal sealed class BoundedSampleQueue<T>
     public int Capacity => _queue.Length;
     public long Dropped => Interlocked.Read(ref _dropped);
 
-    public void TryEnqueue(in T sample) {
+    public bool TryEnqueue(in T sample) {
         lock (_lock) {
             if (_count >= _queue.Length) {
                 Interlocked.Increment(ref _dropped);
-                return;
+                return false;
             }
             _queue[_count++] = sample;
+            return true;
         }
     }
 

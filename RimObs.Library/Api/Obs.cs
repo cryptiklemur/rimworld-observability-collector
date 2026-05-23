@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Threading;
 using Cryptiklemur.RimObs.Metrics;
 using Cryptiklemur.RimObs.Profile;
+using Cryptiklemur.RimObs.Wire;
 
 namespace Cryptiklemur.RimObs.Api;
 
@@ -62,7 +63,7 @@ public static class Obs {
             Interlocked.Add(ref descriptor.CounterTotal, delta);
         }
 
-        public static void Add(CounterHandle handle, long delta, string labelKey, string labelValue) {
+        public static void Add(CounterHandle handle, long delta, string labelKey, string? labelValue) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;
@@ -88,7 +89,7 @@ public static class Obs {
             Interlocked.Exchange(ref descriptor.GaugeValue, value);
         }
 
-        public static void Set(GaugeHandle handle, long value, string labelKey, string labelValue) {
+        public static void Set(GaugeHandle handle, long value, string labelKey, string? labelValue) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;
@@ -115,7 +116,7 @@ public static class Obs {
             Interlocked.Add(ref descriptor.HistogramSum, value);
         }
 
-        public static void Observe(HistogramHandle handle, long value, string labelKey, string labelValue) {
+        public static void Observe(HistogramHandle handle, long value, string labelKey, string? labelValue) {
             MetricDescriptor? descriptor = MetricRegistry.Get(handle.Id);
             if (descriptor == null)
                 return;

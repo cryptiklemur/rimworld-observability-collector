@@ -67,5 +67,15 @@ public sealed class PersistenceFlusher : BackgroundService {
         }
     }
 
+    public override async Task StopAsync(CancellationToken cancellationToken) {
+        await base.StopAsync(cancellationToken).ConfigureAwait(false);
+        try {
+            FlushOnce();
+        }
+        catch (Exception ex) {
+            _logger?.LogWarning(ex, "Final persistence flush on shutdown failed");
+        }
+    }
+
 
 }
