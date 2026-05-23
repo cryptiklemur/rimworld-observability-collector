@@ -1,19 +1,29 @@
+using System;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Sockets;
+using System.Reflection;
 using System.Threading;
+using Cryptiklemur.RimObs.Wire;
+using Cryptiklemur.RimObs.Wire.Control;
 
 namespace Cryptiklemur.RimObs.Library.Control;
 
 internal sealed class ControlServer {
     private readonly string _secret;
     private readonly string _frameworkPackageId;
+    private readonly Func<IEnumerable<Assembly>> _assemblies;
     private readonly HttpListener _listener;
     private Thread? _thread;
     private volatile bool _running;
 
-    public ControlServer(string secret, string frameworkPackageId) {
+    public ControlServer(string secret, string frameworkPackageId)
+        : this(secret, frameworkPackageId, AssemblyIndex.Enumerate) { }
+
+    public ControlServer(string secret, string frameworkPackageId, Func<IEnumerable<Assembly>> assemblies) {
         _secret = secret;
         _frameworkPackageId = frameworkPackageId;
+        _assemblies = assemblies;
         Port = PickFreeLoopbackPort();
         _listener = new HttpListener();
         _listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
@@ -52,7 +62,97 @@ internal sealed class ControlServer {
             return;
         }
 
+        string path = ctx.Request.Url?.AbsolutePath ?? "/";
+        string method = ctx.Request.HttpMethod;
+
+        if (method == "POST" && path == "/search") { HandleSearch(ctx); return; }
+        if (method == "POST" && path == "/patch") { HandlePatch(ctx); return; }
+        if (method == "GET" && path == "/patches") { HandlePatchList(ctx); return; }
+        if (method == "DELETE" && path.StartsWith("/patch/", StringComparison.Ordinal)) {
+            HandleUnpatch(ctx, path); return;
+        }
+
         ctx.Response.StatusCode = (int)HttpStatusCode.NotFound;
+    }
+
+    private void HandleSearch(HttpListenerContext ctx) {
+        byte[] body = ReadBody(ctx);
+        ControlSearchRequest req = WireCodec.Deserialize<ControlSearchRequest>(body);
+        ControlSearchResponse res = ControlSearchService.Run(req, _assemblies());
+        WriteMsg(ctx, WireCodec.Serialize(res));
+    }
+
+    private void HandlePatch(HttpListenerContext ctx) {
+        byte[] body = ReadBody(ctx);
+        ControlPatchRequest req = WireCodec.Deserialize<ControlPatchRequest>(body);
+
+        MethodResolveResult resolved = MethodResolver.Resolve(req.TypeFullName, req.MethodName, req.ParamTypeFullNames, _assemblies());
+        if (resolved.Refused) {
+            WriteMsg(ctx, WireCodec.Serialize(new ControlPatchResponse {
+                Status = "refused",
+                ErrorReason = resolved.Reason,
+            }), HttpStatusCode.BadRequest);
+            return;
+        }
+
+        ApplyResult? apply = null;
+        ControlOp op = new ControlOp(ControlOpKind.Patch,
+            () => apply = PatchRegistry.Apply(_frameworkPackageId, resolved.Method!, resolved.Signature));
+        ControlServices.Queue.Enqueue(op);
+
+        if (!op.Wait(TimeSpan.FromSeconds(2)) || apply is null) {
+            WriteMsg(ctx, WireCodec.Serialize(new ControlPatchResponse {
+                Status = "refused",
+                ErrorReason = "main-thread drain timed out",
+            }), HttpStatusCode.GatewayTimeout);
+            return;
+        }
+
+        WriteMsg(ctx, WireCodec.Serialize(new ControlPatchResponse {
+            PatchId = apply.PatchId,
+            SectionId = apply.SectionId,
+            SectionName = apply.SectionName,
+            Status = apply.Status,
+            ErrorReason = apply.ErrorReason,
+        }));
+    }
+
+    private void HandlePatchList(HttpListenerContext ctx) {
+        List<ControlPatchEntry> entries = new List<ControlPatchEntry>();
+        foreach ((int id, string sig, int sec, string status) in PatchRegistry.Snapshot())
+            entries.Add(new ControlPatchEntry { PatchId = id, Signature = sig, SectionId = sec, Status = status });
+        WriteMsg(ctx, WireCodec.Serialize(new ControlPatchListResponse { Patches = entries.ToArray() }));
+    }
+
+    private void HandleUnpatch(HttpListenerContext ctx, string path) {
+        string suffix = path.Substring("/patch/".Length);
+        if (!int.TryParse(suffix, out int id)) {
+            ctx.Response.StatusCode = (int)HttpStatusCode.BadRequest;
+            return;
+        }
+
+        bool? ok = null;
+        ControlOp op = new ControlOp(ControlOpKind.Unpatch, () => ok = PatchRegistry.Remove(id));
+        ControlServices.Queue.Enqueue(op);
+        if (!op.Wait(TimeSpan.FromSeconds(2)) || ok is null) {
+            ctx.Response.StatusCode = (int)HttpStatusCode.GatewayTimeout;
+            return;
+        }
+
+        ctx.Response.StatusCode = ok == true ? (int)HttpStatusCode.OK : (int)HttpStatusCode.NotFound;
+    }
+
+    private static byte[] ReadBody(HttpListenerContext ctx) {
+        using System.IO.MemoryStream ms = new System.IO.MemoryStream();
+        ctx.Request.InputStream.CopyTo(ms);
+        return ms.ToArray();
+    }
+
+    private static void WriteMsg(HttpListenerContext ctx, byte[] body, HttpStatusCode status = HttpStatusCode.OK) {
+        ctx.Response.StatusCode = (int)status;
+        ctx.Response.ContentType = "application/x-msgpack";
+        ctx.Response.ContentLength64 = body.Length;
+        ctx.Response.OutputStream.Write(body, 0, body.Length);
     }
 
     private static bool ConstantTimeEquals(string? a, string b) {
