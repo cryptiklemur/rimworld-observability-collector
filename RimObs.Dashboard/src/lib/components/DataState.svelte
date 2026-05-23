@@ -8,12 +8,16 @@
         state,
         error = '',
         empty = false,
+        emptyTitle,
+        emptyHint,
         onretry,
         children,
     }: {
         state: LoadState;
         error?: string;
         empty?: boolean;
+        emptyTitle?: string;
+        emptyHint?: string;
         onretry?: () => void;
         children: Snippet;
     } = $props();
@@ -34,8 +38,8 @@
 {:else if empty}
     <div class="msg">
         <Icon name="dot" size={28} />
-        <span>{t('common.empty')}</span>
-        <p>{t('common.empty.hint')}</p>
+        <span>{emptyTitle ?? t('common.empty')}</span>
+        <p>{emptyHint ?? t('common.empty.hint')}</p>
     </div>
 {:else}
     {@render children()}

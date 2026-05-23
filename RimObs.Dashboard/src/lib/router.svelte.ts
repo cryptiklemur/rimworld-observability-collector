@@ -13,6 +13,7 @@ export const routes: RouteDef[] = [
     { id: 'calltree', title: 'Call Tree', icon: 'tree', ready: true },
     { id: 'memory', title: 'Memory', icon: 'memory', ready: true },
     { id: 'metrics', title: 'Metrics', icon: 'metric', ready: true },
+    { id: 'patches', title: 'Patches', icon: 'patch', ready: true },
     { id: 'sessions', title: 'Sessions', icon: 'stack', ready: true },
     { id: 'logs', title: 'Logs', icon: 'logs', ready: true },
     { id: 'incidents', title: 'Incidents', icon: 'alert', ready: false },

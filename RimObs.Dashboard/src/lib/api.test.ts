@@ -75,6 +75,12 @@ describe('api endpoint URLs', () => {
         await api.sessionSummary();
         expect(f.mock.calls[0][0]).toBe('/api/v1/sessions/current/summary');
     });
+
+    it('builds the patches URL', async () => {
+        const f = mockFetch({ conflicts: [] });
+        await api.patches();
+        expect(f.mock.calls[0][0]).toBe('/api/v1/sessions/current/patches');
+    });
 });
 
 describe('error handling', () => {

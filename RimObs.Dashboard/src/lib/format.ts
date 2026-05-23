@@ -20,9 +20,20 @@ export function count(value: number): string {
     return value.toLocaleString('en-US');
 }
 
+export function rate(value: number | null): string {
+    if (value === null || Number.isNaN(value)) return '-';
+    if (!Number.isFinite(value)) return value > 0 ? '∞' : '-∞';
+    return value.toFixed(1);
+}
+
 const METRIC_KINDS = ['counter', 'gauge', 'histogram'];
 export function metricKind(kind: MetricKind | number): string {
     return METRIC_KINDS[kind] ?? `kind:${kind}`;
+}
+
+const PATCH_TYPES = ['all', 'prefix', 'postfix', 'transpiler', 'finalizer', 'reverse'];
+export function patchType(kind: number): string {
+    return PATCH_TYPES[kind] ?? `type:${kind}`;
 }
 
 export function relativeTime(iso: string | null): string {
