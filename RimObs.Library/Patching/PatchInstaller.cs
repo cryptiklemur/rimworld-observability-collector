@@ -6,7 +6,7 @@ using HarmonyLib;
 namespace Cryptiklemur.RimObs.Patching;
 
 internal static class PatchInstaller {
-    public const string HarmonyId = "cryptiklemur.rimobs.library";
+    public const string HarmonyId = "CryptikLemur.RimObs.library";
 
     private static Harmony? s_Harmony;
 
@@ -66,7 +66,7 @@ internal static class PatchInstaller {
     }
 
     internal static void PatchSingleForTests(MethodBase target) {
-        Harmony harmony = EnsureHarmony("cryptiklemur.rimobs.tests");
+        Harmony harmony = EnsureHarmony("CryptikLemur.RimObs.tests");
         HarmonyMethod transpiler = new(MethodTransplanter.TranspilerMethod);
         harmony.Patch(target, transpiler: transpiler);
     }

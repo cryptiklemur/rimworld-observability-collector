@@ -19,7 +19,7 @@ public sealed class MethodTransplanterTests : IDisposable {
         _sink = new RecordingSink();
         Profiler.SetSink(_sink);
         Profiler.Enabled = true;
-        _harmony = new Harmony($"cryptiklemur.rimobs.tests.{Guid.NewGuid():N}");
+        _harmony = new Harmony($"CryptikLemur.RimObs.tests.{Guid.NewGuid():N}");
     }
 
     public void Dispose() {

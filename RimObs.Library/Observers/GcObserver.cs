@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using System.Threading;
+using Cryptiklemur.RimObs.Wire;
 
 namespace Cryptiklemur.RimObs.Observers;
 

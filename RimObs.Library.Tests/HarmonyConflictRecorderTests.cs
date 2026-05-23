@@ -17,7 +17,7 @@ public sealed class HarmonyConflictRecorderTests : IDisposable {
         SectionCatalog.Clear();
         SectionRegistry.Clear();
         HarmonyConflictRecorder.Clear();
-        _ourHarmony = new Harmony($"cryptiklemur.rimobs.tests.{Guid.NewGuid():N}");
+        _ourHarmony = new Harmony($"CryptikLemur.RimObs.tests.{Guid.NewGuid():N}");
         _foreignHarmony = new Harmony($"foreign.modder.{Guid.NewGuid():N}");
     }
 
