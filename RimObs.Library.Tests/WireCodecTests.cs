@@ -324,4 +324,46 @@ public sealed class WireCodecTests {
         back.Results[0].Signature.Should().Be("FindPath(IntVec3, IntVec3, TraverseParms)");
         back.Results[0].ParamTypeFullNames.Should().BeEquivalentTo(["Verse.IntVec3", "Verse.IntVec3", "Verse.TraverseParms"]);
     }
+
+    [Fact]
+    public void ControlPatchRequest_round_trips() {
+        ControlPatchRequest req = new() {
+            TypeFullName = "Verse.PathFinder",
+            MethodName = "FindPath",
+            ParamTypeFullNames = ["Verse.IntVec3", "Verse.IntVec3", "Verse.TraverseParms"],
+        };
+        ControlPatchRequest back = WireCodec.Deserialize<ControlPatchRequest>(WireCodec.Serialize(req));
+        back.TypeFullName.Should().Be("Verse.PathFinder");
+        back.MethodName.Should().Be("FindPath");
+        back.ParamTypeFullNames.Should().HaveCount(3);
+    }
+
+    [Fact]
+    public void ControlPatchResponse_round_trips_with_error_fields() {
+        ControlPatchResponse res = new() {
+            PatchId = 42,
+            SectionId = 8,
+            SectionName = "com.cryptiklemur.rimobs.dynamic.Verse.PathFinder.FindPath",
+            Status = "active",
+            ErrorReason = null,
+        };
+        ControlPatchResponse back = WireCodec.Deserialize<ControlPatchResponse>(WireCodec.Serialize(res));
+        back.PatchId.Should().Be(42);
+        back.Status.Should().Be("active");
+        back.ErrorReason.Should().BeNull();
+    }
+
+    [Fact]
+    public void ControlPatchListResponse_round_trips() {
+        ControlPatchListResponse list = new() {
+            Patches = [
+                new ControlPatchEntry { PatchId = 1, Signature = "A.B:C()", SectionId = 5, Status = "active" },
+                new ControlPatchEntry { PatchId = 2, Signature = "A.B:D()", SectionId = 6, Status = "stale" },
+            ],
+        };
+        ControlPatchListResponse back = WireCodec.Deserialize<ControlPatchListResponse>(WireCodec.Serialize(list));
+        back.Patches.Should().HaveCount(2);
+        back.Patches[1].Status.Should().Be("stale");
+    }
 }
+

@@ -40,6 +40,12 @@ public static class WireCodec {
                 return Serialize(v);
             case ControlSearchResponse v:
                 return Serialize(v);
+            case ControlPatchRequest v:
+                return Serialize(v);
+            case ControlPatchResponse v:
+                return Serialize(v);
+            case ControlPatchListResponse v:
+                return Serialize(v);
             default:
                 throw new NotSupportedException($"WireCodec cannot serialize {typeof(T)}.");
         }
@@ -79,6 +85,12 @@ public static class WireCodec {
             result = ReadControlSearchRequest(data);
         else if (t == typeof(ControlSearchResponse))
             result = ReadControlSearchResponse(data);
+        else if (t == typeof(ControlPatchRequest))
+            result = ReadControlPatchRequest(data);
+        else if (t == typeof(ControlPatchResponse))
+            result = ReadControlPatchResponse(data);
+        else if (t == typeof(ControlPatchListResponse))
+            result = ReadControlPatchListResponse(data);
         else
             throw new NotSupportedException($"WireCodec cannot deserialize {t}.");
 
@@ -389,6 +401,85 @@ public static class WireCodec {
         for (int i = 0; i < count; i++)
             results[i] = ReadControlMethodDescriptor(reader);
         return new ControlSearchResponse { Results = results };
+    }
+
+    public static byte[] Serialize(ControlPatchRequest value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(3);
+        writer.WriteString(value.TypeFullName);
+        writer.WriteString(value.MethodName);
+        WriteStringArray(writer, value.ParamTypeFullNames);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(ControlPatchResponse value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(5);
+        writer.WriteInt32(value.PatchId);
+        writer.WriteInt32(value.SectionId);
+        writer.WriteString(value.SectionName);
+        writer.WriteString(value.Status);
+        writer.WriteString(value.ErrorReason ?? string.Empty);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(ControlPatchListResponse value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(1);
+        writer.WriteInt32(value.Patches.Length);
+        for (int i = 0; i < value.Patches.Length; i++) {
+            ControlPatchEntry e = value.Patches[i];
+            writer.WriteArrayHeader(4);
+            writer.WriteInt32(e.PatchId);
+            writer.WriteString(e.Signature);
+            writer.WriteInt32(e.SectionId);
+            writer.WriteString(e.Status);
+        }
+        return writer.ToArray();
+    }
+
+    private static ControlPatchRequest ReadControlPatchRequest(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new ControlPatchRequest {
+            TypeFullName = reader.ReadString() ?? string.Empty,
+            MethodName = reader.ReadString() ?? string.Empty,
+            ParamTypeFullNames = ReadStringArray(reader),
+        };
+    }
+
+    private static ControlPatchResponse ReadControlPatchResponse(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        int patchId = reader.ReadInt32();
+        int sectionId = reader.ReadInt32();
+        string sectionName = reader.ReadString() ?? string.Empty;
+        string status = reader.ReadString() ?? string.Empty;
+        string errRaw = reader.ReadString() ?? string.Empty;
+        return new ControlPatchResponse {
+            PatchId = patchId,
+            SectionId = sectionId,
+            SectionName = sectionName,
+            Status = status,
+            ErrorReason = errRaw.Length == 0 ? null : errRaw,
+        };
+    }
+
+    private static ControlPatchListResponse ReadControlPatchListResponse(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        int count = reader.ReadInt32();
+        ControlPatchEntry[] patches = new ControlPatchEntry[count];
+        for (int i = 0; i < count; i++) {
+            reader.ReadArrayHeader();
+            patches[i] = new ControlPatchEntry {
+                PatchId = reader.ReadInt32(),
+                Signature = reader.ReadString() ?? string.Empty,
+                SectionId = reader.ReadInt32(),
+                Status = reader.ReadString() ?? string.Empty,
+            };
+        }
+        return new ControlPatchListResponse { Patches = patches };
     }
 
     private static ControlMethodDescriptor ReadControlMethodDescriptor(WireBufferReader reader) {
