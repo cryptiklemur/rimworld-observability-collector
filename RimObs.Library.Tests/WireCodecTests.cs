@@ -276,15 +276,17 @@ public sealed class WireCodecTests {
 
     [Fact]
     public void SessionMeta_decodes_legacy_6_field_payload_with_default_control_fields() {
-        WireBufferWriter writer = new WireBufferWriter();
+        ArrayBufferWriter<byte> buffer = new ArrayBufferWriter<byte>();
+        MessagePackWriter writer = new MessagePackWriter(buffer);
         writer.WriteArrayHeader(6);
-        writer.WriteString("legacy");
-        writer.WriteInt64(1);
-        writer.WriteInt64(2);
-        writer.WriteInt64(3);
-        writer.WriteString("lib");
-        writer.WriteString("game");
-        byte[] legacy = writer.ToArray();
+        writer.Write("legacy");
+        writer.Write(1L);
+        writer.Write(2L);
+        writer.Write(3L);
+        writer.Write("lib");
+        writer.Write("game");
+        writer.Flush();
+        byte[] legacy = buffer.WrittenSpan.ToArray();
 
         SessionMeta decoded = WireCodec.Deserialize<SessionMeta>(legacy);
 
