@@ -2,15 +2,6 @@ using Microsoft.Data.Sqlite;
 
 namespace Cryptiklemur.RimObs.Collector.Storage;
 
-public sealed record DynamicPatchRow(
-    long Id,
-    string TypeFullName,
-    string MethodName,
-    string ParamTypesJoined,
-    string CreatedUtc,
-    string LastStatus,
-    string? LastError);
-
 public sealed class DynamicPatchStore : IDisposable {
     private readonly SqliteConnection _conn;
 
