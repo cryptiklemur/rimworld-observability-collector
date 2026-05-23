@@ -12,12 +12,14 @@ public class PatchRegistryTests : IDisposable {
     public PatchRegistryTests() {
         PatchInstaller.ResetForTests();
         PatchRegistry.ResetForTests();
+        SectionCatalog.Clear();
         SectionRegistry.Clear();
     }
 
     public void Dispose() {
         PatchRegistry.ResetForTests();
         PatchInstaller.ResetForTests();
+        SectionCatalog.Clear();
         SectionRegistry.Clear();
     }
 
