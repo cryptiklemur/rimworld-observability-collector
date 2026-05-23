@@ -3,6 +3,7 @@ using System.Net;
 using System.Net.Sockets;
 using System.Runtime.CompilerServices;
 using System.Threading;
+using Cryptiklemur.RimObs.Library.Control;
 using Cryptiklemur.RimObs.Observers;
 using Cryptiklemur.RimObs.Profile;
 using Cryptiklemur.RimObs.Wire;
@@ -119,6 +120,7 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
     }
 
     private void SendSessionMeta() {
+        ControlServer? server = ControlServices.Server;
         SessionMeta meta = new() {
             SessionId = SessionAnchor.SessionId,
             StartedUtcTicks = SessionAnchor.StartedUtc.Ticks,
@@ -126,6 +128,8 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
             AnchorTimestamp = SessionAnchor.AnchorTimestamp,
             LibraryVersion = BuildInfo.Revision,
             GameVersion = string.Empty,
+            ControlPort = server?.Port ?? 0,
+            ControlSecret = server?.Secret ?? string.Empty,
         };
         SendBatch(BatchType.SessionMeta, meta);
     }

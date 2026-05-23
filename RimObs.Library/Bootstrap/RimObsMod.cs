@@ -5,6 +5,7 @@ using System.IO;
 using System.Reflection;
 using Cryptiklemur.RimObs.Api;
 using Cryptiklemur.RimObs.Config;
+using Cryptiklemur.RimObs.Library.Control;
 using Cryptiklemur.RimObs.Observers;
 using Cryptiklemur.RimObs.Patching;
 using Cryptiklemur.RimObs.Profile;
@@ -68,6 +69,7 @@ public sealed class RimObsMod : Mod {
             int port = EphemeralPort.Allocate();
             int parentPid = Process.GetCurrentProcess().Id;
 
+            ControlServices.StartServer(ownerId);
             WireTelemetrySink(ownerId, port);
             PopulateOwnerRegistry();
             ProfilingXmlLoader.LoadResult declared = LoadDeclaredProfiling();

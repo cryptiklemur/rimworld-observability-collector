@@ -10,7 +10,6 @@ using Cryptiklemur.RimObs.Wire.Control;
 namespace Cryptiklemur.RimObs.Library.Control;
 
 internal sealed class ControlServer {
-    private readonly string _secret;
     private readonly string _frameworkPackageId;
     private readonly Func<IEnumerable<Assembly>> _assemblies;
     private readonly HttpListener _listener;
@@ -21,7 +20,7 @@ internal sealed class ControlServer {
         : this(secret, frameworkPackageId, AssemblyIndex.Enumerate) { }
 
     public ControlServer(string secret, string frameworkPackageId, Func<IEnumerable<Assembly>> assemblies) {
-        _secret = secret;
+        Secret = secret;
         _frameworkPackageId = frameworkPackageId;
         _assemblies = assemblies;
         Port = PickFreeLoopbackPort();
@@ -30,6 +29,8 @@ internal sealed class ControlServer {
     }
 
     public int Port { get; }
+
+    public string Secret { get; }
 
     public void Start() {
         _listener.Start();
@@ -57,7 +58,7 @@ internal sealed class ControlServer {
 
     private void Handle(HttpListenerContext ctx) {
         string? presented = ctx.Request.Headers["X-RimObs-Control"];
-        if (!ConstantTimeEquals(presented, _secret)) {
+        if (!ConstantTimeEquals(presented, Secret)) {
             ctx.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
             return;
         }
