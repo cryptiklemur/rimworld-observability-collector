@@ -18,25 +18,33 @@ public static class Program {
             return Cli.CliRouter.Run(args);
         }
 
-        const int port = 17654;
+        const int defaultPort = 17654;
+        ServeOptions options = ServeOptions.Parse(args, defaultPort);
+        int port = options.Port;
         Logging.RingBufferLogSink logSink = new();
         string? logDir = null;
         try {
-            CollectorToken token = CollectorToken.CreateFromEnvOrGenerate();
             string configDir = ConfigDirResolver.Resolve();
             logDir = Path.Combine(configDir, "logs");
             ConfigureLogger(logSink, logDir);
 
+            string sessionsDir = Path.Combine(configDir, "sessions");
+            Config.ConfigStore configStore = new(Path.Combine(configDir, "config.json"));
+            CollectorToken token = CollectorToken.CreateFromEnvOrGenerate(configStore.Current.Security.CliBearerTokenEnvVar);
+
             try {
                 RuntimeFiles.WriteAll(configDir, token, port);
-                Log.Information("Wrote discovery files to {ConfigDir} (token source: {Source})", configDir, token.FromEnv ? "env" : "generated");
+                Log.Information("Wrote discovery files to {ConfigDir} (port: {Port}, token source: {Source})", configDir, port, token.FromEnv ? "env" : "generated");
             }
             catch (System.Exception ex) {
                 Log.Warning(ex, "Failed to write discovery files to {ConfigDir}", configDir);
             }
 
-            string sessionsDir = Path.Combine(configDir, "sessions");
-            WebApplication app = BuildApp(args, port, token, sessionsDir, logSink);
+            WebApplication app = BuildApp(args, port, token, sessionsDir, logSink, options, configStore);
+            app.Lifetime.ApplicationStopping.Register(() => RuntimeFiles.DeleteAll(configDir));
+            if (!options.NoBrowser) {
+                app.Lifetime.ApplicationStarted.Register(() => BrowserLauncher.Open($"http://127.0.0.1:{port}/"));
+            }
             StartUpdateCheck(app.Services);
             app.Run();
             return 0;
@@ -76,19 +84,8 @@ public static class Program {
         Log.Logger = config.CreateLogger();
     }
 
-    public static WebApplication BuildApp(string[] args, int port) {
-        return BuildApp(args, port, CollectorToken.CreateFromEnvOrGenerate(), sessionsDir: null);
-    }
-
-    public static WebApplication BuildApp(string[] args, int port, CollectorToken token) {
-        return BuildApp(args, port, token, sessionsDir: null);
-    }
-
-    public static WebApplication BuildApp(string[] args, int port, CollectorToken token, string? sessionsDir) {
-        return BuildApp(args, port, token, sessionsDir, logSink: null);
-    }
-
-    public static WebApplication BuildApp(string[] args, int port, CollectorToken token, string? sessionsDir, Logging.RingBufferLogSink? logSink) {
+    public static WebApplication BuildApp(string[] args, int port, CollectorToken? token = null, string? sessionsDir = null, Logging.RingBufferLogSink? logSink = null, ServeOptions? serveOptions = null, Config.ConfigStore? configStore = null) {
+        token ??= CollectorToken.CreateFromEnvOrGenerate();
         WebApplicationBuilder builder = WebApplication.CreateBuilder(args);
         builder.Host.UseSerilog();
         builder.WebHost.UseUrls($"http://127.0.0.1:{port}");
@@ -102,10 +99,7 @@ public static class Program {
         if (hasPersister) {
             builder.Services.AddSingleton<Storage.ISessionPersister>(_ => new Storage.SqliteSessionPersister(sessionsDir!));
         }
-        string? configFilePath = hasPersister
-            ? System.IO.Path.Combine(System.IO.Path.GetDirectoryName(sessionsDir!.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar)) ?? sessionsDir!, "config.json")
-            : null;
-        builder.Services.AddSingleton(new Config.ConfigStore(configFilePath));
+        builder.Services.AddSingleton(configStore ?? new Config.ConfigStore(ResolveConfigFilePath(sessionsDir)));
         builder.Services.AddSingleton<Panels.PanelRegistry>();
         builder.Services.AddSingleton<Aggregation.SessionAggregator>();
         builder.Services.AddSingleton<Receive.UdpReceiver>(sp =>
@@ -118,12 +112,24 @@ public static class Program {
         if (hasPersister) {
             builder.Services.AddHostedService<Storage.PersistenceFlusher>();
         }
+        if (serveOptions != null && serveOptions.ParentPid > 0) {
+            builder.Services.AddSingleton(serveOptions);
+            builder.Services.AddHostedService<ParentProcessWatcher>();
+        }
 
         WebApplication app = builder.Build();
         app.UseOriginCheck(port);
         app.UseBearerAuth(token);
         MapApiEndpoints(app);
         return app;
+    }
+
+    private static string? ResolveConfigFilePath(string? sessionsDir) {
+        if (string.IsNullOrWhiteSpace(sessionsDir))
+            return null;
+        string trimmed = sessionsDir.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
+        string parent = System.IO.Path.GetDirectoryName(trimmed) ?? sessionsDir;
+        return System.IO.Path.Combine(parent, "config.json");
     }
 
     public static void MapApiEndpoints(WebApplication app) {

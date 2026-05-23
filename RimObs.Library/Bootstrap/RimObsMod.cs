@@ -1,3 +1,8 @@
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
+using System.Reflection;
 using Cryptiklemur.RimObs.Api;
 using Cryptiklemur.RimObs.Config;
 using Cryptiklemur.RimObs.Observers;
@@ -10,37 +15,38 @@ using Verse;
 namespace Cryptiklemur.RimObs.Bootstrap;
 
 public sealed class RimObsMod : Mod {
-    private const string FrameworkOwnerId = "cryptiklemur.rimobs";
+    private const string FrameworkOwnerId = "CryptikLemur.RimObs";
     private const string CollectorHost = "127.0.0.1";
-    private static readonly System.TimeSpan s_LaunchTimeout = System.TimeSpan.FromSeconds(2);
+    // Cold-launching a fresh self-contained collector (extract + JIT) takes longer than
+    // pinging an already-running daemon did, so allow generous readiness headroom.
+    private static readonly TimeSpan s_LaunchTimeout = TimeSpan.FromSeconds(10);
     private static UdpTelemetrySink? s_Sink;
     private static CollectorConfigClient? s_ConfigClient;
 
     private static string ResolveOwnerId(ModContentPack content) =>
         string.IsNullOrEmpty(content?.PackageId) ? FrameworkOwnerId : content!.PackageId;
 
-    private static CollectorLaunchResult EnsureCollectorRunning(string ownerId) {
-        System.Collections.Generic.List<CollectorCandidate> candidates = CollectCandidates();
+    private static CollectorLaunchResult EnsureCollectorRunning(string ownerId, int port, int parentPid) {
+        List<CollectorCandidate> candidates = CollectCandidates();
         return CollectorLauncher.EnsureRunning(
             candidates,
             CollectorHost,
-            UdpTelemetrySink.DefaultPort,
+            port,
             ownerId,
             CollectorLauncher.DefaultProbeTimeout,
-            s_LaunchTimeout
+            s_LaunchTimeout,
+            parentPid: parentPid
         );
     }
 
-    private static System.Collections.Generic.List<CollectorCandidate> CollectCandidates() {
-        System.Collections.Generic.List<CollectorCandidate> candidates = new();
+    private static List<CollectorCandidate> CollectCandidates() {
+        List<CollectorCandidate> candidates = new();
         foreach (ModContentPack pack in LoadedModManager.RunningModsListForReading) {
             string rootDir = pack.RootDir;
             if (string.IsNullOrEmpty(rootDir))
                 continue;
-            string collectorDir = System.IO.Path.Combine(rootDir, "Assemblies", CollectorScanner.CollectorDirName);
-            CollectorCandidate? candidate = CollectorScanner.TryReadCandidate(collectorDir);
-            if (candidate != null)
-                candidates.Add(candidate);
+            string collectorDir = Path.Combine(rootDir, CollectorScanner.CollectorDirName);
+            CollectorScanner.ReadCandidates(collectorDir, candidates);
         }
 
         return candidates;
@@ -56,45 +62,53 @@ public sealed class RimObsMod : Mod {
 
     public RimObsMod(ModContentPack content) : base(content) {
         try {
-            SessionAnchor.Initialize(System.Guid.NewGuid().ToString("N"));
+            SessionAnchor.Initialize(Guid.NewGuid().ToString("N"));
             string ownerId = ResolveOwnerId(content);
-            WireTelemetrySink(ownerId);
+
+            int port = EphemeralPort.Allocate();
+            int parentPid = Process.GetCurrentProcess().Id;
+
+            WireTelemetrySink(ownerId, port);
             PopulateOwnerRegistry();
             ProfilingXmlLoader.LoadResult declared = LoadDeclaredProfiling();
 
-            CollectorLaunchResult collector = EnsureCollectorRunning(ownerId);
+            CollectorLaunchResult collector = EnsureCollectorRunning(ownerId, port, parentPid);
             if (!collector.IsRunning) {
                 Log.Error(
                     "[RimObs] No collector is running and none could be launched from any installed mod's "
-                        + "Assemblies/Collector directory. Telemetry instrumentation is disabled for this session "
+                        + "Collector directory. Telemetry instrumentation is disabled for this session "
                         + "(no patches installed). Install the collector binary to enable profiling. (PRD §35.66)"
                 );
                 return;
             }
 
             PatchInstaller.InstallAll();
+            FrameTickPatches.InstallAll();
+            s_Sink?.SetPatchConflicts(HarmonyConflictRecorder.BuildBatch());
             Profiler.Enabled = true;
             GcObserverHost.Start();
+            TpsFpsObserverHost.Start();
             // AllocationSamplerHost is opt-in and stays inert at bootstrap. Mod authors
             // call AllocationSamplerHost.Start() themselves when they want it (PRD §35.18,
             // §11.2). It is off by default because the GC.GetTotalMemory delta heuristic
             // is a soft cost on every poll.
-            StartConfigPoll(CollectorHost, UdpTelemetrySink.DefaultPort);
+            StartConfigPoll(CollectorHost, port);
             LogBootstrapSummary(declared);
         }
-        catch (System.Exception ex) {
+        catch (Exception ex) {
             Log.Error($"[RimObs] Bootstrap failed: {ex}");
         }
     }
 
-    private static void WireTelemetrySink(string ownerId) {
+    private static void WireTelemetrySink(string ownerId, int port) {
         if (s_Sink != null)
             return;
-        UdpTelemetrySink sink = new(ownerId);
+        UdpTelemetrySink sink = new(ownerId, port);
         sink.Start();
         Profiler.SetSink(sink);
         GcObserverHost.SetSink(sink);
         AllocationSamplerHost.SetSink(sink);
+        TpsFpsObserverHost.SetSink(sink);
         s_Sink = sink;
     }
 
@@ -140,7 +154,7 @@ public sealed class RimObsMod : Mod {
             if (string.IsNullOrEmpty(packageId))
                 continue;
 
-            foreach (System.Reflection.Assembly asm in pack.assemblies.loadedAssemblies) {
+            foreach (Assembly asm in pack.assemblies.loadedAssemblies) {
                 OwnerRegistry.RegisterMod(asm, packageId);
             }
         }
@@ -148,11 +162,11 @@ public sealed class RimObsMod : Mod {
         OwnerRegistry.SetLateResolver(ResolvePackageIdFromLoadedMods);
     }
 
-    private static string? ResolvePackageIdFromLoadedMods(System.Reflection.Assembly assembly) {
+    private static string? ResolvePackageIdFromLoadedMods(Assembly assembly) {
         if (assembly == null)
             return null;
 
-        System.Collections.Generic.List<ModContentPack>? mods = LoadedModManager.RunningModsListForReading;
+        List<ModContentPack>? mods = LoadedModManager.RunningModsListForReading;
         if (mods == null)
             return null;
 
@@ -162,7 +176,7 @@ public sealed class RimObsMod : Mod {
             if (string.IsNullOrEmpty(packageId))
                 continue;
 
-            System.Collections.Generic.List<System.Reflection.Assembly> assemblies = pack.assemblies.loadedAssemblies;
+            List<Assembly> assemblies = pack.assemblies.loadedAssemblies;
             for (int j = 0; j < assemblies.Count; j++) {
                 if (ReferenceEquals(assemblies[j], assembly))
                     return packageId;
@@ -173,7 +187,7 @@ public sealed class RimObsMod : Mod {
     }
 
     private static ProfilingXmlLoader.LoadResult LoadDeclaredProfiling() {
-        System.Collections.Generic.List<(string, string)> mods = new();
+        List<(string, string)> mods = new();
         foreach (ModContentPack pack in LoadedModManager.RunningModsListForReading) {
             string packageId = pack.PackageId;
             if (string.IsNullOrEmpty(packageId))

@@ -32,7 +32,8 @@ public static class CollectorLauncher {
         string ownerId,
         TimeSpan probeTimeout,
         TimeSpan launchTimeout,
-        Action<CollectorCandidate>? launchAction = null) {
+        Action<CollectorCandidate>? launchAction = null,
+        int parentPid = 0) {
         if (string.IsNullOrEmpty(host))
             throw new ArgumentException("host must be provided", nameof(host));
         if (port <= 0 || port > 65535)
@@ -50,7 +51,7 @@ public static class CollectorLauncher {
         if (best is null)
             return new CollectorLaunchResult(false, null, null, false);
 
-        Action<CollectorCandidate> launch = launchAction ?? DefaultLaunch;
+        Action<CollectorCandidate> launch = launchAction ?? (candidate => DefaultLaunch(candidate, port, parentPid));
         try {
             launch(best);
         }
@@ -69,8 +70,15 @@ public static class CollectorLauncher {
         return new CollectorLaunchResult(false, null, best, true);
     }
 
-    private static void DefaultLaunch(CollectorCandidate candidate) {
-        ProcessStartInfo psi = new ProcessStartInfo(candidate.ExecutablePath, "serve") {
+    public static string BuildLaunchArguments(int port, int parentPid) {
+        string args = $"serve --port {port}";
+        if (parentPid > 0)
+            args += $" --parent-pid {parentPid}";
+        return args;
+    }
+
+    private static void DefaultLaunch(CollectorCandidate candidate, int port, int parentPid) {
+        ProcessStartInfo psi = new ProcessStartInfo(candidate.ExecutablePath, BuildLaunchArguments(port, parentPid)) {
             UseShellExecute = false,
             CreateNoWindow = true,
             RedirectStandardOutput = false,
