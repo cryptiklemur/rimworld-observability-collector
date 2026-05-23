@@ -4,7 +4,26 @@ CONFIG ?= Debug
 RIDS ?= win-x64 linux-x64 osx-arm64 osx-x64
 DASHBOARD_DIR := RimObs.Dashboard
 SLN := RimObs.sln
-COLLECTOR_DEPLOY_DIR := Assemblies/Collector
+
+# The collector must NOT live under Assemblies/: RimWorld's ModAssemblyHandler loads every
+# .dll under Assemblies/ recursively and Mono segfaults trying to read the net10 collector's
+# custom attributes. It deploys to <mod>/Collector/<rid>/ instead (CI ships all RIDs).
+ifeq ($(OS),Windows_NT)
+DEV_RID ?= win-x64
+else
+UNAME_S := $(shell uname -s)
+UNAME_M := $(shell uname -m)
+ifeq ($(UNAME_S),Darwin)
+ifeq ($(UNAME_M),arm64)
+DEV_RID ?= osx-arm64
+else
+DEV_RID ?= osx-x64
+endif
+else
+DEV_RID ?= linux-x64
+endif
+endif
+COLLECTOR_DEPLOY_DIR := Collector/$(DEV_RID)
 
 help:
 	@echo "Targets:"
@@ -15,7 +34,7 @@ help:
 	@echo "  build-library       build only RimObs.Library"
 	@echo "  build-collector     build only RimObs.Collector"
 	@echo "  build-dashboard     build the Svelte SPA into dist/"
-	@echo "  deploy-collector    framework-dependent host publish into Assemblies/Collector for in-game auto-launch"
+	@echo "  deploy-collector    framework-dependent host publish into Collector/<rid> for in-game auto-launch"
 	@echo "  test                run xUnit suites"
 	@echo "  format              dotnet format + prettier"
 	@echo "  lint                dotnet format --verify-no-changes + eslint"
@@ -25,7 +44,7 @@ help:
 all: restore build-dashboard build
 
 clean:
-	rm -rf Assemblies/*.dll Assemblies/*.pdb
+	rm -rf Assemblies/*.dll Assemblies/*.pdb Assemblies/Collector Collector
 	rm -rf RimObs.Library/bin RimObs.Library/obj
 	rm -rf RimObs.Library.Tests/bin RimObs.Library.Tests/obj
 	rm -rf RimObs.Wire/bin RimObs.Wire/obj

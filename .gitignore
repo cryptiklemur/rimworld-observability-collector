@@ -13,6 +13,7 @@ node_modules/
 RimObs.Dashboard/dist/
 
 **/Assemblies/
+/Collector/
 **/AssetBundles/
 **/.lastassetbuildhash
 
