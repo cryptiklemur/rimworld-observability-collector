@@ -212,7 +212,7 @@ ON CONFLICT(metric_id, canonical) DO UPDATE SET
         foreach (MetricStats metric in metrics) {
             pId.Value = metric.MetricId;
             pName.Value = metric.Name ?? string.Empty;
-            pKind.Value = metric.Kind;
+            pKind.Value = (byte)metric.Kind;
             pUnit.Value = metric.Unit ?? string.Empty;
             upsertMetric.ExecuteNonQuery();
 
@@ -256,7 +256,7 @@ VALUES ($gen, $pause, $hb, $ha, $dur, $ticks, $rate);
 
             foreach (GcEventRecord e in events) {
                 pGen.Value = e.Generation;
-                pPause.Value = e.PauseType;
+                pPause.Value = (byte)e.PauseType;
                 pHb.Value = e.HeapBefore;
                 pHa.Value = e.HeapAfter;
                 pDur.Value = e.DurationMicros;

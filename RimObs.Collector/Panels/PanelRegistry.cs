@@ -4,6 +4,8 @@ using System.Collections.Generic;
 namespace Cryptiklemur.RimObs.Collector.Panels;
 
 public sealed class PanelRegistry {
+    // Domain version of the panel registration body. Used only to validate inbound
+    // POST payloads; API response envelopes carry Wire.SchemaVersion.Current instead.
     public const int SchemaVersion = 1;
 
     private readonly object _gate = new();
