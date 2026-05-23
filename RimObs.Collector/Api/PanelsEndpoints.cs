@@ -1,8 +1,7 @@
 using System.Collections.Generic;
-using System.Text.Json;
-using System.Threading.Tasks;
 using Cryptiklemur.RimObs.Collector.Config;
 using Cryptiklemur.RimObs.Collector.Panels;
+using Cryptiklemur.RimObs.Wire;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -27,38 +26,25 @@ public static class PanelsEndpoints {
                 owners.Add(new { owner_id = owner.Key, panels = panels.ToArray() });
             }
 
-            return Results.Ok(new { schema_version = PanelRegistry.SchemaVersion, owners = owners.ToArray() });
+            return Results.Ok(new { schema_version = SchemaVersion.Current, owners = owners.ToArray() });
         });
 
         endpoints.MapPost("/api/v1/panels/register", async (HttpContext context, PanelRegistry registry) => {
-            PanelRegistration? registration;
-            try {
-                registration = await context.Request.ReadFromJsonAsync<PanelRegistration>(ConfigJson.Options);
-            }
-            catch (JsonException) {
-                return Results.BadRequest(new { schema_version = PanelRegistry.SchemaVersion, reason = "malformed panel registration" });
+            (PanelRegistration? registration, IResult? error) = await RequestBody.ReadValidated<PanelRegistration>(
+                context, PanelRegistry.SchemaVersion, r => r.SchemaVersion, "panel registration");
+            if (error is not null) {
+                return error;
             }
 
-            if (registration is null) {
-                return Results.BadRequest(new { schema_version = PanelRegistry.SchemaVersion, reason = "empty registration body" });
-            }
-
-            if (registration.SchemaVersion != PanelRegistry.SchemaVersion) {
-                return Results.BadRequest(new {
-                    schema_version = PanelRegistry.SchemaVersion,
-                    reason = $"unsupported schema_version {registration.SchemaVersion}",
-                });
-            }
-
-            if (string.IsNullOrWhiteSpace(registration.OwnerId)) {
-                return Results.BadRequest(new { schema_version = PanelRegistry.SchemaVersion, reason = "owner_id is required" });
+            if (string.IsNullOrWhiteSpace(registration!.OwnerId)) {
+                return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "owner_id is required" });
             }
 
             foreach (PanelDefinition panel in registration.Panels) {
                 foreach (PanelLayoutItem item in panel.Layout) {
                     if (!PanelWidgets.IsValid(item.Widget)) {
                         return Results.BadRequest(new {
-                            schema_version = PanelRegistry.SchemaVersion,
+                            schema_version = SchemaVersion.Current,
                             reason = $"unknown widget '{item.Widget}'",
                         });
                     }
@@ -67,7 +53,7 @@ public static class PanelsEndpoints {
 
             registry.Replace(registration.OwnerId, registration.Panels.ToArray());
             return Results.Ok(new {
-                schema_version = PanelRegistry.SchemaVersion,
+                schema_version = SchemaVersion.Current,
                 owner_id = registration.OwnerId,
                 panel_count = registration.Panels.Count,
             });
@@ -87,7 +73,7 @@ public static class PanelsEndpoints {
     private static IResult RefreshResult(PanelRegistry registry, ConfigStore config) {
         RefreshFlagState state = registry.RefreshState(config.Current.Panels.RefreshFlagTtlSeconds);
         return Results.Ok(new {
-            schema_version = PanelRegistry.SchemaVersion,
+            schema_version = SchemaVersion.Current,
             refresh_requested = state.Requested,
             ttl_seconds_remaining = state.RemainingSeconds,
         });

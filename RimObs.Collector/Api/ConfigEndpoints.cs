@@ -1,5 +1,3 @@
-using System.Text.Json;
-using System.Threading.Tasks;
 using Cryptiklemur.RimObs.Collector.Config;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
@@ -13,26 +11,13 @@ public static class ConfigEndpoints {
             Results.Json(store.Current, ConfigJson.Options));
 
         endpoints.MapPost("/api/v1/config", async (HttpContext context, ConfigStore store) => {
-            RimObsConfig? incoming;
-            try {
-                incoming = await context.Request.ReadFromJsonAsync<RimObsConfig>(ConfigJson.Options);
-            }
-            catch (JsonException) {
-                return Results.BadRequest(new { schema_version = RimObsConfig.Version, reason = "malformed config body" });
+            (RimObsConfig? incoming, IResult? error) = await RequestBody.ReadValidated<RimObsConfig>(
+                context, RimObsConfig.Version, c => c.SchemaVersion, "config");
+            if (error is not null) {
+                return error;
             }
 
-            if (incoming is null) {
-                return Results.BadRequest(new { schema_version = RimObsConfig.Version, reason = "empty config body" });
-            }
-
-            if (incoming.SchemaVersion != RimObsConfig.Version) {
-                return Results.BadRequest(new {
-                    schema_version = RimObsConfig.Version,
-                    reason = $"unsupported schema_version {incoming.SchemaVersion}",
-                });
-            }
-
-            store.Replace(incoming);
+            store.Replace(incoming!);
             return Results.Json(store.Current, ConfigJson.Options);
         });
 
