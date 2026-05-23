@@ -31,10 +31,12 @@ internal sealed class PollerThread {
         }
     }
 
-    public void Start() {
+    public void Start() => TryStart();
+
+    public bool TryStart() {
         lock (_lock) {
             if (_thread != null)
-                return;
+                return false;
             _stop = false;
             _thread = new Thread(Loop) {
                 Name = _name,
@@ -42,6 +44,7 @@ internal sealed class PollerThread {
                 Priority = ThreadPriority.BelowNormal,
             };
             _thread.Start();
+            return true;
         }
     }
 
@@ -57,7 +60,16 @@ internal sealed class PollerThread {
 
     private void Loop() {
         while (!_stop) {
-            _tick();
+            // A single throwing tick must not tear down the poll thread: that would silently
+            // strip config polling / panel refresh for the rest of the session while IsRunning
+            // still reported false. Ticks own their own error reporting (see
+            // CollectorConfigClient.Fetch); the loop just guarantees liveness.
+            try {
+                _tick();
+            }
+            catch {
+                // swallow and keep polling
+            }
             Thread.Sleep(_intervalMs);
         }
     }

@@ -11,7 +11,7 @@ internal static class GcObserverHost {
     private static IGcEventSink? s_Sink;
     private const int MaxRecentSamples = 64;
     private const int PollIntervalMs = 1000;
-    private static readonly PollerLifecycle s_Lifecycle = new("RimObs.GcObserver", PollTick, PollIntervalMs);
+    private static readonly PollerThread s_Poller = new("RimObs.GcObserver", PollTick, PollIntervalMs);
 
     public static void SetSink(IGcEventSink? sink) {
         lock (s_Lock) {
@@ -27,7 +27,7 @@ internal static class GcObserverHost {
         }
     }
 
-    public static bool IsRunning => s_Lifecycle.IsRunning;
+    public static bool IsRunning => s_Poller.IsRunning;
 
     public static IReadOnlyList<GcEventSample> RecentSamples {
         get {
@@ -42,10 +42,10 @@ internal static class GcObserverHost {
             s_Instance ??= new GcObserver();
             s_Tick = 0;
         }
-        s_Lifecycle.TryStart();
+        s_Poller.TryStart();
     }
 
-    public static void Stop() => s_Lifecycle.Stop();
+    public static void Stop() => s_Poller.Stop();
 
     public static void ClearRecentSamples() {
         lock (s_Lock) {
