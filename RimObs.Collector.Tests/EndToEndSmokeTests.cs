@@ -1,8 +1,11 @@
 using System.Net;
+using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Text.Json;
 using Cryptiklemur.RimObs.Collector.Hosting;
+using Cryptiklemur.RimObs.Collector.Tests.Stubs;
 using Cryptiklemur.RimObs.Wire;
+using Cryptiklemur.RimObs.Wire.Control;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
@@ -1135,5 +1138,66 @@ public sealed class EndToEndSmokeTests {
             await Task.Delay(50);
         }
         throw new TimeoutException("WaitFor condition never became true", lastError);
+    }
+
+    [Fact]
+    public async Task Instrumentation_endpoints_proxy_to_control_server_after_handshake() {
+        int collectorPort = PickFreePort();
+        using StubControlServer stub = new("topsecret");
+        stub.OnSearch = req => new ControlSearchResponse {
+            Results = [new ControlMethodDescriptor {
+                TypeFullName = "A", MethodName = "B", Signature = "A:B()",
+                ParamTypeFullNames = [], AssemblyName = "A",
+            }],
+        };
+        stub.OnPatch = _ => new ControlPatchResponse {
+            PatchId = 7,
+            SectionId = 3,
+            SectionName = "test.dynamic.A:B",
+            Status = "active",
+        };
+        stub.Start();
+
+        Security.CollectorToken token = Security.CollectorToken.FromExplicitValue("instrumentation-bearer-token");
+        WebApplication app = Program.BuildApp([], collectorPort, token);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{collectorPort}") };
+            http.DefaultRequestHeaders.Add("Origin", $"http://127.0.0.1:{collectorPort}");
+            http.DefaultRequestHeaders.Add("Authorization", $"Bearer {token.Value}");
+
+            await WaitFor(async () => (await http.GetAsync("/api/v1/status")).IsSuccessStatusCode, TimeSpan.FromSeconds(3));
+
+            SendBatch(collectorPort, BatchType.SessionMeta, WireCodec.Serialize(new SessionMeta {
+                SessionId = "live",
+                StartedUtcTicks = DateTime.UtcNow.Ticks,
+                StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                LibraryVersion = "0",
+                GameVersion = "1.6",
+                ControlPort = stub.Port,
+                ControlSecret = "topsecret",
+            }));
+
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/instrumentation/search?q=B");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            HttpResponseMessage searchRes = await http.GetAsync("/api/v1/instrumentation/search?q=B");
+            searchRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            HttpResponseMessage patchRes = await http.PostAsJsonAsync(
+                "/api/v1/instrumentation/patch",
+                new { typeFullName = "A", methodName = "B", paramTypeFullNames = Array.Empty<string>() });
+            patchRes.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            HttpResponseMessage listRes = await http.GetAsync("/api/v1/instrumentation/patches");
+            listRes.StatusCode.Should().Be(HttpStatusCode.OK);
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
     }
 }
