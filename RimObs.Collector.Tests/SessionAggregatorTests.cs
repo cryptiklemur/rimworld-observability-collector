@@ -257,12 +257,20 @@ public sealed class SessionAggregatorTests {
     public void OnPatchConflicts_replaces_previous_snapshot() {
         SessionAggregator agg = new();
         agg.OnPatchConflicts(new() {
-            SectionNames = ["a"], TargetMethods = ["t"], OtherOwners = ["o"],
-            PatchTypes = [1], Priorities = [0], PatchMethods = ["p"],
+            SectionNames = ["a"],
+            TargetMethods = ["t"],
+            OtherOwners = ["o"],
+            PatchTypes = [1],
+            Priorities = [0],
+            PatchMethods = ["p"],
         });
         agg.OnPatchConflicts(new() {
-            SectionNames = ["b", "c"], TargetMethods = ["t1", "t2"], OtherOwners = ["o1", "o2"],
-            PatchTypes = [2, 3], Priorities = [0, 0], PatchMethods = ["p1", "p2"],
+            SectionNames = ["b", "c"],
+            TargetMethods = ["t1", "t2"],
+            OtherOwners = ["o1", "o2"],
+            PatchTypes = [2, 3],
+            Priorities = [0, 0],
+            PatchMethods = ["p1", "p2"],
         });
 
         agg.PatchConflicts.Should().HaveCount(2);
