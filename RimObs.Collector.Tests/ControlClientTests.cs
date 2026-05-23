@@ -1,19 +1,27 @@
-using System.Net;
 using Cryptiklemur.RimObs.Collector.Instrumentation;
-using Cryptiklemur.RimObs.Wire;
+using Cryptiklemur.RimObs.Collector.Tests.Stubs;
 using Cryptiklemur.RimObs.Wire.Control;
 using FluentAssertions;
 using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
-// Uses a minimal in-file HttpListener stub that mirrors ControlServer.Handle's
-// secret check and /search round trip. Task 16 will introduce the reusable
-// StubControlServer; this is a one-off confined to the Task 14 happy path.
 public sealed class ControlClientTests {
     [Fact]
     public async Task Search_proxies_and_returns_decoded_response() {
-        using StubServer stub = new("topsecret");
+        using StubControlServer stub = new("topsecret");
+        stub.OnSearch = _ => new ControlSearchResponse {
+            Results = [
+                new ControlMethodDescriptor {
+                    TypeFullName = "Cryptiklemur.RimObs.Library.Tests.ResolverTargets",
+                    MethodName = "Add",
+                    Signature = "Int32 Add(Int32, Int32)",
+                    ParamTypeFullNames = ["System.Int32", "System.Int32"],
+                    AssemblyName = "RimObs.Library.Tests",
+                },
+            ],
+        };
+        stub.Start();
         ControlClient client = new(stub.Port, "topsecret");
 
         ControlSearchResponse res = await client.SearchAsync(new ControlSearchRequest { Query = "ResolverTargets", Limit = 5 });
@@ -24,7 +32,8 @@ public sealed class ControlClientTests {
 
     [Fact]
     public async Task Search_throws_on_wrong_secret() {
-        using StubServer stub = new("topsecret");
+        using StubControlServer stub = new("topsecret");
+        stub.Start();
         ControlClient client = new(stub.Port, "wrong");
 
         Func<Task> act = () => client.SearchAsync(new ControlSearchRequest { Query = "ResolverTargets", Limit = 5 });
@@ -33,94 +42,61 @@ public sealed class ControlClientTests {
         ex.Status.Should().Be(401);
     }
 
-    private sealed class StubServer : IDisposable {
-        private readonly HttpListener _listener;
-        private readonly string _secret;
-        private readonly Task _loop;
+    [Fact]
+    public async Task Patch_proxies_and_returns_decoded_response() {
+        using StubControlServer stub = new("topsecret");
+        stub.OnPatch = _ => new ControlPatchResponse {
+            PatchId = 42,
+            SectionId = 7,
+            SectionName = "MyMod.MyType.MyMethod",
+            Status = "active",
+        };
+        stub.Start();
+        ControlClient client = new(stub.Port, "topsecret");
 
-        public StubServer(string secret) {
-            _secret = secret;
-            Port = PickFreeLoopbackPort();
-            _listener = new HttpListener();
-            _listener.Prefixes.Add($"http://127.0.0.1:{Port}/");
-            _listener.Start();
-            _loop = Task.Run(Loop);
-        }
+        ControlPatchResponse res = await client.PatchAsync(new ControlPatchRequest {
+            TypeFullName = "MyMod.MyType",
+            MethodName = "MyMethod",
+            ParamTypeFullNames = [],
+        });
 
-        public int Port { get; }
+        res.PatchId.Should().Be(42);
+        res.SectionName.Should().Be("MyMod.MyType.MyMethod");
+        res.Status.Should().Be("active");
+    }
 
-        private async Task Loop() {
-            while (_listener.IsListening) {
-                HttpListenerContext ctx;
-                try {
-                    ctx = await _listener.GetContextAsync();
-                }
-                catch (HttpListenerException) {
-                    return;
-                }
-                catch (ObjectDisposedException) {
-                    return;
-                }
+    [Fact]
+    public async Task List_proxies_and_returns_decoded_response() {
+        using StubControlServer stub = new("topsecret");
+        stub.OnList = () => new ControlPatchListResponse {
+            Patches = [
+                new ControlPatchEntry {
+                    PatchId = 1,
+                    Signature = "MyMod.MyType.MyMethod()",
+                    SectionId = 7,
+                    Status = "active",
+                },
+            ],
+        };
+        stub.Start();
+        ControlClient client = new(stub.Port, "topsecret");
 
-                Handle(ctx);
-            }
-        }
+        ControlPatchListResponse res = await client.ListAsync();
 
-        private void Handle(HttpListenerContext ctx) {
-            string? presented = ctx.Request.Headers["X-RimObs-Control"];
-            if (presented != _secret) {
-                ctx.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
-                ctx.Response.Close();
-                return;
-            }
+        res.Patches.Should().HaveCount(1);
+        res.Patches[0].PatchId.Should().Be(1);
+        res.Patches[0].Signature.Should().Be("MyMod.MyType.MyMethod()");
+    }
 
-            string path = ctx.Request.Url?.AbsolutePath ?? "/";
-            if (ctx.Request.HttpMethod == "POST" && path == "/search") {
-                using MemoryStream buffer = new();
-                ctx.Request.InputStream.CopyTo(buffer);
-                WireCodec.Deserialize<ControlSearchRequest>(buffer.ToArray());
+    [Fact]
+    public async Task Unpatch_returns_false_when_stub_reports_not_found() {
+        using StubControlServer stub = new("topsecret");
+        stub.OnUnpatch = _ => false;
+        stub.Start();
+        ControlClient client = new(stub.Port, "topsecret");
 
-                ControlSearchResponse res = new() {
-                    Results = [
-                        new ControlMethodDescriptor {
-                            TypeFullName = "Cryptiklemur.RimObs.Library.Tests.ResolverTargets",
-                            MethodName = "Add",
-                            Signature = "Int32 Add(Int32, Int32)",
-                            ParamTypeFullNames = ["System.Int32", "System.Int32"],
-                            AssemblyName = "RimObs.Library.Tests",
-                        },
-                    ],
-                };
-                byte[] body = WireCodec.Serialize(res);
-                ctx.Response.StatusCode = (int)HttpStatusCode.OK;
-                ctx.Response.ContentType = "application/x-msgpack";
-                ctx.Response.ContentLength64 = body.Length;
-                ctx.Response.OutputStream.Write(body, 0, body.Length);
-                ctx.Response.Close();
-                return;
-            }
+        bool ok = await client.UnpatchAsync(123);
 
-            ctx.Response.StatusCode = (int)HttpStatusCode.NotFound;
-            ctx.Response.Close();
-        }
-
-        public void Dispose() {
-            _listener.Stop();
-            _listener.Close();
-            try {
-                _loop.Wait(TimeSpan.FromSeconds(2));
-            }
-            catch (AggregateException) {
-                // Loop torn down by listener stop.
-            }
-        }
-
-        private static int PickFreeLoopbackPort() {
-            System.Net.Sockets.TcpListener probe = new(IPAddress.Loopback, 0);
-            probe.Start();
-            int port = ((IPEndPoint)probe.LocalEndpoint).Port;
-            probe.Stop();
-            return port;
-        }
+        ok.Should().BeFalse();
     }
 }
