@@ -9,7 +9,7 @@ namespace Cryptiklemur.RimObs.Tests;
 public sealed class CollectorManifestTests {
     private const string FullManifest = """
         {
-          "schema_version": 2,
+          "schema_version": 1,
           "version": "1.4.2",
           "git_sha": "abc123def456",
           "git_branch": "main",
@@ -28,7 +28,7 @@ public sealed class CollectorManifestTests {
         CollectorManifest? manifest = CollectorManifest.TryParse(FullManifest);
 
         manifest.Should().NotBeNull();
-        manifest!.SchemaVersion.Should().Be(2);
+        manifest!.SchemaVersion.Should().Be(1);
         manifest.Version.Should().Be("1.4.2");
         manifest.LibrarySchemaCompat.Should().NotBeNull();
         manifest.LibrarySchemaCompat!.Min.Should().Be(1);
