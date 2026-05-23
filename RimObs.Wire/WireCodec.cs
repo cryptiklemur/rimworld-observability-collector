@@ -1,4 +1,5 @@
 using System;
+using Cryptiklemur.RimObs.Wire.Control;
 
 namespace Cryptiklemur.RimObs.Wire;
 
@@ -35,6 +36,10 @@ public static class WireCodec {
                 return Serialize(v);
             case TpsFpsBatch v:
                 return Serialize(v);
+            case ControlSearchRequest v:
+                return Serialize(v);
+            case ControlSearchResponse v:
+                return Serialize(v);
             default:
                 throw new NotSupportedException($"WireCodec cannot serialize {typeof(T)}.");
         }
@@ -70,6 +75,10 @@ public static class WireCodec {
             result = ReadPatchConflictsBatch(data);
         else if (t == typeof(TpsFpsBatch))
             result = ReadTpsFpsBatch(data);
+        else if (t == typeof(ControlSearchRequest))
+            result = ReadControlSearchRequest(data);
+        else if (t == typeof(ControlSearchResponse))
+            result = ReadControlSearchResponse(data);
         else
             throw new NotSupportedException($"WireCodec cannot deserialize {t}.");
 
@@ -199,6 +208,23 @@ public static class WireCodec {
         writer.WriteDouble(value.Tps);
         writer.WriteDouble(value.Fps);
         writer.WriteInt64(value.Tick);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(ControlSearchRequest value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(2);
+        writer.WriteString(value.Query);
+        writer.WriteInt32(value.Limit);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(ControlSearchResponse value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(1);
+        writer.WriteInt32(value.Results.Length);
+        for (int i = 0; i < value.Results.Length; i++)
+            WriteControlMethodDescriptor(writer, value.Results[i]);
         return writer.ToArray();
     }
 
@@ -344,6 +370,45 @@ public static class WireCodec {
             Fps = reader.ReadDouble(),
             Tick = reader.ReadInt64(),
         };
+    }
+
+    private static ControlSearchRequest ReadControlSearchRequest(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new ControlSearchRequest {
+            Query = reader.ReadString() ?? string.Empty,
+            Limit = reader.ReadInt32(),
+        };
+    }
+
+    private static ControlSearchResponse ReadControlSearchResponse(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        int count = reader.ReadInt32();
+        ControlMethodDescriptor[] results = new ControlMethodDescriptor[count];
+        for (int i = 0; i < count; i++)
+            results[i] = ReadControlMethodDescriptor(reader);
+        return new ControlSearchResponse { Results = results };
+    }
+
+    private static ControlMethodDescriptor ReadControlMethodDescriptor(WireBufferReader reader) {
+        reader.ReadArrayHeader();
+        return new ControlMethodDescriptor {
+            TypeFullName = reader.ReadString() ?? string.Empty,
+            MethodName = reader.ReadString() ?? string.Empty,
+            Signature = reader.ReadString() ?? string.Empty,
+            ParamTypeFullNames = ReadStringArray(reader),
+            AssemblyName = reader.ReadString() ?? string.Empty,
+        };
+    }
+
+    private static void WriteControlMethodDescriptor(WireBufferWriter writer, ControlMethodDescriptor d) {
+        writer.WriteArrayHeader(5);
+        writer.WriteString(d.TypeFullName);
+        writer.WriteString(d.MethodName);
+        writer.WriteString(d.Signature);
+        WriteStringArray(writer, d.ParamTypeFullNames);
+        writer.WriteString(d.AssemblyName);
     }
 
     private static void WriteInt32Array(WireBufferWriter writer, int[] values) {
