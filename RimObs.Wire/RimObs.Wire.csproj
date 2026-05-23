@@ -17,4 +17,8 @@
         <DebugType>portable</DebugType>
         <Optimize>true</Optimize>
     </PropertyGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="RimObs.Library.Tests"/>
+    </ItemGroup>
 </Project>

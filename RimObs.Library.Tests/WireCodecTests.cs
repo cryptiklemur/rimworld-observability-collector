@@ -253,4 +253,43 @@ public sealed class WireCodecTests {
         byte[] viaOverload = WireCodec.Serialize(original);
         viaGeneric.Should().Equal(viaOverload);
     }
+
+    [Fact]
+    public void SessionMeta_round_trips_control_fields() {
+        SessionMeta original = new SessionMeta {
+            SessionId = "abc",
+            StartedUtcTicks = 100,
+            StopwatchFrequency = 1_000_000,
+            AnchorTimestamp = 200,
+            LibraryVersion = "0.0.0",
+            GameVersion = "1.6",
+            ControlPort = 50321,
+            ControlSecret = "deadbeef",
+        };
+
+        byte[] bytes = WireCodec.Serialize(original);
+        SessionMeta decoded = WireCodec.Deserialize<SessionMeta>(bytes);
+
+        decoded.ControlPort.Should().Be(50321);
+        decoded.ControlSecret.Should().Be("deadbeef");
+    }
+
+    [Fact]
+    public void SessionMeta_decodes_legacy_6_field_payload_with_default_control_fields() {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(6);
+        writer.WriteString("legacy");
+        writer.WriteInt64(1);
+        writer.WriteInt64(2);
+        writer.WriteInt64(3);
+        writer.WriteString("lib");
+        writer.WriteString("game");
+        byte[] legacy = writer.ToArray();
+
+        SessionMeta decoded = WireCodec.Deserialize<SessionMeta>(legacy);
+
+        decoded.SessionId.Should().Be("legacy");
+        decoded.ControlPort.Should().Be(0);
+        decoded.ControlSecret.Should().Be(string.Empty);
+    }
 }

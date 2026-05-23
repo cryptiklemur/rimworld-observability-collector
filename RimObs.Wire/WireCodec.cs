@@ -107,13 +107,15 @@ public static class WireCodec {
 
     public static byte[] Serialize(SessionMeta value) {
         WireBufferWriter writer = new WireBufferWriter();
-        writer.WriteArrayHeader(6);
+        writer.WriteArrayHeader(8);
         writer.WriteString(value.SessionId);
         writer.WriteInt64(value.StartedUtcTicks);
         writer.WriteInt64(value.StopwatchFrequency);
         writer.WriteInt64(value.AnchorTimestamp);
         writer.WriteString(value.LibraryVersion);
         writer.WriteString(value.GameVersion);
+        writer.WriteInt32(value.ControlPort);
+        writer.WriteString(value.ControlSecret);
         return writer.ToArray();
     }
 
@@ -234,8 +236,9 @@ public static class WireCodec {
 
     private static SessionMeta ReadSessionMeta(byte[] data) {
         WireBufferReader reader = new WireBufferReader(data);
-        reader.ReadArrayHeader();
-        return new SessionMeta {
+        int count = reader.ReadArrayHeader();
+
+        SessionMeta meta = new SessionMeta {
             SessionId = reader.ReadString() ?? string.Empty,
             StartedUtcTicks = reader.ReadInt64(),
             StopwatchFrequency = reader.ReadInt64(),
@@ -243,6 +246,13 @@ public static class WireCodec {
             LibraryVersion = reader.ReadString() ?? string.Empty,
             GameVersion = reader.ReadString() ?? string.Empty,
         };
+
+        if (count >= 8) {
+            meta.ControlPort = reader.ReadInt32();
+            meta.ControlSecret = reader.ReadString() ?? string.Empty;
+        }
+
+        return meta;
     }
 
     private static SectionRegistrationsBatch ReadSectionRegistrationsBatch(byte[] data) {
