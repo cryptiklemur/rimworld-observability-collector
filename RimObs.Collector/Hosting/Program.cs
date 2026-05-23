@@ -102,9 +102,11 @@ public static class Program {
         builder.Services.AddSingleton(configStore ?? new Config.ConfigStore(ResolveConfigFilePath(sessionsDir)));
         builder.Services.AddSingleton<Panels.PanelRegistry>();
         builder.Services.AddSingleton<Aggregation.SessionAggregator>();
+        builder.Services.AddSingleton<Instrumentation.SessionMetaRegistry>();
         builder.Services.AddSingleton<Receive.UdpReceiver>(sp =>
             new Receive.UdpReceiver(
                 sp.GetRequiredService<Aggregation.SessionAggregator>(),
+                sp.GetRequiredService<Instrumentation.SessionMetaRegistry>(),
                 sp.GetRequiredService<Microsoft.Extensions.Logging.ILogger<Receive.UdpReceiver>>(),
                 port
             ));
