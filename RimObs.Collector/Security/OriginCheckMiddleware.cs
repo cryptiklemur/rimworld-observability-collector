@@ -1,5 +1,7 @@
+using Cryptiklemur.RimObs.Collector.Config;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace Cryptiklemur.RimObs.Collector.Security;
 
@@ -7,7 +9,9 @@ internal static class OriginCheckMiddleware {
     public static IApplicationBuilder UseOriginCheck(this IApplicationBuilder app, int port) {
         return app.Use(async (HttpContext ctx, RequestDelegate next) => {
             string method = ctx.Request.Method;
-            if (!OriginCheck.RequiresCheck(method)) {
+            ConfigStore? configStore = ctx.RequestServices.GetService<ConfigStore>();
+            bool csrfEnabled = configStore?.Current.Security.CsrfOriginCheckEnabled ?? true;
+            if (!OriginCheck.ShouldEnforce(method, csrfEnabled)) {
                 await next(ctx);
                 return;
             }
