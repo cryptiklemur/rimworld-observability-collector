@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Cryptiklemur.RimObs.Wire;
 using HarmonyLib;
 
 namespace Cryptiklemur.RimObs.Patching;
@@ -26,6 +27,30 @@ internal static class HarmonyConflictRecorder {
     public static void Clear() {
         lock (s_Lock) {
             s_Conflicts.Clear();
+        }
+    }
+
+    public static PatchConflictsBatch BuildBatch() {
+        lock (s_Lock) {
+            int n = s_Conflicts.Count;
+            PatchConflictsBatch batch = new() {
+                SectionNames = new string[n],
+                TargetMethods = new string[n],
+                OtherOwners = new string[n],
+                PatchTypes = new byte[n],
+                Priorities = new int[n],
+                PatchMethods = new string[n],
+            };
+            for (int i = 0; i < n; i++) {
+                HarmonyConflict conflict = s_Conflicts[i];
+                batch.SectionNames[i] = conflict.SectionName;
+                batch.TargetMethods[i] = conflict.TargetMethod;
+                batch.OtherOwners[i] = conflict.OtherOwner;
+                batch.PatchTypes[i] = (byte)conflict.PatchType;
+                batch.Priorities[i] = conflict.Priority;
+                batch.PatchMethods[i] = conflict.PatchMethod;
+            }
+            return batch;
         }
     }
 
