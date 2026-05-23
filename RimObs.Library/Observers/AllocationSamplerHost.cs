@@ -12,7 +12,7 @@ internal static class AllocationSamplerHost {
     private const int PollIntervalMs = 1000;
     private const long DefaultWindowMs = 60_000L;
     private static long s_WindowDurationMs = DefaultWindowMs;
-    private static readonly PollerLifecycle s_Lifecycle = new("RimObs.AllocationSampler", PollTick, PollIntervalMs);
+    private static readonly PollerThread s_Poller = new("RimObs.AllocationSampler", PollTick, PollIntervalMs);
 
     public static void SetSink(IAllocationSink? sink) {
         lock (s_Lock) {
@@ -28,7 +28,7 @@ internal static class AllocationSamplerHost {
         }
     }
 
-    public static bool IsRunning => s_Lifecycle.IsRunning;
+    public static bool IsRunning => s_Poller.IsRunning;
 
     public static long WindowDurationMs {
         get {
@@ -55,10 +55,10 @@ internal static class AllocationSamplerHost {
         lock (s_Lock) {
             s_Instance ??= new AllocationSampler();
         }
-        s_Lifecycle.TryStart();
+        s_Poller.TryStart();
     }
 
-    public static void Stop() => s_Lifecycle.Stop();
+    public static void Stop() => s_Poller.Stop();
 
     public static void ClearRecentSamples() {
         lock (s_Lock) {
