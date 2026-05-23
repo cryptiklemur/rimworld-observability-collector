@@ -1,9 +1,11 @@
+using Cryptiklemur.RimObs.Wire;
+
 namespace Cryptiklemur.RimObs.Collector.Aggregation;
 
 public readonly struct GcEventRecord {
     public GcEventRecord(
         byte generation,
-        byte pauseType,
+        GcPauseType pauseType,
         long heapBefore,
         long heapAfter,
         long durationMicros,
@@ -20,7 +22,7 @@ public readonly struct GcEventRecord {
     }
 
     public byte Generation { get; }
-    public byte PauseType { get; }
+    public GcPauseType PauseType { get; }
     public long HeapBefore { get; }
     public long HeapAfter { get; }
     public long DurationMicros { get; }

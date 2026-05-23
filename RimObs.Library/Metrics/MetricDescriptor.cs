@@ -1,3 +1,5 @@
+using Cryptiklemur.RimObs.Wire;
+
 namespace Cryptiklemur.RimObs.Metrics;
 
 internal sealed class MetricDescriptor {

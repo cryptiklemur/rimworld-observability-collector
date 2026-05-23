@@ -1,4 +1,5 @@
 using System.Collections.Concurrent;
+using Cryptiklemur.RimObs.Wire;
 
 namespace Cryptiklemur.RimObs.Collector.Aggregation;
 
@@ -10,7 +11,7 @@ public sealed class MetricStats {
 
     public int MetricId { get; }
     public string Name { get; set; } = string.Empty;
-    public byte Kind { get; set; }
+    public MetricKind Kind { get; set; }
     public string Unit { get; set; } = string.Empty;
     public ConcurrentDictionary<string, MetricLabelStats> Labels { get; }
 }
