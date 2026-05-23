@@ -103,6 +103,9 @@ public static class Program {
         builder.Services.AddSingleton<Panels.PanelRegistry>();
         builder.Services.AddSingleton<Aggregation.SessionAggregator>();
         builder.Services.AddSingleton<Instrumentation.SessionMetaRegistry>();
+        builder.Services.AddSingleton(hasPersister
+            ? Storage.DynamicPatchStore.Open(ResolveDynamicPatchStorePath(sessionsDir)!)
+            : Storage.DynamicPatchStore.OpenInMemory());
         builder.Services.AddSingleton<Receive.UdpReceiver>(sp =>
             new Receive.UdpReceiver(
                 sp.GetRequiredService<Aggregation.SessionAggregator>(),
@@ -134,6 +137,14 @@ public static class Program {
         return System.IO.Path.Combine(parent, "config.json");
     }
 
+    private static string? ResolveDynamicPatchStorePath(string? sessionsDir) {
+        if (string.IsNullOrWhiteSpace(sessionsDir))
+            return null;
+        string trimmed = sessionsDir.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
+        string parent = System.IO.Path.GetDirectoryName(trimmed) ?? sessionsDir;
+        return System.IO.Path.Combine(parent, "dynamic_patches.db");
+    }
+
     public static void MapApiEndpoints(WebApplication app) {
         app.MapStatusEndpoints();
         app.MapSessionsEndpoints();
@@ -141,6 +152,7 @@ public static class Program {
         app.MapConfigEndpoints();
         app.MapPanelsEndpoints();
         app.MapLogsEndpoints();
+        app.MapInstrumentationEndpoints();
         app.MapSpaEndpoints();
     }
 

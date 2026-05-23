@@ -1,0 +1,72 @@
+using Cryptiklemur.RimObs.Collector.Instrumentation;
+using Cryptiklemur.RimObs.Collector.Storage;
+using Cryptiklemur.RimObs.Wire;
+using Cryptiklemur.RimObs.Wire.Control;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Http;
+using Microsoft.AspNetCore.Routing;
+
+namespace Cryptiklemur.RimObs.Collector.Api;
+
+public static class InstrumentationEndpoints {
+    public static IEndpointRouteBuilder MapInstrumentationEndpoints(this IEndpointRouteBuilder endpoints) {
+        endpoints.MapGet("/api/v1/instrumentation/search", async (SessionMetaRegistry registry, string q, int? limit) => {
+            if (!registry.IsAvailable)
+                return Unavailable();
+            ControlClient client = new(registry.ControlPort, registry.ControlSecret);
+            ControlSearchResponse res = await client.SearchAsync(new ControlSearchRequest {
+                Query = q ?? string.Empty,
+                Limit = limit ?? 50,
+            });
+            return Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                results = res.Results,
+            });
+        });
+
+        endpoints.MapPost("/api/v1/instrumentation/patch", async (SessionMetaRegistry registry, DynamicPatchStore store, ControlPatchRequest req) => {
+            if (!registry.IsAvailable)
+                return Unavailable();
+            ControlClient client = new(registry.ControlPort, registry.ControlSecret);
+            ControlPatchResponse res = await client.PatchAsync(req);
+            if (res.Status == "active")
+                store.Insert(req.TypeFullName, req.MethodName, string.Join(";", req.ParamTypeFullNames));
+            return Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                patch = res,
+            });
+        });
+
+        endpoints.MapGet("/api/v1/instrumentation/patches", async (SessionMetaRegistry registry, DynamicPatchStore store) => {
+            if (!registry.IsAvailable) {
+                return Results.Ok(new {
+                    schema_version = SchemaVersion.Current,
+                    patches = store.List(),
+                });
+            }
+            ControlClient client = new(registry.ControlPort, registry.ControlSecret);
+            ControlPatchListResponse live = await client.ListAsync();
+            return Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                persisted = store.List(),
+                live = live.Patches,
+            });
+        });
+
+        endpoints.MapDelete("/api/v1/instrumentation/patches/{id:long}", async (SessionMetaRegistry registry, DynamicPatchStore store, long id) => {
+            store.Delete(id);
+            if (registry.IsAvailable) {
+                ControlClient client = new(registry.ControlPort, registry.ControlSecret);
+                await client.UnpatchAsync((int)id);
+            }
+            return Results.NoContent();
+        });
+
+        return endpoints;
+    }
+
+    private static IResult Unavailable() => Results.Json(new {
+        schema_version = SchemaVersion.Current,
+        reason = "instrumentation_unavailable",
+    }, statusCode: 503);
+}
