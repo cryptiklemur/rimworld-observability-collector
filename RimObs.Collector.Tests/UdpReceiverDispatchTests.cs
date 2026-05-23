@@ -2,7 +2,6 @@ using Cryptiklemur.RimObs.Collector.Aggregation;
 using Cryptiklemur.RimObs.Collector.Receive;
 using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
-using MessagePack;
 using Microsoft.Extensions.Logging.Abstractions;
 using Xunit;
 
@@ -44,7 +43,7 @@ public sealed class UdpReceiverDispatchTests {
             LibraryVersion = "0.0.0",
             GameVersion = "1.6",
         };
-        byte[] payload = MessagePackSerializer.Serialize(meta);
+        byte[] payload = WireCodec.Serialize(meta);
         byte[] bytes = SerializeEnvelope(BatchType.SessionMeta, payload);
 
         receiver.Dispatch(bytes);
@@ -63,7 +62,7 @@ public sealed class UdpReceiverDispatchTests {
             StartTimestamps = [10],
             ElapsedTicks = [100],
         };
-        byte[] bytes = SerializeEnvelope(BatchType.Sections, MessagePackSerializer.Serialize(batch));
+        byte[] bytes = SerializeEnvelope(BatchType.Sections, WireCodec.Serialize(batch));
 
         receiver.Dispatch(bytes);
 
@@ -84,6 +83,43 @@ public sealed class UdpReceiverDispatchTests {
     }
 
     [Fact]
+    public void Dispatch_patch_conflicts_routes_to_aggregator() {
+        SessionAggregator agg = new();
+        UdpReceiver receiver = NewReceiver(agg);
+        PatchConflictsBatch batch = new() {
+            SectionNames = ["core.tick"],
+            TargetMethods = ["Verse.TickManager:DoSingleTick"],
+            OtherOwners = ["Dubs.PerformanceAnalyzer"],
+            PatchTypes = [1],
+            Priorities = [400],
+            PatchMethods = ["Dubs.Patch:Prefix"],
+        };
+        byte[] bytes = SerializeEnvelope(BatchType.PatchConflicts, WireCodec.Serialize(batch));
+
+        receiver.Dispatch(bytes);
+
+        agg.PatchConflicts.Should().ContainSingle();
+        agg.PatchConflicts[0].OtherOwner.Should().Be("Dubs.PerformanceAnalyzer");
+        agg.TotalBatches.Should().Be(1);
+    }
+
+    [Fact]
+    public void Dispatch_tps_fps_routes_to_aggregator() {
+        SessionAggregator agg = new();
+        UdpReceiver receiver = NewReceiver(agg);
+        TpsFpsBatch batch = new() { Tps = 59.5, Fps = 144.2, Tick = 12345 };
+        byte[] bytes = SerializeEnvelope(BatchType.TpsFps, WireCodec.Serialize(batch));
+
+        receiver.Dispatch(bytes);
+
+        agg.HasTpsFps.Should().BeTrue();
+        agg.LatestTps.Should().Be(59.5);
+        agg.LatestFps.Should().Be(144.2);
+        agg.LatestTpsFpsTick.Should().Be(12345);
+        agg.TotalBatches.Should().Be(1);
+    }
+
+    [Fact]
     public void Dispatch_ping_batch_increments_batches_without_throwing() {
         SessionAggregator agg = new();
         UdpReceiver receiver = NewReceiver(agg);
@@ -100,14 +136,14 @@ public sealed class UdpReceiverDispatchTests {
         SessionAggregator agg = new();
         UdpReceiver receiver = NewReceiver(agg);
         PingMessage ping = new() { OwnerId = "test.owner", SentAtUtcTicks = 1234567 };
-        byte[] envelope = SerializeEnvelope(BatchType.Ping, MessagePackSerializer.Serialize(ping));
+        byte[] envelope = SerializeEnvelope(BatchType.Ping, WireCodec.Serialize(ping));
 
         byte[]? response = receiver.Dispatch(envelope);
 
         response.Should().NotBeNull();
-        TelemetryBatch decoded = MessagePackSerializer.Deserialize<TelemetryBatch>(response!);
+        TelemetryBatch decoded = WireCodec.Deserialize<TelemetryBatch>(response!);
         decoded.BatchType.Should().Be(BatchType.Pong);
-        PongMessage pong = MessagePackSerializer.Deserialize<PongMessage>(decoded.Payload);
+        PongMessage pong = WireCodec.Deserialize<PongMessage>(decoded.Payload);
         pong.OwnerId.Should().Be("test.owner");
         pong.PingSentAtUtcTicks.Should().Be(1234567);
         pong.CollectorVersion.Should().Be(BuildInfo.Revision);
@@ -127,12 +163,12 @@ public sealed class UdpReceiverDispatchTests {
         });
         UdpReceiver receiver = NewReceiver(agg);
         PingMessage ping = new() { OwnerId = "x", SentAtUtcTicks = 7 };
-        byte[] envelope = SerializeEnvelope(BatchType.Ping, MessagePackSerializer.Serialize(ping));
+        byte[] envelope = SerializeEnvelope(BatchType.Ping, WireCodec.Serialize(ping));
 
         byte[]? response = receiver.Dispatch(envelope);
 
-        TelemetryBatch decoded = MessagePackSerializer.Deserialize<TelemetryBatch>(response!);
-        PongMessage pong = MessagePackSerializer.Deserialize<PongMessage>(decoded.Payload);
+        TelemetryBatch decoded = WireCodec.Deserialize<TelemetryBatch>(response!);
+        PongMessage pong = WireCodec.Deserialize<PongMessage>(decoded.Payload);
         pong.SessionId.Should().Be("live-session-42");
     }
 
@@ -140,7 +176,7 @@ public sealed class UdpReceiverDispatchTests {
     public void Dispatch_non_ping_batch_returns_null() {
         SessionAggregator agg = new();
         UdpReceiver receiver = NewReceiver(agg);
-        byte[] envelope = SerializeEnvelope(BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
+        byte[] envelope = SerializeEnvelope(BatchType.SessionMeta, WireCodec.Serialize(new SessionMeta {
             SessionId = "s",
             StartedUtcTicks = 0,
             StopwatchFrequency = 1,
@@ -164,6 +200,6 @@ public sealed class UdpReceiverDispatchTests {
             BatchType = batchType,
             Payload = payload,
         };
-        return MessagePackSerializer.Serialize(envelope);
+        return WireCodec.Serialize(envelope);
     }
 }

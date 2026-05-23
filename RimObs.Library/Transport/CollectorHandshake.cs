@@ -2,7 +2,6 @@ using System;
 using System.Net;
 using System.Net.Sockets;
 using Cryptiklemur.RimObs.Wire;
-using MessagePack;
 
 namespace Cryptiklemur.RimObs.Transport;
 
@@ -44,19 +43,19 @@ public static class CollectorHandshake {
             Sequence = 0,
             OwnerId = owner,
             BatchType = BatchType.Ping,
-            Payload = MessagePackSerializer.Serialize(ping),
+            Payload = WireCodec.Serialize(ping),
         };
-        return MessagePackSerializer.Serialize(envelope);
+        return WireCodec.Serialize(envelope);
     }
 
     internal static PongMessage? ParsePong(byte[] datagram) {
         try {
-            TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(datagram);
+            TelemetryBatch envelope = WireCodec.Deserialize<TelemetryBatch>(datagram);
             if (envelope.BatchType != BatchType.Pong)
                 return null;
-            return MessagePackSerializer.Deserialize<PongMessage>(envelope.Payload);
+            return WireCodec.Deserialize<PongMessage>(envelope.Payload);
         }
-        catch (MessagePackSerializationException) {
+        catch (WireFormatException) {
             return null;
         }
     }

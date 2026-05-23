@@ -1,0 +1,380 @@
+using System;
+
+namespace Cryptiklemur.RimObs.Wire;
+
+// Dependency-free MessagePack codec. The net48 library cannot ship MessagePack.dll (its dynamic
+// codegen references System.Reflection.Emit split facades that fail to bind under RimWorld's Unity
+// Mono, poisoning the mod's assembly load), so this codec encodes/decodes the MessagePack byte
+// format by hand via WireBufferWriter/WireBufferReader. Output is the same array-of-fields layout
+// MessagePack's generated formatters produce (sequential field -> array element n; byte[] -> bin),
+// so it stays interoperable with any standard MessagePack reader on the collector side.
+public static class WireCodec {
+    public static byte[] Serialize<T>(T value) where T : class {
+        switch (value) {
+            case TelemetryBatch v:
+                return Serialize(v);
+            case PingMessage v:
+                return Serialize(v);
+            case PongMessage v:
+                return Serialize(v);
+            case SessionMeta v:
+                return Serialize(v);
+            case SectionRegistrationsBatch v:
+                return Serialize(v);
+            case SectionBatch v:
+                return Serialize(v);
+            case MetricRegistrationsBatch v:
+                return Serialize(v);
+            case MetricsBatch v:
+                return Serialize(v);
+            case GcEventsBatch v:
+                return Serialize(v);
+            case AllocationsBatch v:
+                return Serialize(v);
+            case PatchConflictsBatch v:
+                return Serialize(v);
+            case TpsFpsBatch v:
+                return Serialize(v);
+            default:
+                throw new NotSupportedException($"WireCodec cannot serialize {typeof(T)}.");
+        }
+    }
+
+    public static T Deserialize<T>(byte[] data) where T : class {
+        if (data == null)
+            throw new ArgumentNullException(nameof(data));
+
+        Type t = typeof(T);
+        object result;
+        if (t == typeof(TelemetryBatch))
+            result = ReadTelemetryBatch(data);
+        else if (t == typeof(PingMessage))
+            result = ReadPingMessage(data);
+        else if (t == typeof(PongMessage))
+            result = ReadPongMessage(data);
+        else if (t == typeof(SessionMeta))
+            result = ReadSessionMeta(data);
+        else if (t == typeof(SectionRegistrationsBatch))
+            result = ReadSectionRegistrationsBatch(data);
+        else if (t == typeof(SectionBatch))
+            result = ReadSectionBatch(data);
+        else if (t == typeof(MetricRegistrationsBatch))
+            result = ReadMetricRegistrationsBatch(data);
+        else if (t == typeof(MetricsBatch))
+            result = ReadMetricsBatch(data);
+        else if (t == typeof(GcEventsBatch))
+            result = ReadGcEventsBatch(data);
+        else if (t == typeof(AllocationsBatch))
+            result = ReadAllocationsBatch(data);
+        else if (t == typeof(PatchConflictsBatch))
+            result = ReadPatchConflictsBatch(data);
+        else if (t == typeof(TpsFpsBatch))
+            result = ReadTpsFpsBatch(data);
+        else
+            throw new NotSupportedException($"WireCodec cannot deserialize {t}.");
+
+        return (T)result;
+    }
+
+    public static byte[] Serialize(TelemetryBatch value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(5);
+        writer.WriteInt32(value.SchemaVersion);
+        writer.WriteUInt64(value.Sequence);
+        writer.WriteString(value.OwnerId);
+        writer.WriteUInt8((byte)value.BatchType);
+        writer.WriteBinary(value.Payload);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(PingMessage value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(2);
+        writer.WriteString(value.OwnerId);
+        writer.WriteInt64(value.SentAtUtcTicks);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(PongMessage value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(4);
+        writer.WriteString(value.OwnerId);
+        writer.WriteInt64(value.PingSentAtUtcTicks);
+        writer.WriteString(value.CollectorVersion);
+        writer.WriteString(value.SessionId);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(SessionMeta value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(6);
+        writer.WriteString(value.SessionId);
+        writer.WriteInt64(value.StartedUtcTicks);
+        writer.WriteInt64(value.StopwatchFrequency);
+        writer.WriteInt64(value.AnchorTimestamp);
+        writer.WriteString(value.LibraryVersion);
+        writer.WriteString(value.GameVersion);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(SectionRegistrationsBatch value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(2);
+        WriteInt32Array(writer, value.SectionIds);
+        WriteStringArray(writer, value.Names);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(SectionBatch value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(4);
+        WriteInt32Array(writer, value.SectionIds);
+        WriteInt64Array(writer, value.ElapsedTicks);
+        WriteInt64Array(writer, value.StartTimestamps);
+        WriteInt32Array(writer, value.ParentIds);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(MetricRegistrationsBatch value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(4);
+        WriteInt32Array(writer, value.MetricIds);
+        WriteStringArray(writer, value.Names);
+        writer.WriteBinary(value.Kinds);
+        WriteStringArray(writer, value.Units);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(MetricsBatch value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(5);
+        WriteInt32Array(writer, value.MetricIds);
+        WriteStringArray(writer, value.LabelCanonicals);
+        writer.WriteBinary(value.Kinds);
+        WriteInt64Array(writer, value.Values);
+        WriteInt64Array(writer, value.SampleCounts);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(GcEventsBatch value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(7);
+        writer.WriteBinary(value.Generations);
+        writer.WriteBinary(value.PauseTypes);
+        WriteInt64Array(writer, value.HeapBefore);
+        WriteInt64Array(writer, value.HeapAfter);
+        WriteInt64Array(writer, value.DurationMicros);
+        WriteInt64Array(writer, value.Ticks);
+        WriteInt64Array(writer, value.AllocationRateBytesPerMinute);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(AllocationsBatch value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(4);
+        WriteInt64Array(writer, value.WindowStartTimestamps);
+        WriteInt64Array(writer, value.WindowDurationsMs);
+        WriteInt64Array(writer, value.BytesAllocated);
+        WriteInt64Array(writer, value.SamplesCount);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(PatchConflictsBatch value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(6);
+        WriteStringArray(writer, value.SectionNames);
+        WriteStringArray(writer, value.TargetMethods);
+        WriteStringArray(writer, value.OtherOwners);
+        writer.WriteBinary(value.PatchTypes);
+        WriteInt32Array(writer, value.Priorities);
+        WriteStringArray(writer, value.PatchMethods);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(TpsFpsBatch value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(3);
+        writer.WriteDouble(value.Tps);
+        writer.WriteDouble(value.Fps);
+        writer.WriteInt64(value.Tick);
+        return writer.ToArray();
+    }
+
+    private static TelemetryBatch ReadTelemetryBatch(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new TelemetryBatch {
+            SchemaVersion = reader.ReadInt32(),
+            Sequence = reader.ReadUInt64(),
+            OwnerId = reader.ReadString() ?? string.Empty,
+            BatchType = (BatchType)reader.ReadUInt8(),
+            Payload = reader.ReadBinary() ?? Array.Empty<byte>(),
+        };
+    }
+
+    private static PingMessage ReadPingMessage(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new PingMessage {
+            OwnerId = reader.ReadString() ?? string.Empty,
+            SentAtUtcTicks = reader.ReadInt64(),
+        };
+    }
+
+    private static PongMessage ReadPongMessage(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new PongMessage {
+            OwnerId = reader.ReadString() ?? string.Empty,
+            PingSentAtUtcTicks = reader.ReadInt64(),
+            CollectorVersion = reader.ReadString() ?? string.Empty,
+            SessionId = reader.ReadString(),
+        };
+    }
+
+    private static SessionMeta ReadSessionMeta(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new SessionMeta {
+            SessionId = reader.ReadString() ?? string.Empty,
+            StartedUtcTicks = reader.ReadInt64(),
+            StopwatchFrequency = reader.ReadInt64(),
+            AnchorTimestamp = reader.ReadInt64(),
+            LibraryVersion = reader.ReadString() ?? string.Empty,
+            GameVersion = reader.ReadString() ?? string.Empty,
+        };
+    }
+
+    private static SectionRegistrationsBatch ReadSectionRegistrationsBatch(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new SectionRegistrationsBatch {
+            SectionIds = ReadInt32Array(reader),
+            Names = ReadStringArray(reader),
+        };
+    }
+
+    private static SectionBatch ReadSectionBatch(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new SectionBatch {
+            SectionIds = ReadInt32Array(reader),
+            ElapsedTicks = ReadInt64Array(reader),
+            StartTimestamps = ReadInt64Array(reader),
+            ParentIds = ReadInt32Array(reader),
+        };
+    }
+
+    private static MetricRegistrationsBatch ReadMetricRegistrationsBatch(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new MetricRegistrationsBatch {
+            MetricIds = ReadInt32Array(reader),
+            Names = ReadStringArray(reader),
+            Kinds = reader.ReadBinary() ?? Array.Empty<byte>(),
+            Units = ReadStringArray(reader),
+        };
+    }
+
+    private static MetricsBatch ReadMetricsBatch(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new MetricsBatch {
+            MetricIds = ReadInt32Array(reader),
+            LabelCanonicals = ReadStringArray(reader),
+            Kinds = reader.ReadBinary() ?? Array.Empty<byte>(),
+            Values = ReadInt64Array(reader),
+            SampleCounts = ReadInt64Array(reader),
+        };
+    }
+
+    private static GcEventsBatch ReadGcEventsBatch(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new GcEventsBatch {
+            Generations = reader.ReadBinary() ?? Array.Empty<byte>(),
+            PauseTypes = reader.ReadBinary() ?? Array.Empty<byte>(),
+            HeapBefore = ReadInt64Array(reader),
+            HeapAfter = ReadInt64Array(reader),
+            DurationMicros = ReadInt64Array(reader),
+            Ticks = ReadInt64Array(reader),
+            AllocationRateBytesPerMinute = ReadInt64Array(reader),
+        };
+    }
+
+    private static AllocationsBatch ReadAllocationsBatch(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new AllocationsBatch {
+            WindowStartTimestamps = ReadInt64Array(reader),
+            WindowDurationsMs = ReadInt64Array(reader),
+            BytesAllocated = ReadInt64Array(reader),
+            SamplesCount = ReadInt64Array(reader),
+        };
+    }
+
+    private static PatchConflictsBatch ReadPatchConflictsBatch(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new PatchConflictsBatch {
+            SectionNames = ReadStringArray(reader),
+            TargetMethods = ReadStringArray(reader),
+            OtherOwners = ReadStringArray(reader),
+            PatchTypes = reader.ReadBinary() ?? Array.Empty<byte>(),
+            Priorities = ReadInt32Array(reader),
+            PatchMethods = ReadStringArray(reader),
+        };
+    }
+
+    private static TpsFpsBatch ReadTpsFpsBatch(byte[] data) {
+        WireBufferReader reader = new WireBufferReader(data);
+        reader.ReadArrayHeader();
+        return new TpsFpsBatch {
+            Tps = reader.ReadDouble(),
+            Fps = reader.ReadDouble(),
+            Tick = reader.ReadInt64(),
+        };
+    }
+
+    private static void WriteInt32Array(WireBufferWriter writer, int[] values) {
+        writer.WriteArrayHeader(values.Length);
+        for (int i = 0; i < values.Length; i++)
+            writer.WriteInt32(values[i]);
+    }
+
+    private static void WriteInt64Array(WireBufferWriter writer, long[] values) {
+        writer.WriteArrayHeader(values.Length);
+        for (int i = 0; i < values.Length; i++)
+            writer.WriteInt64(values[i]);
+    }
+
+    private static void WriteStringArray(WireBufferWriter writer, string[] values) {
+        writer.WriteArrayHeader(values.Length);
+        for (int i = 0; i < values.Length; i++)
+            writer.WriteString(values[i]);
+    }
+
+    private static int[] ReadInt32Array(WireBufferReader reader) {
+        int count = reader.ReadArrayHeader();
+        int[] result = new int[count];
+        for (int i = 0; i < count; i++)
+            result[i] = reader.ReadInt32();
+        return result;
+    }
+
+    private static long[] ReadInt64Array(WireBufferReader reader) {
+        int count = reader.ReadArrayHeader();
+        long[] result = new long[count];
+        for (int i = 0; i < count; i++)
+            result[i] = reader.ReadInt64();
+        return result;
+    }
+
+    private static string[] ReadStringArray(WireBufferReader reader) {
+        int count = reader.ReadArrayHeader();
+        string[] result = new string[count];
+        for (int i = 0; i < count; i++)
+            result[i] = reader.ReadString() ?? string.Empty;
+        return result;
+    }
+}

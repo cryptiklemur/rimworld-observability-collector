@@ -57,15 +57,14 @@
     </ItemGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\RimObs.Wire\RimObs.Wire.csproj"/>
+        <ProjectReference Include="..\RimObs.Wire\RimObs.Wire.csproj">
+            <Private>True</Private>
+        </ProjectReference>
         <InternalsVisibleTo Include="RimObs.Library.Tests"/>
     </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Lib.Harmony" Version="2.4.2"/>
-        <PackageReference Include="MessagePack" Version="2.5.187">
-            <ExcludeAssets>none</ExcludeAssets>
-        </PackageReference>
         <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies.net48" Version="1.0.3" PrivateAssets="all">
             <IncludeAssets>compile; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>

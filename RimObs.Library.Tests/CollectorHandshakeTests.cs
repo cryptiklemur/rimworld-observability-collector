@@ -5,7 +5,6 @@ using System.Threading;
 using Cryptiklemur.RimObs.Transport;
 using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
-using MessagePack;
 using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
@@ -15,10 +14,10 @@ public sealed class CollectorHandshakeTests {
     public void BuildPingEnvelope_round_trips_to_ping_message_with_owner() {
         byte[] datagram = CollectorHandshake.BuildPingEnvelope("my.mod");
 
-        TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(datagram);
+        TelemetryBatch envelope = WireCodec.Deserialize<TelemetryBatch>(datagram);
         envelope.BatchType.Should().Be(BatchType.Ping);
         envelope.SchemaVersion.Should().Be(SchemaVersion.Current);
-        PingMessage ping = MessagePackSerializer.Deserialize<PingMessage>(envelope.Payload);
+        PingMessage ping = WireCodec.Deserialize<PingMessage>(envelope.Payload);
         ping.OwnerId.Should().Be("my.mod");
         ping.SentAtUtcTicks.Should().BeGreaterThan(0);
     }
@@ -113,10 +112,10 @@ public sealed class CollectorHandshakeTests {
                     break;
                 }
 
-                TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(datagram);
+                TelemetryBatch envelope = WireCodec.Deserialize<TelemetryBatch>(datagram);
                 if (envelope.BatchType != BatchType.Ping)
                     continue;
-                PingMessage ping = MessagePackSerializer.Deserialize<PingMessage>(envelope.Payload);
+                PingMessage ping = WireCodec.Deserialize<PingMessage>(envelope.Payload);
                 byte[] pong = BuildPong(ping.OwnerId, ping.SentAtUtcTicks, _version, _sessionId);
                 _client.Send(pong, pong.Length, remote);
             }
@@ -134,9 +133,9 @@ public sealed class CollectorHandshakeTests {
                 Sequence = 0,
                 OwnerId = "collector",
                 BatchType = BatchType.Pong,
-                Payload = MessagePackSerializer.Serialize(pong),
+                Payload = WireCodec.Serialize(pong),
             };
-            return MessagePackSerializer.Serialize(envelope);
+            return WireCodec.Serialize(envelope);
         }
 
         public void Dispose() {
