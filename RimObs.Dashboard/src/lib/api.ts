@@ -201,18 +201,29 @@ export interface InstrumentationSearchResponse {
 
 export interface InstrumentationPatchEntry {
     id: number;
-    type_full_name: string;
-    method_name: string;
-    param_types_joined: string;
-    created_utc: string;
-    last_status: 'pending' | 'active' | 'stale';
-    last_error: string | null;
+    typeFullName: string;
+    methodName: string;
+    paramTypesJoined: string;
+    createdUtc: string;
+    lastStatus: 'pending' | 'active' | 'stale';
+    lastError: string | null;
 }
 
 export interface InstrumentationPatchesResponse {
     schema_version: number;
     persisted: InstrumentationPatchEntry[];
-    live?: { PatchId: number; Signature: string; SectionId: number; Status: string }[];
+    live?: { patchId: number; signature: string; sectionId: number; status: string }[];
+}
+
+export interface InstrumentationPatchResult {
+    schema_version: number;
+    patch: {
+        patchId: number;
+        sectionId: number;
+        sectionName: string;
+        status: string;
+        errorReason: string | null;
+    };
 }
 
 export class ApiError extends Error {
@@ -255,14 +266,18 @@ export const api = {
     instrumentationSearch: (q: string, limit = 50) =>
         get<InstrumentationSearchResponse>(`/api/v1/instrumentation/search?q=${encodeURIComponent(q)}&limit=${limit}`),
     instrumentationPatches: () => get<InstrumentationPatchesResponse>('/api/v1/instrumentation/patches'),
-    instrumentationPatch: async (req: { typeFullName: string; methodName: string; paramTypeFullNames: string[] }) => {
+    instrumentationPatch: async (req: {
+        typeFullName: string;
+        methodName: string;
+        paramTypeFullNames: string[];
+    }): Promise<InstrumentationPatchResult> => {
         const res = await fetch('/api/v1/instrumentation/patch', {
             method: 'POST',
             headers: { 'content-type': 'application/json', accept: 'application/json' },
             body: JSON.stringify(req),
         });
         if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`);
-        return res.json();
+        return res.json() as Promise<InstrumentationPatchResult>;
     },
     instrumentationUnpatch: async (id: number) => {
         const res = await fetch(`/api/v1/instrumentation/patches/${id}`, { method: 'DELETE' });
