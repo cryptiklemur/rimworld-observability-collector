@@ -31,11 +31,11 @@ public sealed class CollectorScannerTests {
         using TempDirectory root = new TempDirectory();
         WriteMod(root.Path, "good", "2.0.0", windows: true);
 
-        string missingManifest = Path.Combine(root.Path, "no-manifest", "Assemblies", "Collector");
+        string missingManifest = Path.Combine(root.Path, "no-manifest", "Collector");
         Directory.CreateDirectory(missingManifest);
         File.WriteAllText(Path.Combine(missingManifest, "Collector.exe"), "binary");
 
-        string missingExe = Path.Combine(root.Path, "no-exe", "Assemblies", "Collector");
+        string missingExe = Path.Combine(root.Path, "no-exe", "Collector");
         Directory.CreateDirectory(missingExe);
         File.WriteAllText(Path.Combine(missingExe, "Collector.version"), Manifest("1.5.0"));
 
@@ -60,7 +60,7 @@ public sealed class CollectorScannerTests {
     [Fact]
     public void Scan_skips_mods_with_corrupt_manifest() {
         using TempDirectory root = new TempDirectory();
-        string badDir = Path.Combine(root.Path, "broken", "Assemblies", "Collector");
+        string badDir = Path.Combine(root.Path, "broken", "Collector");
         Directory.CreateDirectory(badDir);
         File.WriteAllText(Path.Combine(badDir, "Collector.exe"), "binary");
         File.WriteAllText(Path.Combine(badDir, "Collector.version"), "{ not json");
@@ -85,12 +85,58 @@ public sealed class CollectorScannerTests {
             new[] { new Version(1, 0, 0), new Version(2, 5, 0), new Version(2, 5, 1) });
     }
 
+    [Fact]
+    public void Scan_finds_candidate_under_rid_subfolder() {
+        using TempDirectory root = new TempDirectory();
+        WriteModWithRid(root.Path, "linux-mod", "linux-x64", "4.2.0", windows: false);
+
+        var candidates = CollectorScanner.Scan(root.Path);
+
+        candidates.Should().HaveCount(1);
+        candidates[0].Version.Should().Be(new Version(4, 2, 0));
+        candidates[0].ExecutablePath.Should().Contain("linux-x64");
+    }
+
+    [Fact]
+    public void Scan_picks_highest_across_multiple_rid_subfolders() {
+        using TempDirectory root = new TempDirectory();
+        WriteModWithRid(root.Path, "multi", "linux-x64", "1.0.0", windows: false);
+        WriteModWithRid(root.Path, "multi", "win-x64", "1.0.0", windows: true);
+
+        var candidates = CollectorScanner.Scan(root.Path);
+
+        candidates.Should().HaveCount(2);
+        CollectorDiscovery.SelectHighest(candidates)!.Version.Should().Be(new Version(1, 0, 0));
+    }
+
+    [Fact]
+    public void Scan_ignores_collector_under_assemblies_tree() {
+        // RimWorld force-loads everything under Assemblies/ into Mono and the net10 collector
+        // crashes it. The collector under Assemblies/ must be invisible to discovery so we never
+        // ship there by accident.
+        using TempDirectory root = new TempDirectory();
+        string buried = Path.Combine(root.Path, "legacy", "Assemblies", "Collector");
+        Directory.CreateDirectory(buried);
+        File.WriteAllText(Path.Combine(buried, "Collector.version"), Manifest("9.9.9"));
+        File.WriteAllText(Path.Combine(buried, "Collector"), "binary");
+
+        CollectorScanner.Scan(root.Path).Should().BeEmpty();
+    }
+
     private static void WriteMod(string root, string modId, string version, bool windows) {
-        string collectorDir = Path.Combine(root, modId, "Assemblies", "Collector");
+        string collectorDir = Path.Combine(root, modId, "Collector");
         Directory.CreateDirectory(collectorDir);
         File.WriteAllText(Path.Combine(collectorDir, "Collector.version"), Manifest(version));
         string exeName = windows ? "Collector.exe" : "Collector";
         File.WriteAllText(Path.Combine(collectorDir, exeName), "binary");
+    }
+
+    private static void WriteModWithRid(string root, string modId, string rid, string version, bool windows) {
+        string ridDir = Path.Combine(root, modId, "Collector", rid);
+        Directory.CreateDirectory(ridDir);
+        File.WriteAllText(Path.Combine(ridDir, "Collector.version"), Manifest(version));
+        string exeName = windows ? "Collector.exe" : "Collector";
+        File.WriteAllText(Path.Combine(ridDir, exeName), "binary");
     }
 
     private static string Manifest(string version) =>

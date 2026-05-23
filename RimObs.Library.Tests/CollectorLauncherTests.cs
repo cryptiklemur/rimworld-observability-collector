@@ -6,7 +6,6 @@ using System.Threading;
 using Cryptiklemur.RimObs.Transport;
 using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
-using MessagePack;
 using Xunit;
 
 namespace Cryptiklemur.RimObs.Tests;
@@ -17,6 +16,18 @@ public sealed class CollectorLauncherTests {
         CollectorCandidate.ParseLooseSemver("1.2.3").Should().Be(new Version(1, 2, 3));
         CollectorCandidate.ParseLooseSemver("1.2.3-beta.5").Should().Be(new Version(1, 2, 3));
         CollectorCandidate.ParseLooseSemver("2.0.1+build.99").Should().Be(new Version(2, 0, 1));
+    }
+
+    [Fact]
+    public void BuildLaunchArguments_includes_port_and_parent_pid() {
+        CollectorLauncher.BuildLaunchArguments(45678, 1234)
+            .Should().Be("serve --port 45678 --parent-pid 1234");
+    }
+
+    [Fact]
+    public void BuildLaunchArguments_omits_parent_pid_when_not_provided() {
+        CollectorLauncher.BuildLaunchArguments(45678, 0)
+            .Should().Be("serve --port 45678");
     }
 
     [Fact]
@@ -223,10 +234,10 @@ public sealed class CollectorLauncherTests {
                 }
 
                 try {
-                    TelemetryBatch envelope = MessagePackSerializer.Deserialize<TelemetryBatch>(datagram);
+                    TelemetryBatch envelope = WireCodec.Deserialize<TelemetryBatch>(datagram);
                     if (envelope.BatchType != BatchType.Ping)
                         continue;
-                    PingMessage ping = MessagePackSerializer.Deserialize<PingMessage>(envelope.Payload);
+                    PingMessage ping = WireCodec.Deserialize<PingMessage>(envelope.Payload);
                     PongMessage pong = new() {
                         OwnerId = ping.OwnerId,
                         PingSentAtUtcTicks = ping.SentAtUtcTicks,
@@ -238,12 +249,12 @@ public sealed class CollectorLauncherTests {
                         Sequence = 0,
                         OwnerId = "collector",
                         BatchType = BatchType.Pong,
-                        Payload = MessagePackSerializer.Serialize(pong),
+                        Payload = WireCodec.Serialize(pong),
                     };
-                    byte[] bytes = MessagePackSerializer.Serialize(pongEnvelope);
+                    byte[] bytes = WireCodec.Serialize(pongEnvelope);
                     _client.Send(bytes, bytes.Length, remote);
                 }
-                catch (MessagePackSerializationException) {
+                catch (WireFormatException) {
                     // Ignore stray/malformed datagrams.
                 }
             }

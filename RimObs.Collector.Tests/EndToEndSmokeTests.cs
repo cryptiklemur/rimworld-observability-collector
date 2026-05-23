@@ -4,7 +4,6 @@ using System.Text.Json;
 using Cryptiklemur.RimObs.Collector.Hosting;
 using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
-using MessagePack;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.Extensions.DependencyInjection;
 using Xunit;
@@ -19,6 +18,12 @@ public sealed class EndToEndSmokeTests {
         _out = output;
     }
 
+    // Asks the OS for a free ephemeral port, then releases it so the collector can bind it.
+    // There is an inherent TOCTOU window between Stop() and the app re-binding the port;
+    // another process could grab it first. In practice the window is sub-millisecond on
+    // loopback and these tests run serially (see AssemblyInfo's DisableTestParallelization),
+    // so collisions have not been observed. If they ever do, the fix is a bind-retry loop,
+    // not a wider port range.
     private static int PickFreePort() {
         TcpListener listener = new(IPAddress.Loopback, 0);
         listener.Start();
@@ -40,7 +45,7 @@ public sealed class EndToEndSmokeTests {
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
+            SendBatch(port, BatchType.SessionMeta, WireCodec.Serialize(new SessionMeta {
                 SessionId = "smoke-session",
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
@@ -49,12 +54,12 @@ public sealed class EndToEndSmokeTests {
                 GameVersion = "1.6",
             }));
 
-            SendBatch(port, BatchType.SectionRegistrations, MessagePackSerializer.Serialize(new SectionRegistrationsBatch {
+            SendBatch(port, BatchType.SectionRegistrations, WireCodec.Serialize(new SectionRegistrationsBatch {
                 SectionIds = [42, 43],
                 Names = ["smoke.tick", "smoke.path"],
             }));
 
-            SendBatch(port, BatchType.Sections, MessagePackSerializer.Serialize(new SectionBatch {
+            SendBatch(port, BatchType.Sections, WireCodec.Serialize(new SectionBatch {
                 SectionIds = [42, 42, 43],
                 StartTimestamps = [1000, 2000, 3000],
                 ElapsedTicks = [500, 600, 700],
@@ -105,7 +110,7 @@ public sealed class EndToEndSmokeTests {
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.GcEvents, MessagePackSerializer.Serialize(new GcEventsBatch {
+            SendBatch(port, BatchType.GcEvents, WireCodec.Serialize(new GcEventsBatch {
                 Generations = [0, 1, 2],
                 PauseTypes = [0, 0, 1],
                 HeapBefore = [100, 200, 300],
@@ -115,7 +120,7 @@ public sealed class EndToEndSmokeTests {
                 AllocationRateBytesPerMinute = [1000, 2000, 3000],
             }));
 
-            SendBatch(port, BatchType.Allocations, MessagePackSerializer.Serialize(new AllocationsBatch {
+            SendBatch(port, BatchType.Allocations, WireCodec.Serialize(new AllocationsBatch {
                 WindowStartTimestamps = [10, 20],
                 WindowDurationsMs = [5, 5],
                 BytesAllocated = [4096, 8192],
@@ -157,7 +162,7 @@ public sealed class EndToEndSmokeTests {
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.GcEvents, MessagePackSerializer.Serialize(new GcEventsBatch {
+            SendBatch(port, BatchType.GcEvents, WireCodec.Serialize(new GcEventsBatch {
                 Generations = [0, 1, 2],
                 PauseTypes = [0, 0, 1],
                 HeapBefore = [100, 200, 300],
@@ -298,7 +303,7 @@ public sealed class EndToEndSmokeTests {
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
+            SendBatch(port, BatchType.SessionMeta, WireCodec.Serialize(new SessionMeta {
                 SessionId = "hot-session",
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
@@ -307,12 +312,12 @@ public sealed class EndToEndSmokeTests {
                 GameVersion = "1.6",
             }));
 
-            SendBatch(port, BatchType.SectionRegistrations, MessagePackSerializer.Serialize(new SectionRegistrationsBatch {
+            SendBatch(port, BatchType.SectionRegistrations, WireCodec.Serialize(new SectionRegistrationsBatch {
                 SectionIds = [10, 20, 30],
                 Names = ["hot.cold", "hot.warm", "hot.peak"],
             }));
 
-            SendBatch(port, BatchType.Sections, MessagePackSerializer.Serialize(new SectionBatch {
+            SendBatch(port, BatchType.Sections, WireCodec.Serialize(new SectionBatch {
                 SectionIds = [10, 20, 20, 30, 30, 30],
                 StartTimestamps = [1, 2, 3, 4, 5, 6],
                 ElapsedTicks = [100, 500, 500, 1000, 1000, 1000],
@@ -337,6 +342,11 @@ public sealed class EndToEndSmokeTests {
             hotspots[0].GetProperty("mean_ns").GetInt64().Should().BeGreaterThan(0);
             hotspots[0].GetProperty("sample_count").GetInt32().Should().Be(3);
             hotspots[1].GetProperty("sample_count").GetInt32().Should().Be(2);
+            hotspots[0].GetProperty("p50_ns").GetInt64().Should().BeGreaterThan(0);
+            hotspots[0].GetProperty("p95_ns").GetInt64()
+                .Should().BeGreaterOrEqualTo(hotspots[0].GetProperty("p50_ns").GetInt64());
+            hotspots[0].GetProperty("p99_ns").GetInt64()
+                .Should().BeGreaterOrEqualTo(hotspots[0].GetProperty("p95_ns").GetInt64());
         }
         finally {
             await app.StopAsync();
@@ -344,6 +354,72 @@ public sealed class EndToEndSmokeTests {
         }
     }
 
+    [Fact]
+    public async Task Section_timeseries_endpoint_returns_buckets_for_known_section_and_404_for_unknown() {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            SendBatch(port, BatchType.SessionMeta, WireCodec.Serialize(new SessionMeta {
+                SessionId = "ts-session",
+                StartedUtcTicks = DateTime.UtcNow.Ticks,
+                StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                LibraryVersion = "0.0.0-smoke",
+                GameVersion = "1.6",
+            }));
+
+            SendBatch(port, BatchType.SectionRegistrations, WireCodec.Serialize(new SectionRegistrationsBatch {
+                SectionIds = [77],
+                Names = ["ts.section"],
+            }));
+
+            SendBatch(port, BatchType.Sections, WireCodec.Serialize(new SectionBatch {
+                SectionIds = [77, 77, 77, 77],
+                StartTimestamps = [1, 2, 3, 4],
+                ElapsedTicks = [100, 200, 300, 400],
+            }));
+
+            await WaitFor(async () => {
+                string body = await http.GetStringAsync("/api/v1/status");
+                using JsonDocument doc = JsonDocument.Parse(body);
+                int sectionCount = doc.RootElement.GetProperty("receive").GetProperty("section_count").GetInt32();
+                return sectionCount >= 1;
+            }, TimeSpan.FromSeconds(3));
+
+            string body = await http.GetStringAsync("/api/v1/sessions/current/sections/77/timeseries");
+            _out.WriteLine($"timeseries: {body}");
+            using JsonDocument doc = JsonDocument.Parse(body);
+            doc.RootElement.GetProperty("id").GetInt32().Should().Be(77);
+            doc.RootElement.GetProperty("name").GetString().Should().Be("ts.section");
+            doc.RootElement.GetProperty("bucket_seconds").GetInt32().Should().Be(1);
+            JsonElement points = doc.RootElement.GetProperty("points");
+            points.GetArrayLength().Should().BeGreaterOrEqualTo(1);
+            long totalCount = 0;
+            long totalNs = 0;
+            foreach (JsonElement p in points.EnumerateArray()) {
+                totalCount += p.GetProperty("count").GetInt64();
+                totalNs += p.GetProperty("total_ns").GetInt64();
+                p.GetProperty("mean_ns").GetInt64().Should().BeGreaterThan(0);
+            }
+            totalCount.Should().Be(4);
+            totalNs.Should().BeGreaterThan(0);
+
+            HttpResponseMessage missing = await http.GetAsync("/api/v1/sessions/current/sections/9999/timeseries");
+            missing.StatusCode.Should().Be(System.Net.HttpStatusCode.NotFound);
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
 
     [Fact]
     public async Task Call_tree_endpoint_returns_nested_roots_from_parent_ids() {
@@ -358,7 +434,7 @@ public sealed class EndToEndSmokeTests {
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
+            SendBatch(port, BatchType.SessionMeta, WireCodec.Serialize(new SessionMeta {
                 SessionId = "tree-session",
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
@@ -367,12 +443,12 @@ public sealed class EndToEndSmokeTests {
                 GameVersion = "1.6",
             }));
 
-            SendBatch(port, BatchType.SectionRegistrations, MessagePackSerializer.Serialize(new SectionRegistrationsBatch {
+            SendBatch(port, BatchType.SectionRegistrations, WireCodec.Serialize(new SectionRegistrationsBatch {
                 SectionIds = [10, 20],
                 Names = ["tree.root", "tree.child"],
             }));
 
-            SendBatch(port, BatchType.Sections, MessagePackSerializer.Serialize(new SectionBatch {
+            SendBatch(port, BatchType.Sections, WireCodec.Serialize(new SectionBatch {
                 SectionIds = [10, 20, 20],
                 ParentIds = [-1, 10, 10],
                 StartTimestamps = [1, 2, 3],
@@ -425,7 +501,7 @@ public sealed class EndToEndSmokeTests {
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
+            SendBatch(port, BatchType.SessionMeta, WireCodec.Serialize(new SessionMeta {
                 SessionId = "metrics-session",
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
@@ -434,14 +510,14 @@ public sealed class EndToEndSmokeTests {
                 GameVersion = "1.6",
             }));
 
-            SendBatch(port, BatchType.MetricRegistrations, MessagePackSerializer.Serialize(new MetricRegistrationsBatch {
+            SendBatch(port, BatchType.MetricRegistrations, WireCodec.Serialize(new MetricRegistrationsBatch {
                 MetricIds = [101, 102],
                 Names = ["my.mod.frames_drawn", "my.mod.heap_used"],
                 Kinds = [0, 1],
                 Units = ["count", "bytes"],
             }));
 
-            SendBatch(port, BatchType.Metrics, MessagePackSerializer.Serialize(new MetricsBatch {
+            SendBatch(port, BatchType.Metrics, WireCodec.Serialize(new MetricsBatch {
                 MetricIds = [101, 101, 102],
                 LabelCanonicals = ["scene=map", "scene=ui", ""],
                 Kinds = [0, 0, 1],
@@ -516,6 +592,7 @@ public sealed class EndToEndSmokeTests {
             string body = await http.GetStringAsync("/api/v1/logs?limit=10");
             _out.WriteLine($"logs: {body}");
             using JsonDocument doc = JsonDocument.Parse(body);
+            doc.RootElement.GetProperty("schema_version").GetInt32().Should().Be(SchemaVersion.Current);
             doc.RootElement.GetProperty("count").GetInt32().Should().Be(3);
             JsonElement entries = doc.RootElement.GetProperty("entries");
             entries[0].GetProperty("message").GetString().Should().Contain("boom");
@@ -533,6 +610,31 @@ public sealed class EndToEndSmokeTests {
             string capped = await http.GetStringAsync("/api/v1/logs?limit=2");
             using JsonDocument capDoc = JsonDocument.Parse(capped);
             capDoc.RootElement.GetProperty("count").GetInt32().Should().Be(2);
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Logs_endpoint_rejects_unknown_level_with_400() {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            HttpResponseMessage bad = await http.GetAsync("/api/v1/logs?level=Bogus");
+            bad.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+            using JsonDocument doc = JsonDocument.Parse(await bad.Content.ReadAsStringAsync());
+            doc.RootElement.GetProperty("schema_version").GetInt32().Should().Be(SchemaVersion.Current);
+            doc.RootElement.GetProperty("reason").GetString().Should().Contain("Bogus");
         }
         finally {
             await app.StopAsync();
@@ -586,7 +688,7 @@ public sealed class EndToEndSmokeTests {
                 return r.IsSuccessStatusCode;
             }, TimeSpan.FromSeconds(3));
 
-            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
+            SendBatch(port, BatchType.SessionMeta, WireCodec.Serialize(new SessionMeta {
                 SessionId = "ping-session",
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
@@ -607,9 +709,9 @@ public sealed class EndToEndSmokeTests {
                 Sequence = 1,
                 OwnerId = "smoke",
                 BatchType = BatchType.Ping,
-                Payload = MessagePackSerializer.Serialize(ping),
+                Payload = WireCodec.Serialize(ping),
             };
-            byte[] datagram = MessagePackSerializer.Serialize(envelope);
+            byte[] datagram = WireCodec.Serialize(envelope);
 
             using UdpClient client = new(AddressFamily.InterNetwork);
             client.Client.ReceiveTimeout = 2000;
@@ -618,9 +720,9 @@ public sealed class EndToEndSmokeTests {
 
             IPEndPoint remote = new(IPAddress.Any, 0);
             byte[] response = client.Receive(ref remote);
-            TelemetryBatch pongEnvelope = MessagePackSerializer.Deserialize<TelemetryBatch>(response);
+            TelemetryBatch pongEnvelope = WireCodec.Deserialize<TelemetryBatch>(response);
             pongEnvelope.BatchType.Should().Be(BatchType.Pong);
-            PongMessage pong = MessagePackSerializer.Deserialize<PongMessage>(pongEnvelope.Payload);
+            PongMessage pong = WireCodec.Deserialize<PongMessage>(pongEnvelope.Payload);
             pong.OwnerId.Should().Be("smoke.owner");
             pong.PingSentAtUtcTicks.Should().Be(999);
             pong.CollectorVersion.Should().Be(BuildInfo.Revision);
@@ -900,7 +1002,7 @@ public sealed class EndToEndSmokeTests {
             using (JsonDocument emptyDoc = JsonDocument.Parse(emptyList))
                 emptyDoc.RootElement.GetProperty("sessions").GetArrayLength().Should().Be(0);
 
-            SendBatch(port, BatchType.SessionMeta, MessagePackSerializer.Serialize(new SessionMeta {
+            SendBatch(port, BatchType.SessionMeta, WireCodec.Serialize(new SessionMeta {
                 SessionId = "sessions-smoke",
                 StartedUtcTicks = DateTime.UtcNow.Ticks,
                 StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
@@ -909,12 +1011,12 @@ public sealed class EndToEndSmokeTests {
                 GameVersion = "1.6",
             }));
 
-            SendBatch(port, BatchType.SectionRegistrations, MessagePackSerializer.Serialize(new SectionRegistrationsBatch {
+            SendBatch(port, BatchType.SectionRegistrations, WireCodec.Serialize(new SectionRegistrationsBatch {
                 SectionIds = [42, 43],
                 Names = ["smoke.tick", "smoke.path"],
             }));
 
-            SendBatch(port, BatchType.Sections, MessagePackSerializer.Serialize(new SectionBatch {
+            SendBatch(port, BatchType.Sections, WireCodec.Serialize(new SectionBatch {
                 SectionIds = [42, 42, 43],
                 StartTimestamps = [1000, 2000, 3000],
                 ElapsedTicks = [500, 600, 700],
@@ -1014,23 +1116,24 @@ public sealed class EndToEndSmokeTests {
             BatchType = type,
             Payload = payload,
         };
-        byte[] bytes = MessagePackSerializer.Serialize(envelope);
+        byte[] bytes = WireCodec.Serialize(envelope);
         using UdpClient client = new();
         client.Send(bytes, bytes.Length, "127.0.0.1", port);
     }
 
     private static async Task WaitFor(Func<Task<bool>> condition, TimeSpan timeout) {
         DateTime deadline = DateTime.UtcNow + timeout;
+        Exception? lastError = null;
         while (DateTime.UtcNow < deadline) {
             try {
                 if (await condition())
                     return;
             }
-            catch {
-                // retry
+            catch (Exception ex) {
+                lastError = ex;
             }
             await Task.Delay(50);
         }
-        throw new TimeoutException("WaitFor condition never became true");
+        throw new TimeoutException("WaitFor condition never became true", lastError);
     }
 }

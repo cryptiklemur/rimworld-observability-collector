@@ -15,16 +15,31 @@ public static class CollectorScanner {
             return results;
 
         foreach (string modDir in Directory.EnumerateDirectories(modsRoot)) {
-            string collectorDir = Path.Combine(modDir, "Assemblies", CollectorDirName);
-            if (!Directory.Exists(collectorDir))
-                continue;
-
-            CollectorCandidate? candidate = TryReadCandidate(collectorDir);
-            if (candidate != null)
-                results.Add(candidate);
+            // The collector lives in <mod>/Collector, NOT <mod>/Assemblies/Collector. RimWorld's
+            // ModAssemblyHandler loads every .dll under Assemblies/ recursively (SearchOption.AllDirectories),
+            // and the net10 collector assemblies crash Mono's custom-attribute reader. Keeping them out of
+            // the Assemblies/ tree is the only safe layout.
+            ReadCandidates(Path.Combine(modDir, CollectorDirName), results);
         }
 
         return results;
+    }
+
+    public static void ReadCandidates(string collectorBaseDir, List<CollectorCandidate> results) {
+        if (string.IsNullOrWhiteSpace(collectorBaseDir) || !Directory.Exists(collectorBaseDir))
+            return;
+
+        // Flat layout (single-runtime dev deploy): manifest + executable directly under <mod>/Collector.
+        CollectorCandidate? direct = TryReadCandidate(collectorBaseDir);
+        if (direct != null)
+            results.Add(direct);
+
+        // Per-rid layout (shipped multi-runtime deploy): <mod>/Collector/<rid>/.
+        foreach (string ridDir in Directory.EnumerateDirectories(collectorBaseDir)) {
+            CollectorCandidate? candidate = TryReadCandidate(ridDir);
+            if (candidate != null)
+                results.Add(candidate);
+        }
     }
 
     internal static CollectorCandidate? TryReadCandidate(string collectorDir) {
