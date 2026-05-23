@@ -1,5 +1,6 @@
 using System.Buffers;
 using Cryptiklemur.RimObs.Wire;
+using Cryptiklemur.RimObs.Wire.Control;
 using FluentAssertions;
 using MessagePack;
 using Xunit;
@@ -293,5 +294,34 @@ public sealed class WireCodecTests {
         decoded.SessionId.Should().Be("legacy");
         decoded.ControlPort.Should().Be(0);
         decoded.ControlSecret.Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public void ControlSearchRequest_round_trips() {
+        ControlSearchRequest req = new() { Query = "Path", Limit = 25 };
+        byte[] bytes = WireCodec.Serialize(req);
+        ControlSearchRequest back = WireCodec.Deserialize<ControlSearchRequest>(bytes);
+        back.Query.Should().Be("Path");
+        back.Limit.Should().Be(25);
+    }
+
+    [Fact]
+    public void ControlSearchResponse_round_trips_descriptors() {
+        ControlSearchResponse res = new() {
+            Results = [
+                new ControlMethodDescriptor {
+                    TypeFullName = "Verse.PathFinder",
+                    MethodName = "FindPath",
+                    Signature = "FindPath(IntVec3, IntVec3, TraverseParms)",
+                    ParamTypeFullNames = ["Verse.IntVec3", "Verse.IntVec3", "Verse.TraverseParms"],
+                    AssemblyName = "Assembly-CSharp",
+                },
+            ],
+        };
+        byte[] bytes = WireCodec.Serialize(res);
+        ControlSearchResponse back = WireCodec.Deserialize<ControlSearchResponse>(bytes);
+        back.Results.Should().HaveCount(1);
+        back.Results[0].Signature.Should().Be("FindPath(IntVec3, IntVec3, TraverseParms)");
+        back.Results[0].ParamTypeFullNames.Should().BeEquivalentTo(["Verse.IntVec3", "Verse.IntVec3", "Verse.TraverseParms"]);
     }
 }
