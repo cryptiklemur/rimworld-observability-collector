@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
     <name>RimWorld Observability</name>
-    <packageId>com.cryptiklemur.rimobs</packageId>
+    <packageId>CryptikLemur.RimObs</packageId>
     <author>CryptikLemur</author>
     <url>https://github.com/cryptiklemur/rimworld-observability-collector</url>
     <supportedVersions>
