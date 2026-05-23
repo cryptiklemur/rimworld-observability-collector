@@ -8,7 +8,7 @@ using Xunit;
 namespace Cryptiklemur.RimObs.Tests;
 
 public sealed class DiagnosticsTests : IDisposable {
-    private const string TestPackageId = "com.cryptiklemur.rimobs.tests";
+    private const string TestPackageId = "CryptikLemur.RimObs.tests";
 
     public DiagnosticsTests() {
         OwnerRegistry.Clear();

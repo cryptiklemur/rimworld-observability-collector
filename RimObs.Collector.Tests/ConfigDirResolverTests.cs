@@ -23,14 +23,14 @@ public sealed class ConfigDirResolverTests {
         using EnvVarScope _ = EnvVarScope.Set(ConfigDirResolver.EnvVarName, null);
         string result = ConfigDirResolver.Resolve(null);
         result.Should().NotBeNullOrWhiteSpace();
-        result.Should().EndWith("cryptiklemur.rimobs");
+        result.Should().EndWith("CryptikLemur.RimObs");
     }
 
     [Fact]
     public void Resolve_treats_whitespace_env_as_unset() {
         using EnvVarScope _ = EnvVarScope.Set(ConfigDirResolver.EnvVarName, "   ");
         string result = ConfigDirResolver.Resolve(null);
-        result.Should().EndWith("cryptiklemur.rimobs");
+        result.Should().EndWith("CryptikLemur.RimObs");
     }
 
     private sealed class EnvVarScope : IDisposable {
