@@ -17,7 +17,7 @@ public sealed class CollectorConfigClientTests {
         SectionHandle ui = SectionRegistry.Register("core.ui");
 
         CollectorConfigDocument document = CollectorConfigDocument.TryParse(
-            """{ "schema_version": 2, "sections": { "disabled": ["core.tick", "core.path"] } }"""
+            """{ "schema_version": 1, "sections": { "disabled": ["core.tick", "core.path"] } }"""
         )!;
         CollectorConfigClient.ApplyToRegistry(document);
 
@@ -46,7 +46,7 @@ public sealed class CollectorConfigClientTests {
         SectionHandle tick = SectionRegistry.Register("core.tick");
         SectionRegistry.SetActive(tick.Id, false);
 
-        CollectorConfigClient.ApplyToRegistry(CollectorConfigDocument.TryParse("""{ "schema_version": 2 }""")!);
+        CollectorConfigClient.ApplyToRegistry(CollectorConfigDocument.TryParse("""{ "schema_version": 1 }""")!);
 
         tick.IsActive().Should().BeTrue();
     }
