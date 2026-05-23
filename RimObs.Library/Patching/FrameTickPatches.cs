@@ -1,4 +1,5 @@
 using System.Reflection;
+using Cryptiklemur.RimObs.Library.Control;
 using Cryptiklemur.RimObs.Observers;
 using HarmonyLib;
 
@@ -15,6 +16,7 @@ internal static class FrameTickPatches {
 
         TryPatch(harmony, "Verse.TickManager:DoSingleTick", nameof(TickPostfix));
         TryPatch(harmony, "Verse.Root_Play:Update", nameof(FramePostfix));
+        TryPatchPrefix(harmony, "Verse.TickManager:DoSingleTick", nameof(DrainControlOpsPrefix));
     }
 
     private static void TryPatch(Harmony harmony, string targetName, string postfixName) {
@@ -26,6 +28,18 @@ internal static class FrameTickPatches {
         harmony.Patch(target, postfix: new HarmonyMethod(postfix));
         InstalledCount++;
     }
+
+    private static void TryPatchPrefix(Harmony harmony, string targetName, string prefixName) {
+        MethodBase? target = AccessTools.Method(targetName);
+        if (target == null)
+            return;
+
+        MethodInfo prefix = AccessTools.Method(typeof(FrameTickPatches), prefixName);
+        harmony.Patch(target, prefix: new HarmonyMethod(prefix));
+        InstalledCount++;
+    }
+
+    private static void DrainControlOpsPrefix() => ControlServices.Queue.Drain();
 
     private static void TickPostfix() => FrameTickCounters.RecordTick();
 
