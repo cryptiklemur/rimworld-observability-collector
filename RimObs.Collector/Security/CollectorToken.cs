@@ -14,8 +14,11 @@ public sealed class CollectorToken {
     public string Value { get; }
     public bool FromEnv { get; }
 
-    public static CollectorToken CreateFromEnvOrGenerate() {
-        string? envValue = Environment.GetEnvironmentVariable(EnvVarName);
+    public static CollectorToken CreateFromEnvOrGenerate() => CreateFromEnvOrGenerate(EnvVarName);
+
+    public static CollectorToken CreateFromEnvOrGenerate(string envVarName) {
+        string name = string.IsNullOrWhiteSpace(envVarName) ? EnvVarName : envVarName;
+        string? envValue = Environment.GetEnvironmentVariable(name);
         if (!string.IsNullOrWhiteSpace(envValue))
             return new CollectorToken(envValue, fromEnv: true);
         return new CollectorToken(Generate(), fromEnv: false);

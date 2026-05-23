@@ -43,6 +43,22 @@ public sealed class CollectorTokenTests {
         token.FromEnv.Should().BeFalse();
     }
 
+    [Fact]
+    public void CreateFromEnvOrGenerate_reads_custom_env_var_name() {
+        using EnvVarScope _ = EnvVarScope.Set("RIMOBS_CUSTOM_TOKEN", "custom-env-token");
+        CollectorToken token = CollectorToken.CreateFromEnvOrGenerate("RIMOBS_CUSTOM_TOKEN");
+        token.Value.Should().Be("custom-env-token");
+        token.FromEnv.Should().BeTrue();
+    }
+
+    [Fact]
+    public void CreateFromEnvOrGenerate_falls_back_to_default_name_when_blank() {
+        using EnvVarScope _ = EnvVarScope.Set(CollectorToken.EnvVarName, "default-name-token");
+        CollectorToken token = CollectorToken.CreateFromEnvOrGenerate("   ");
+        token.Value.Should().Be("default-name-token");
+        token.FromEnv.Should().BeTrue();
+    }
+
     [Theory]
     [InlineData("abc", "abc", true)]
     [InlineData("abc", "abd", false)]

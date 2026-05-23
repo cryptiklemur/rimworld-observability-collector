@@ -3,6 +3,8 @@ using System.Text.Json.Serialization;
 namespace Cryptiklemur.RimObs.Collector.Config;
 
 public sealed class RimObsConfig {
+    // Domain version of the config document. Used only to validate inbound POST
+    // payloads; API response envelopes carry Wire.SchemaVersion.Current instead.
     public const int Version = 1;
 
     public int SchemaVersion { get; set; } = Version;

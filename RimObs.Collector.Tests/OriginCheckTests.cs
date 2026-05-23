@@ -21,6 +21,16 @@ public sealed class OriginCheckTests {
     }
 
     [Theory]
+    [InlineData("POST", true, true)]
+    [InlineData("POST", false, false)]
+    [InlineData("DELETE", false, false)]
+    [InlineData("GET", true, false)]
+    [InlineData("GET", false, false)]
+    public void ShouldEnforce_only_when_csrf_enabled_and_method_mutating(string method, bool csrfEnabled, bool expected) {
+        OriginCheck.ShouldEnforce(method, csrfEnabled).Should().Be(expected);
+    }
+
+    [Theory]
     [InlineData("http://127.0.0.1:17654", 17654, true)]
     [InlineData("http://localhost:17654", 17654, true)]
     [InlineData("HTTP://127.0.0.1:17654", 17654, true)]

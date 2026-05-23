@@ -20,13 +20,33 @@ public static class RuntimeFiles {
         File.WriteAllText(portPath, port.ToString(System.Globalization.CultureInfo.InvariantCulture));
     }
 
+    public static void DeleteAll(string configDir) {
+        if (string.IsNullOrWhiteSpace(configDir))
+            return;
+
+        TryDelete(Path.Combine(configDir, TokenFileName));
+        TryDelete(Path.Combine(configDir, PortFileName));
+    }
+
+    private static void TryDelete(string path) {
+        try {
+            if (File.Exists(path))
+                File.Delete(path);
+        }
+        catch (IOException) {
+        }
+        catch (UnauthorizedAccessException) {
+        }
+    }
+
     private static void TryRestrictFilePermissions(string path) {
         if (!OperatingSystem.IsLinux() && !OperatingSystem.IsMacOS())
             return;
         try {
             File.SetUnixFileMode(path, UnixFileMode.UserRead | UnixFileMode.UserWrite);
         }
-        catch {
+        catch (Exception ex) when (ex is IOException or UnauthorizedAccessException) {
+            // Best-effort hardening: a filesystem that rejects chmod (network mount, restricted FS) is non-fatal.
         }
     }
 }
