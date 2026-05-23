@@ -1,5 +1,6 @@
 using System;
 using Cryptiklemur.RimObs.Observers;
+using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
 using Xunit;
 
