@@ -33,8 +33,6 @@
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-        <DebugSymbols>true</DebugSymbols>
-        <DebugType>portable</DebugType>
         <Optimize>true</Optimize>
         <DefineConstants>TRACE</DefineConstants>
     </PropertyGroup>
