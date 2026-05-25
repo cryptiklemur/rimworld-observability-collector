@@ -50,7 +50,7 @@
         justify-content: space-between;
         padding: 0 1.4rem;
         border-bottom: 1px solid var(--border-soft);
-        background: rgba(11, 14, 20, 0.55);
+        background: color-mix(in srgb, var(--bg-base) 55%, transparent);
         backdrop-filter: blur(6px);
         position: sticky;
         top: 0;

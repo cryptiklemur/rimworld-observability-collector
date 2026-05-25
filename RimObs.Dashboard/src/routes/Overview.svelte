@@ -17,6 +17,7 @@
                 tone="good"
                 label={t('overview.tps')}
                 value={rate(r.tps)}
+                tooltip={t('tip.overview.tps')}
             />
         {/if}
         {#if r.fps !== null}
@@ -25,6 +26,7 @@
                 tone="cyan"
                 label={t('overview.fps')}
                 value={rate(r.fps)}
+                tooltip={t('tip.overview.fps')}
             />
         {/if}
         <StatCard
@@ -32,36 +34,42 @@
             tone="cyan"
             label={t('overview.batches')}
             value={count(r.total_batches)}
+            tooltip={t('tip.overview.batches')}
         />
         <StatCard
             icon="metric"
             tone="cyan"
             label={t('overview.samples')}
             value={count(r.total_samples)}
+            tooltip={t('tip.overview.samples')}
         />
         <StatCard
             icon="flame"
             tone="ember"
             label={t('overview.sections')}
             value={count(r.section_count)}
+            tooltip={t('tip.overview.sections')}
         />
         <StatCard
             icon="memory"
             tone="warn"
             label={t('overview.gc')}
             value={count(r.total_gc_events)}
+            tooltip={t('tip.overview.gc')}
         />
         <StatCard
             icon="metric"
             tone="warn"
             label={t('overview.allocations')}
             value={count(r.total_allocations)}
+            tooltip={t('tip.overview.allocations')}
         />
         <StatCard
             icon="logs"
             tone="good"
             label={t('overview.bytes')}
             value={bytes(r.total_bytes)}
+            tooltip={t('tip.overview.bytes')}
         />
     </div>
 

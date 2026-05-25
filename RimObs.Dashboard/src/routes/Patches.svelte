@@ -2,6 +2,7 @@
     import { api, type PatchesResponse, type PatchConflict } from '../lib/api';
     import { Resource } from '../lib/poll.svelte';
     import DataState from '../lib/components/DataState.svelte';
+    import Tooltip from '../lib/components/Tooltip.svelte';
     import { patchType } from '../lib/format';
     import { t } from '../lib/i18n';
     import { onMount, onDestroy } from 'svelte';
@@ -51,15 +52,17 @@
                 </header>
                 <div class="table">
                     <div class="head">
-                        <span>{t('patches.col.owner')}</span>
-                        <span>{t('patches.col.type')}</span>
-                        <span class="num">{t('patches.col.priority')}</span>
-                        <span>{t('patches.col.method')}</span>
+                        <Tooltip text={t('tip.patches.owner')}>{t('patches.col.owner')}</Tooltip>
+                        <Tooltip text={t('tip.patches.type')}>{t('patches.col.type')}</Tooltip>
+                        <Tooltip text={t('tip.patches.priority')} align="end">{t('patches.col.priority')}</Tooltip>
+                        <Tooltip text={t('tip.patches.method')}>{t('patches.col.method')}</Tooltip>
                     </div>
                     {#each g.rows as c, i (c.other_owner + c.patch_method + i)}
                         <div class="rowline">
                             <span class="owner mono">{c.other_owner}</span>
-                            <span class="type pt{c.patch_type}">{patchType(c.patch_type)}</span>
+                            <Tooltip text={t('tip.patches.type')}>
+                                <span class="type pt{c.patch_type}">{patchType(c.patch_type)}</span>
+                            </Tooltip>
                             <span class="num mono dim">{c.priority}</span>
                             <span class="method mono dim">{c.patch_method}</span>
                         </div>
@@ -112,6 +115,9 @@
         font-size: 0.74rem;
         color: var(--text-faint);
     }
+    .table {
+        overflow-x: auto;
+    }
     .head,
     .rowline {
         display: grid;
@@ -119,6 +125,7 @@
         gap: 0.75rem;
         align-items: center;
         padding: 0.5rem 0.9rem;
+        min-width: 480px;
     }
     .head {
         font-size: 0.68rem;
@@ -129,6 +136,7 @@
     }
     .rowline {
         border-bottom: 1px solid var(--border-soft);
+        transition: background var(--t-fast) var(--ease-out);
     }
     .rowline:last-child {
         border-bottom: none;

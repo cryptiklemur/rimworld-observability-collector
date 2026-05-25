@@ -2,6 +2,7 @@
     import { api, type MetricsResponse } from '../lib/api';
     import { Resource } from '../lib/poll.svelte';
     import DataState from '../lib/components/DataState.svelte';
+    import Tooltip from '../lib/components/Tooltip.svelte';
     import { count, metricKind } from '../lib/format';
     import { t } from '../lib/i18n';
     import { onMount, onDestroy } from 'svelte';
@@ -24,8 +25,14 @@
             <article class="metric">
                 <header>
                     <span class="name mono">{m.name}</span>
-                    <span class="kind k{m.kind}">{metricKind(m.kind)}</span>
-                    {#if m.unit}<span class="unit">{m.unit}</span>{/if}
+                    <Tooltip text={t('tip.metrics.kind')}>
+                        <span class="kind k{m.kind}">{metricKind(m.kind)}</span>
+                    </Tooltip>
+                    {#if m.unit}
+                        <Tooltip text={t('tip.metrics.unit')}>
+                            <span class="unit">{m.unit}</span>
+                        </Tooltip>
+                    {/if}
                 </header>
                 <div class="labels">
                     {#each m.labels as l (l.canonical)}

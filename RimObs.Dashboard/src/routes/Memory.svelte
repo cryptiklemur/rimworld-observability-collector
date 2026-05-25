@@ -5,6 +5,7 @@
     import StatCard from '../lib/components/StatCard.svelte';
     import Card from '../lib/components/Card.svelte';
     import LineChart from '../lib/components/LineChart.svelte';
+    import Tooltip from '../lib/components/Tooltip.svelte';
     import { bytes, count } from '../lib/format';
     import { pauseLabel, genLabel, summarize, heapSeries } from '../lib/gc';
     import { t } from '../lib/i18n';
@@ -40,18 +41,21 @@
             tone="cyan"
             label={t('memory.stat.currentHeap')}
             value={bytes(summary.currentHeap)}
+            tooltip={t('tip.memory.currentHeap')}
         />
         <StatCard
             icon="memory"
             tone="warn"
             label={t('memory.stat.peakHeap')}
             value={bytes(summary.peakHeap)}
+            tooltip={t('tip.memory.peakHeap')}
         />
         <StatCard
             icon="metric"
             tone="ember"
             label={t('memory.stat.peakRate')}
             value="{bytes(summary.peakAllocRate)}/m"
+            tooltip={t('tip.memory.peakRate')}
         />
         <StatCard
             icon="stack"
@@ -60,6 +64,7 @@
             value="{count(summary.perGen[0])} / {count(summary.perGen[1])} / {count(
                 summary.perGen[2],
             )}"
+            tooltip={t('tip.memory.collections')}
         />
     </div>
 
@@ -80,21 +85,23 @@
     <Card title={t('memory.events.title')}>
         <div class="table">
             <div class="head">
-                <span class="num">{t('memory.col.gen')}</span>
-                <span>{t('memory.col.pause')}</span>
-                <span class="num">{t('memory.col.before')}</span>
-                <span class="num">{t('memory.col.after')}</span>
-                <span class="num">{t('memory.col.interval')}</span>
-                <span class="num">{t('memory.col.rate')}</span>
-                <span class="num">{t('memory.col.tick')}</span>
+                <Tooltip text={t('tip.memory.col.gen')} align="end">{t('memory.col.gen')}</Tooltip>
+                <Tooltip text={t('tip.memory.col.pause')}>{t('memory.col.pause')}</Tooltip>
+                <Tooltip text={t('tip.memory.col.before')} align="end">{t('memory.col.before')}</Tooltip>
+                <Tooltip text={t('tip.memory.col.after')} align="end">{t('memory.col.after')}</Tooltip>
+                <Tooltip text={t('tip.memory.col.interval')} align="end">{t('memory.col.interval')}</Tooltip>
+                <Tooltip text={t('tip.memory.col.rate')} align="end">{t('memory.col.rate')}</Tooltip>
+                <Tooltip text={t('tip.memory.col.tick')} align="end">{t('memory.col.tick')}</Tooltip>
             </div>
             <!-- gc events have no stable id and rows are display-only, so index keying is safe -->
             {#each events as e, i (i)}
+                {@const gn = Math.min(e.generation, 2)}
                 <div class="rowline">
-                    <span class="num"
-                        ><em class="gen g{Math.min(e.generation, 2)}">{genLabel(e.generation)}</em
-                        ></span
-                    >
+                    <span class="num">
+                        <Tooltip text={t(`tip.gen.g${gn}`)}>
+                            <em class="gen g{gn}">{genLabel(e.generation)}</em>
+                        </Tooltip>
+                    </span>
                     <span class="pause">{pauseLabel(e.pause_type)}</span>
                     <span class="num mono dim">{bytes(e.heap_before)}</span>
                     <span class="num mono dim">{bytes(e.heap_after)}</span>

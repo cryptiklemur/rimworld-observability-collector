@@ -1,5 +1,8 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, fireEvent } from '@testing-library/svelte';
+import { readFileSync } from 'node:fs';
+import { resolve, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import Hotspots from './Hotspots.svelte';
 
 function mockApi() {
@@ -88,5 +91,29 @@ describe('Hotspots route', () => {
         expect(await screen.findByText(/min 50 ns/)).toBeInTheDocument();
         expect(button!.getAttribute('aria-expanded')).toBe('true');
         expect(container.querySelector('.trend')).not.toBeNull();
+    });
+
+    // Regression: the trend chart previously referenced `--accent` / `--accent-soft`,
+    // which are not declared on :root in theme.css, so getComputedStyle resolved them
+    // to "" and uPlot drew an invisible line. Lock the contract: every css-var token
+    // the trend series passes to LineChart must be a globally-defined token.
+    it('uses chart stroke/fill tokens that are defined in theme.css', () => {
+        const here = dirname(fileURLToPath(import.meta.url));
+        const themeCss = readFileSync(resolve(here, '../lib/theme.css'), 'utf-8');
+        const hotspotsSrc = readFileSync(resolve(here, './Hotspots.svelte'), 'utf-8');
+
+        const rootBlock = themeCss.match(/:root\s*\{([\s\S]*?)\}/);
+        expect(rootBlock, ':root block in theme.css').not.toBeNull();
+        const definedTokens = new Set<string>();
+        for (const m of rootBlock![1].matchAll(/(--[a-z0-9-]+)\s*:/gi)) {
+            definedTokens.add(m[1]);
+        }
+
+        const tokenPattern = /(?:stroke|fill):\s*'(--[a-z0-9-]+)'/g;
+        const usedTokens = [...hotspotsSrc.matchAll(tokenPattern)].map((m) => m[1]);
+        expect(usedTokens.length, 'Hotspots references at least one chart css-var').toBeGreaterThan(0);
+        for (const token of usedTokens) {
+            expect(definedTokens, `${token} must be defined on :root in theme.css`).toContain(token);
+        }
     });
 });

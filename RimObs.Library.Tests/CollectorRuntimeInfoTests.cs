@@ -1,0 +1,50 @@
+using Cryptiklemur.RimObs.Settings;
+using FluentAssertions;
+using Xunit;
+
+namespace Cryptiklemur.RimObs.Tests;
+
+public sealed class CollectorRuntimeInfoTests : IDisposable {
+    public CollectorRuntimeInfoTests() => CollectorRuntimeInfo.ResetForTests();
+
+    public void Dispose() => CollectorRuntimeInfo.ResetForTests();
+
+    [Fact]
+    public void SetPopulatesAllFields() {
+        CollectorRuntimeInfo.Set("10.0.0.5", 17654, collectorRunning: true, launchAttempted: true, "Author.Mod");
+
+        CollectorRuntimeInfo.Host.Should().Be("10.0.0.5");
+        CollectorRuntimeInfo.Port.Should().Be(17654);
+        CollectorRuntimeInfo.CollectorRunning.Should().BeTrue();
+        CollectorRuntimeInfo.LaunchAttempted.Should().BeTrue();
+        CollectorRuntimeInfo.OwnerId.Should().Be("Author.Mod");
+    }
+
+    [Fact]
+    public void SetFallsBackToLoopbackWhenHostIsNullOrEmpty() {
+        CollectorRuntimeInfo.Set(null!, 1, collectorRunning: false, launchAttempted: false, "owner");
+        CollectorRuntimeInfo.Host.Should().Be("127.0.0.1");
+
+        CollectorRuntimeInfo.Set(string.Empty, 1, collectorRunning: false, launchAttempted: false, "owner");
+        CollectorRuntimeInfo.Host.Should().Be("127.0.0.1");
+    }
+
+    [Fact]
+    public void SetCoercesNullOwnerIdToEmptyString() {
+        CollectorRuntimeInfo.Set("127.0.0.1", 1, collectorRunning: false, launchAttempted: false, null!);
+        CollectorRuntimeInfo.OwnerId.Should().Be(string.Empty);
+    }
+
+    [Fact]
+    public void ResetForTestsClearsState() {
+        CollectorRuntimeInfo.Set("10.0.0.5", 17654, collectorRunning: true, launchAttempted: true, "Author.Mod");
+
+        CollectorRuntimeInfo.ResetForTests();
+
+        CollectorRuntimeInfo.Host.Should().Be("127.0.0.1");
+        CollectorRuntimeInfo.Port.Should().Be(0);
+        CollectorRuntimeInfo.CollectorRunning.Should().BeFalse();
+        CollectorRuntimeInfo.LaunchAttempted.Should().BeFalse();
+        CollectorRuntimeInfo.OwnerId.Should().Be(string.Empty);
+    }
+}

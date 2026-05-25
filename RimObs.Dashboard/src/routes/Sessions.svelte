@@ -3,6 +3,7 @@
     import { Resource } from '../lib/poll.svelte';
     import DataState from '../lib/components/DataState.svelte';
     import Card from '../lib/components/Card.svelte';
+    import Tooltip from '../lib/components/Tooltip.svelte';
     import { count, bytes, ns, relativeTime } from '../lib/format';
     import { t } from '../lib/i18n';
     import { onMount, onDestroy } from 'svelte';
@@ -33,64 +34,52 @@
         <Card title={t('sessions.summary')} accent="cyan">
             <div class="grid">
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.id')}</span><span class="v mono"
-                        >{current.session.id}</span
-                    >
+                    <Tooltip text={t('tip.sessions.id')}><span class="k">{t('sessions.kv.id')}</span></Tooltip>
+                    <span class="v mono">{current.session.id}</span>
                 </div>
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.started')}</span><span class="v mono"
-                        >{relativeTime(current.session.started_utc)}</span
-                    >
+                    <Tooltip text={t('tip.sessions.started')}><span class="k">{t('sessions.kv.started')}</span></Tooltip>
+                    <span class="v mono">{relativeTime(current.session.started_utc)}</span>
                 </div>
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.library')}</span><span class="v mono"
-                        >{current.session.library_version}</span
-                    >
+                    <Tooltip text={t('tip.sessions.library')}><span class="k">{t('sessions.kv.library')}</span></Tooltip>
+                    <span class="v mono">{current.session.library_version}</span>
                 </div>
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.sections')}</span><span class="v mono"
-                        >{count(current.section_count)}</span
-                    >
+                    <Tooltip text={t('tip.sessions.sections')}><span class="k">{t('sessions.kv.sections')}</span></Tooltip>
+                    <span class="v mono">{count(current.section_count)}</span>
                 </div>
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.metrics')}</span><span class="v mono"
-                        >{count(current.metric_count)}</span
-                    >
+                    <Tooltip text={t('tip.sessions.metrics')}><span class="k">{t('sessions.kv.metrics')}</span></Tooltip>
+                    <span class="v mono">{count(current.metric_count)}</span>
                 </div>
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.batches')}</span><span class="v mono"
-                        >{count(current.total_batches)}</span
-                    >
+                    <Tooltip text={t('tip.sessions.batches')}><span class="k">{t('sessions.kv.batches')}</span></Tooltip>
+                    <span class="v mono">{count(current.total_batches)}</span>
                 </div>
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.samples')}</span><span class="v mono"
-                        >{count(current.total_samples)}</span
-                    >
+                    <Tooltip text={t('tip.sessions.samples')}><span class="k">{t('sessions.kv.samples')}</span></Tooltip>
+                    <span class="v mono">{count(current.total_samples)}</span>
                 </div>
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.sectionTime')}</span><span class="v mono"
-                        >{ns(current.total_section_ns)}</span
-                    >
+                    <Tooltip text={t('tip.sessions.sectionTime')}><span class="k">{t('sessions.kv.sectionTime')}</span></Tooltip>
+                    <span class="v mono">{ns(current.total_section_ns)}</span>
                 </div>
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.gc')}</span><span class="v mono"
-                        >{count(current.total_gc_events)}</span
-                    >
+                    <Tooltip text={t('tip.sessions.gc')}><span class="k">{t('sessions.kv.gc')}</span></Tooltip>
+                    <span class="v mono">{count(current.total_gc_events)}</span>
                 </div>
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.allocations')}</span><span class="v mono"
-                        >{count(current.total_allocations)}</span
-                    >
+                    <Tooltip text={t('tip.sessions.allocations')}><span class="k">{t('sessions.kv.allocations')}</span></Tooltip>
+                    <span class="v mono">{count(current.total_allocations)}</span>
                 </div>
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.bytes')}</span><span class="v mono"
-                        >{bytes(current.total_bytes)}</span
-                    >
+                    <Tooltip text={t('tip.sessions.bytes')}><span class="k">{t('sessions.kv.bytes')}</span></Tooltip>
+                    <span class="v mono">{bytes(current.total_bytes)}</span>
                 </div>
                 <div class="kv">
-                    <span class="k">{t('sessions.kv.lastBatch')}</span><span class="v mono"
-                        >{current.last_batch_utc ? relativeTime(current.last_batch_utc) : '—'}</span
-                    >
+                    <Tooltip text={t('tip.sessions.lastBatch')}><span class="k">{t('sessions.kv.lastBatch')}</span></Tooltip>
+                    <span class="v mono">{current.last_batch_utc ? relativeTime(current.last_batch_utc) : '—'}</span>
                 </div>
             </div>
         </Card>
@@ -148,6 +137,7 @@
     .table {
         display: flex;
         flex-direction: column;
+        overflow-x: auto;
     }
     .head,
     .rowline {
@@ -156,6 +146,7 @@
         gap: 0.75rem;
         align-items: center;
         padding: 0.55rem 0.4rem;
+        min-width: 480px;
     }
     .head {
         font-size: 0.72rem;
