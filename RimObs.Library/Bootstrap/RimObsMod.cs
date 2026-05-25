@@ -10,6 +10,7 @@ using Cryptiklemur.RimObs.Observers;
 using Cryptiklemur.RimObs.Patching;
 using Cryptiklemur.RimObs.Profile;
 using Cryptiklemur.RimObs.Session;
+using Cryptiklemur.RimObs.Settings;
 using Cryptiklemur.RimObs.Transport;
 using Verse;
 
@@ -23,11 +24,12 @@ public sealed class RimObsMod : Mod {
     private static readonly TimeSpan s_LaunchTimeout = TimeSpan.FromSeconds(10);
     private static UdpTelemetrySink? s_Sink;
     private static CollectorConfigClient? s_ConfigClient;
+    private readonly RimObsSettings _settings;
 
     private static string ResolveOwnerId(ModContentPack content) =>
         string.IsNullOrEmpty(content?.PackageId) ? FrameworkOwnerId : content!.PackageId;
 
-    private static CollectorLaunchResult EnsureCollectorRunning(string ownerId, int port, int parentPid) {
+    private static CollectorLaunchResult EnsureCollectorRunning(string ownerId, int port, int parentPid, bool noBrowser) {
         List<CollectorCandidate> candidates = CollectCandidates();
         return CollectorLauncher.EnsureRunning(
             candidates,
@@ -36,7 +38,8 @@ public sealed class RimObsMod : Mod {
             ownerId,
             CollectorLauncher.DefaultProbeTimeout,
             s_LaunchTimeout,
-            parentPid: parentPid
+            parentPid: parentPid,
+            noBrowser: noBrowser
         );
     }
 
@@ -62,6 +65,7 @@ public sealed class RimObsMod : Mod {
     }
 
     public RimObsMod(ModContentPack content) : base(content) {
+        _settings = GetSettings<RimObsSettings>();
         try {
             SessionAnchor.Initialize(Guid.NewGuid().ToString("N"));
             string ownerId = ResolveOwnerId(content);
@@ -74,7 +78,8 @@ public sealed class RimObsMod : Mod {
             PopulateOwnerRegistry();
             ProfilingXmlLoader.LoadResult declared = LoadDeclaredProfiling();
 
-            CollectorLaunchResult collector = EnsureCollectorRunning(ownerId, port, parentPid);
+            CollectorLaunchResult collector = EnsureCollectorRunning(ownerId, port, parentPid, !_settings.AutoOpenDashboard);
+            CollectorRuntimeInfo.Set(CollectorHost, port, collector.IsRunning, collector.LaunchAttempted, ownerId);
             if (!collector.IsRunning) {
                 Log.Error(
                     "[RimObs] No collector is running and none could be launched from any installed mod's "
@@ -100,6 +105,13 @@ public sealed class RimObsMod : Mod {
         catch (Exception ex) {
             Log.Error($"[RimObs] Bootstrap failed: {ex}");
         }
+    }
+
+    public override string SettingsCategory() => "RimWorld Observability";
+
+    public override void DoSettingsWindowContents(UnityEngine.Rect inRect) {
+        CollectorStatus status = CollectorStatusProvider.CaptureCurrent();
+        SettingsWindow.Draw(inRect, status, _settings);
     }
 
     private static void WireTelemetrySink(string ownerId, int port) {

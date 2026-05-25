@@ -3,6 +3,7 @@
     import { Resource } from '../lib/poll.svelte';
     import DataState from '../lib/components/DataState.svelte';
     import LineChart from '../lib/components/LineChart.svelte';
+    import Tooltip from '../lib/components/Tooltip.svelte';
     import { ns, count, gradeFromShare } from '../lib/format';
     import { t } from '../lib/i18n';
     import { onMount, onDestroy } from 'svelte';
@@ -44,8 +45,8 @@
         {
             label: t('hotspots.trend.mean'),
             values: (trend?.points ?? []).map((p) => p.mean_ns),
-            stroke: '--accent',
-            fill: '--accent-soft',
+            stroke: '--ember',
+            fill: 'rgba(255, 122, 69, 0.14)',
         },
     ]);
 </script>
@@ -59,13 +60,13 @@
     <p class="hint">{t('hotspots.hint')}</p>
     <div class="table">
         <div class="head">
-            <span>{t('hotspots.col.section')}</span>
-            <span class="num">{t('hotspots.col.total')}</span>
-            <span class="num">{t('hotspots.col.mean')}</span>
-            <span class="num">{t('hotspots.col.p50')}</span>
-            <span class="num">{t('hotspots.col.p95')}</span>
-            <span class="num">{t('hotspots.col.p99')}</span>
-            <span class="num">{t('hotspots.col.samples')}</span>
+            <Tooltip text={t('tip.hotspots.section')}>{t('hotspots.col.section')}</Tooltip>
+            <Tooltip text={t('tip.hotspots.total')} align="end">{t('hotspots.col.total')}</Tooltip>
+            <Tooltip text={t('tip.hotspots.mean')} align="end">{t('hotspots.col.mean')}</Tooltip>
+            <Tooltip text={t('tip.hotspots.p50')} align="end">{t('hotspots.col.p50')}</Tooltip>
+            <Tooltip text={t('tip.hotspots.p95')} align="end">{t('hotspots.col.p95')}</Tooltip>
+            <Tooltip text={t('tip.hotspots.p99')} align="end">{t('hotspots.col.p99')}</Tooltip>
+            <Tooltip text={t('tip.hotspots.samples')} align="end">{t('hotspots.col.samples')}</Tooltip>
         </div>
         {#each rows as h (h.id)}
             {@const share = h.total_ns / max}

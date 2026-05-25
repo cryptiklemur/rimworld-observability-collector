@@ -4,6 +4,7 @@ export class Resource<T> {
     data = $state<T | null>(null);
     state = $state<LoadState>('loading');
     error = $state<string>('');
+    consecutiveFailures = $state<number>(0);
     private timer: ReturnType<typeof setInterval> | null = null;
 
     constructor(
@@ -17,9 +18,11 @@ export class Resource<T> {
             this.data = next;
             this.state = 'ok';
             this.error = '';
+            this.consecutiveFailures = 0;
         } catch (err) {
             this.state = this.data ? 'ok' : 'error';
             this.error = (err as Error).message;
+            this.consecutiveFailures += 1;
         }
     }
 

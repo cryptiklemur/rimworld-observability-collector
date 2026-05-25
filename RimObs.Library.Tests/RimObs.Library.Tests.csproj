@@ -25,6 +25,7 @@
         <Compile Include="..\RimObs.Library\Config\**\*.cs" LinkBase="LinkedSource\Config"/>
         <Compile Include="..\RimObs.Library\Session\**\*.cs" LinkBase="LinkedSource\Session"/>
         <Compile Include="..\RimObs.Library\Control\**\*.cs" LinkBase="LinkedSource\Control"/>
+        <Compile Include="..\RimObs.Library\Settings\**\*.cs" Exclude="..\RimObs.Library\Settings\SettingsWindow.cs;..\RimObs.Library\Settings\RimObsSettings.cs" LinkBase="LinkedSource\Settings"/>
     </ItemGroup>
 
     <ItemGroup>

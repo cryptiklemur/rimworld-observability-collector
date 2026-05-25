@@ -70,6 +70,10 @@
         border-radius: 99px;
         font-size: 0.76rem;
         cursor: pointer;
+        transition:
+            border-color var(--t-fast) var(--ease-out),
+            background var(--t-fast) var(--ease-out),
+            color var(--t-fast) var(--ease-out);
     }
     .chip:hover {
         border-color: var(--border);

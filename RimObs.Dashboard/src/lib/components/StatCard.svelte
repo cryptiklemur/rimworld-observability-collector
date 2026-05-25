@@ -1,22 +1,29 @@
 <script lang="ts">
     import Icon, { type IconName } from './Icon.svelte';
+    import Tooltip from './Tooltip.svelte';
     let {
         label,
         value,
         icon,
         tone = 'cyan',
+        tooltip,
     }: {
         label: string;
         value: string;
         icon: IconName;
         tone?: 'cyan' | 'ember' | 'good' | 'warn';
+        tooltip?: string;
     } = $props();
 </script>
 
 <div class="stat tone-{tone}">
     <div class="ic"><Icon name={icon} size={20} /></div>
     <div class="meta">
-        <span class="label">{label}</span>
+        {#if tooltip}
+            <Tooltip text={tooltip}><span class="label">{label}</span></Tooltip>
+        {:else}
+            <span class="label">{label}</span>
+        {/if}
         <span class="value mono">{value}</span>
     </div>
 </div>
@@ -27,19 +34,10 @@
         gap: 0.85rem;
         align-items: flex-start;
         background: linear-gradient(180deg, var(--bg-surface), var(--bg-surface-2));
-        border: 1px solid var(--border-soft);
+        border: 1px solid color-mix(in srgb, var(--accent) 22%, var(--border-soft));
         border-radius: var(--r-lg);
         padding: 1rem 1.15rem;
         box-shadow: var(--shadow-card);
-        position: relative;
-        overflow: hidden;
-    }
-    .stat::before {
-        content: '';
-        position: absolute;
-        inset: 0 auto 0 0;
-        width: 3px;
-        background: var(--accent);
     }
     .tone-cyan {
         --accent: var(--cyan);

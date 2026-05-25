@@ -55,5 +55,6 @@
     .tree {
         display: flex;
         flex-direction: column;
+        overflow-x: auto;
     }
 </style>

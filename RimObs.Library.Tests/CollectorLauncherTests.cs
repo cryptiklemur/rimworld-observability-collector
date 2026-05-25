@@ -30,6 +30,19 @@ public sealed class CollectorLauncherTests {
             .Should().Be("serve --port 45678");
     }
 
+
+    [Fact]
+    public void BuildLaunchArguments_appends_no_browser_when_requested() {
+        CollectorLauncher.BuildLaunchArguments(45678, 1234, noBrowser: true)
+            .Should().Be("serve --port 45678 --parent-pid 1234 --no-browser");
+    }
+
+    [Fact]
+    public void BuildLaunchArguments_omits_no_browser_by_default() {
+        CollectorLauncher.BuildLaunchArguments(45678, 1234)
+            .Should().Be("serve --port 45678 --parent-pid 1234");
+    }
+
     [Fact]
     public void SelectHighest_returns_null_for_empty() {
         CollectorDiscovery.SelectHighest(new List<CollectorCandidate>()).Should().BeNull();

@@ -8,6 +8,7 @@
         type InstrumentationPatchEntry,
     } from '../lib/api';
     import { Resource } from '../lib/poll.svelte';
+    import Tooltip from '../lib/components/Tooltip.svelte';
     import { t } from '../lib/i18n';
     import { onMount, onDestroy } from 'svelte';
 
@@ -76,12 +77,13 @@
         <input
             type="search"
             placeholder={t('instrumentation.search.placeholder')}
+            aria-label={t('instrumentation.search.placeholder')}
             value={query}
             oninput={onInput}
         />
-        {#if searchLoading}
-            <span class="dim">…</span>
-        {/if}
+        <span class="dim" role="status" aria-live="polite">
+            {#if searchLoading}…{/if}
+        </span>
     </div>
 
     {#if !query.trim() && searchResults.length === 0}
@@ -112,7 +114,9 @@
             {#each active as p (p.id)}
                 <li>
                     <span class="mono sig">{p.typeFullName}.{p.methodName}({p.paramTypesJoined})</span>
-                    <span class="pill pill-{p.lastStatus}">{t(`instrumentation.status.${p.lastStatus}`)}</span>
+                    <Tooltip text={t(`tip.instrumentation.${p.lastStatus}`)}>
+                        <span class="pill pill-{p.lastStatus}">{t(`instrumentation.status.${p.lastStatus}`)}</span>
+                    </Tooltip>
                     {#if p.lastError}
                         <span class="dim mono">{p.lastError}</span>
                     {/if}
@@ -127,11 +131,54 @@
     .search {
         display: flex;
         gap: 0.5rem;
+        align-items: center;
         margin-bottom: 0.8rem;
     }
     .search input {
         flex: 1;
-        padding: 0.4rem 0.6rem;
+        background: var(--bg-surface);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--r-md);
+        color: var(--text);
+        font-family: var(--font-ui);
+        font-size: 0.85rem;
+        padding: 0.45rem 0.7rem;
+        transition: border-color var(--t-fast) var(--ease-out);
+    }
+    .search input::placeholder {
+        color: var(--text-faint);
+    }
+    .search input:hover {
+        border-color: var(--border);
+    }
+    button {
+        background: var(--bg-elev);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        padding: 0.35rem 0.9rem;
+        font-family: var(--font-ui);
+        font-size: 0.8rem;
+        cursor: pointer;
+        white-space: nowrap;
+        transition:
+            border-color var(--t-fast) var(--ease-out),
+            color var(--t-fast) var(--ease-out);
+    }
+    button:hover {
+        border-color: var(--cyan);
+    }
+    .results button {
+        background: color-mix(in srgb, var(--ember) 14%, var(--bg-elev));
+        border-color: color-mix(in srgb, var(--ember) 40%, transparent);
+        color: var(--ember-soft);
+    }
+    .results button:hover {
+        border-color: var(--ember);
+    }
+    .active button:hover {
+        border-color: var(--bad);
+        color: var(--bad);
     }
     .results,
     .active {
@@ -147,17 +194,24 @@
         grid-template-columns: 1fr auto auto;
         gap: 0.6rem;
         align-items: center;
-        padding: 0.4rem 0.2rem;
+        padding: 0.45rem 0.2rem;
         border-bottom: 1px solid var(--border-soft);
+        animation: row-in var(--t-base) var(--ease-out);
+    }
+    h2 {
+        margin: 1.2rem 0 0.4rem;
+        font-size: 0.95rem;
     }
     .dim {
         color: var(--text-dim);
     }
     .pill {
         font-size: 0.7rem;
-        padding: 0.1rem 0.4rem;
+        padding: 0.1rem 0.5rem;
         border-radius: 99px;
         background: var(--bg-surface);
+        border: 1px solid var(--border-soft);
+        align-self: center;
     }
     .pill-active {
         color: var(--good);

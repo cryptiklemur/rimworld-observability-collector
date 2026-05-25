@@ -21,6 +21,8 @@
                 class:active={router.current === r.id}
                 class:soon={!r.ready}
                 aria-current={router.current === r.id ? 'page' : undefined}
+                aria-label={t(`nav.${r.id}`, r.title)}
+                title={t(`nav.${r.id}`, r.title)}
             >
                 <Icon name={r.icon} size={17} />
                 <span>{t(`nav.${r.id}`, r.title)}</span>
@@ -34,7 +36,11 @@
     aside {
         grid-area: sidebar;
         width: var(--sb-w);
-        background: linear-gradient(180deg, rgba(19, 25, 37, 0.6), rgba(11, 14, 20, 0.6));
+        background: linear-gradient(
+            180deg,
+            color-mix(in srgb, var(--bg-surface) 60%, transparent),
+            color-mix(in srgb, var(--bg-base) 60%, transparent)
+        );
         border-right: 1px solid var(--border-soft);
         display: flex;
         flex-direction: column;
@@ -91,6 +97,9 @@
         font-size: 0.88rem;
         font-weight: 500;
         position: relative;
+        transition:
+            background var(--t-fast) var(--ease-out),
+            color var(--t-fast) var(--ease-out);
     }
     .item:hover {
         background: var(--bg-surface);
@@ -123,5 +132,34 @@
         border: 1px solid var(--border);
         border-radius: 99px;
         padding: 0 0.4rem;
+    }
+    @media (max-width: 900px) {
+        .brand {
+            justify-content: center;
+            padding: 0;
+            gap: 0;
+        }
+        .title {
+            display: none;
+        }
+        nav {
+            padding: 0.7rem 0;
+            align-items: center;
+        }
+        .item {
+            justify-content: center;
+            gap: 0;
+            padding: 0.6rem;
+            width: 40px;
+        }
+        .item span {
+            display: none;
+        }
+        .tag {
+            display: none;
+        }
+        .item.active::before {
+            left: -0.4rem;
+        }
     }
 </style>

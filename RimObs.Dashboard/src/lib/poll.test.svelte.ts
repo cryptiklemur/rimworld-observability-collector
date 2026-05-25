@@ -35,6 +35,27 @@ describe('Resource.refresh', () => {
         expect(res.state).toBe('ok');
         expect(res.error).toBe('later');
     });
+
+    it('tracks consecutive failures and resets the counter on success', async () => {
+        let fail = false;
+        const res = new Resource(async () => {
+            if (fail) throw new Error('down');
+            return 'up';
+        }, 0);
+
+        await res.refresh();
+        expect(res.consecutiveFailures).toBe(0);
+
+        fail = true;
+        await res.refresh();
+        await res.refresh();
+        await res.refresh();
+        expect(res.consecutiveFailures).toBe(3);
+
+        fail = false;
+        await res.refresh();
+        expect(res.consecutiveFailures).toBe(0);
+    });
 });
 
 describe('Resource start/stop', () => {

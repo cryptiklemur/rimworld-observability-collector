@@ -1,0 +1,44 @@
+import { describe, it, expect, beforeEach } from 'vitest';
+import { UserPrefs } from './userPrefs.svelte';
+
+const STORAGE_KEY = 'rimobs:userPrefs';
+
+beforeEach(() => {
+    localStorage.clear();
+});
+
+describe('UserPrefs', () => {
+    it('defaults closeOnDisconnect to true when no prior storage exists', () => {
+        const prefs = new UserPrefs();
+        expect(prefs.closeOnDisconnect).toBe(true);
+    });
+
+    it('reads a persisted false value back from localStorage', () => {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify({ closeOnDisconnect: false }));
+        const prefs = new UserPrefs();
+        expect(prefs.closeOnDisconnect).toBe(false);
+    });
+
+    it('persists changes via setCloseOnDisconnect', () => {
+        const prefs = new UserPrefs();
+        prefs.setCloseOnDisconnect(false);
+        expect(prefs.closeOnDisconnect).toBe(false);
+        const raw = localStorage.getItem(STORAGE_KEY);
+        expect(raw).not.toBeNull();
+        expect(JSON.parse(raw!)).toEqual({ closeOnDisconnect: false });
+    });
+
+    it('falls back to defaults when stored JSON is corrupt', () => {
+        localStorage.setItem(STORAGE_KEY, '{not-json');
+        const prefs = new UserPrefs();
+        expect(prefs.closeOnDisconnect).toBe(true);
+    });
+
+    it('reset() returns to defaults and clears storage', () => {
+        const prefs = new UserPrefs();
+        prefs.setCloseOnDisconnect(false);
+        prefs.reset();
+        expect(prefs.closeOnDisconnect).toBe(true);
+        expect(localStorage.getItem(STORAGE_KEY)).toBeNull();
+    });
+});

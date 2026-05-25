@@ -38,10 +38,11 @@
 <style>
     .bar-row {
         display: grid;
-        grid-template-columns: 16px minmax(0, 1.7fr) minmax(80px, 1fr) 70px 90px;
+        grid-template-columns: 16px minmax(120px, 1.7fr) minmax(80px, 1fr) 70px 90px;
         gap: 0.6rem;
         align-items: center;
         width: 100%;
+        min-width: 360px;
         text-align: left;
         background: none;
         border: none;
@@ -51,6 +52,7 @@
         padding-left: calc(0.5rem + var(--depth) * 1.1rem);
         border-radius: var(--r-sm);
         cursor: pointer;
+        transition: background var(--t-fast) var(--ease-out);
     }
     .bar-row:disabled {
         cursor: default;
@@ -62,6 +64,7 @@
         color: var(--text-faint);
         display: grid;
         place-items: center;
+        transition: transform var(--t-fast) var(--ease-out);
     }
     .twist.open {
         transform: rotate(90deg);

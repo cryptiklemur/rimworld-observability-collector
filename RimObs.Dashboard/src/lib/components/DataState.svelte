@@ -24,12 +24,12 @@
 </script>
 
 {#if state === 'loading'}
-    <div class="msg">
+    <div class="msg" role="status" aria-live="polite">
         <Icon name="dot" size={28} />
         <span>{t('status.loading')}</span>
     </div>
 {:else if state === 'error'}
-    <div class="msg err">
+    <div class="msg err" role="alert" aria-live="assertive">
         <Icon name="alert" size={28} />
         <span>{t('common.error')}</span>
         <code>{error}</code>
@@ -77,6 +77,7 @@
         padding: 0.4rem 1rem;
         cursor: pointer;
         font-family: var(--font-ui);
+        transition: border-color var(--t-fast) var(--ease-out);
     }
     button:hover {
         border-color: var(--cyan);
