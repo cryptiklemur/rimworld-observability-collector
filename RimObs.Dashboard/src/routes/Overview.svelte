@@ -77,27 +77,31 @@
         <Card title={t('overview.session')}>
             {#if status?.session}
                 <dl>
-                    <dt>id</dt>
+                    <dt>{t('overview.kv.id')}</dt>
                     <dd class="mono">{status.session.id}</dd>
-                    <dt>library</dt>
+                    <dt>{t('overview.kv.library')}</dt>
                     <dd class="mono">{status.session.library_version}</dd>
-                    <dt>started</dt>
+                    <dt>{t('overview.kv.started')}</dt>
                     <dd>{new Date(status.session.started_utc).toLocaleString()}</dd>
-                    <dt>last batch</dt>
+                    <dt>{t('overview.kv.lastBatch')}</dt>
                     <dd>{relativeTime(r.last_batch_utc)}</dd>
                 </dl>
             {:else}
                 <p class="none">{t('overview.noSession')}</p>
             {/if}
         </Card>
-        <Card title="Collector">
+        <Card title={t('overview.collector')}>
             <dl>
-                <dt>status</dt>
+                <dt>{t('overview.kv.status')}</dt>
                 <dd class="mono">{status?.status}</dd>
-                <dt>version</dt>
+                <dt>{t('overview.kv.version')}</dt>
                 <dd class="mono">{status?.version}</dd>
-                <dt>update</dt>
-                <dd>{status?.update?.available ? status.update.latest_version : 'up to date'}</dd>
+                <dt>{t('overview.kv.update')}</dt>
+                <dd>
+                    {status?.update?.available
+                        ? status.update.latest_version
+                        : t('overview.upToDate')}
+                </dd>
             </dl>
         </Card>
     </div>

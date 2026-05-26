@@ -3,10 +3,15 @@
     import { Resource } from '../lib/poll.svelte';
     import DataState from '../lib/components/DataState.svelte';
     import { relativeTime } from '../lib/format';
+    import { t } from '../lib/i18n';
     import { onMount, onDestroy } from 'svelte';
 
     const levels = ['', 'Information', 'Warning', 'Error'];
     let level = $state('');
+
+    function levelLabel(l: string): string {
+        return l === '' ? t('logs.filter.all') : t(`logs.level.${l.toLowerCase()}`, l);
+    }
 
     const res = new Resource<LogsResponse>(() => api.logs(200, level || undefined), 3000);
     onMount(() => res.start());
@@ -30,7 +35,7 @@
 <div class="filters">
     {#each levels as l (l)}
         <button class="chip" class:active={level === l} onclick={() => selectLevel(l)}
-            >{l || 'All'}</button
+            >{levelLabel(l)}</button
         >
     {/each}
 </div>
@@ -46,7 +51,7 @@
         {#each entries as e, i (i)}
             <div class="line t-{tone(e.level)}">
                 <span class="time mono">{relativeTime(e.timestamp)}</span>
-                <span class="lvl">{e.level}</span>
+                <span class="lvl">{levelLabel(e.level)}</span>
                 <span class="msg mono">
                     {e.message}
                     {#if e.exception}<span class="exc">{e.exception}</span>{/if}

@@ -123,11 +123,11 @@
 
     <Card title={t('memory.guide.title')}>
         <dl class="guide">
-            <dt><em class="gen g0">Gen 0</em></dt>
+            <dt><em class="gen g0">{t('memory.gen.g0')}</em></dt>
             <dd>{t('memory.guide.g0')}</dd>
-            <dt><em class="gen g1">Gen 1</em></dt>
+            <dt><em class="gen g1">{t('memory.gen.g1')}</em></dt>
             <dd>{t('memory.guide.g1')}</dd>
-            <dt><em class="gen g2">Gen 2</em></dt>
+            <dt><em class="gen g2">{t('memory.gen.g2')}</em></dt>
             <dd>{t('memory.guide.g2')}</dd>
         </dl>
         <p class="note">{t('memory.guide.interval')}</p>

@@ -25,7 +25,23 @@ describe('UserPrefs', () => {
         expect(prefs.closeOnDisconnect).toBe(false);
         const raw = localStorage.getItem(STORAGE_KEY);
         expect(raw).not.toBeNull();
-        expect(JSON.parse(raw!)).toEqual({ closeOnDisconnect: false });
+        expect(JSON.parse(raw!)).toEqual({ closeOnDisconnect: false, lang: '' });
+    });
+
+    it('defaults lang to empty when no prior storage exists', () => {
+        const prefs = new UserPrefs();
+        expect(prefs.lang).toBe('');
+    });
+
+    it('persists and reads back lang via setLang', () => {
+        const prefs = new UserPrefs();
+        prefs.setLang('de');
+        expect(prefs.lang).toBe('de');
+        expect(new UserPrefs().lang).toBe('de');
+        expect(JSON.parse(localStorage.getItem(STORAGE_KEY)!)).toEqual({
+            closeOnDisconnect: true,
+            lang: 'de',
+        });
     });
 
     it('falls back to defaults when stored JSON is corrupt', () => {
