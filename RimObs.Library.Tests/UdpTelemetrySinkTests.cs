@@ -47,6 +47,7 @@ public sealed class UdpTelemetrySinkTests : IDisposable {
     }
 
     [Fact]
+
     public void Drain_flushes_to_loopback_receiver() {
         int port = GetFreePort();
         SessionAnchor.Initialize("test-session");
@@ -77,6 +78,12 @@ public sealed class UdpTelemetrySinkTests : IDisposable {
         }
 
         sawSection.Should().BeTrue("UdpTelemetrySink should flush SectionBatch frames to the loopback receiver within 3s");
+
+        // The sender thread increments SamplesSent on the line *after* UdpClient.Send returns, so a
+        // loopback receiver can observe the datagram before the counter is bumped. Poll briefly to
+        // close that race instead of reading the counter once (regression: flaky failure on Linux CI
+        // where the receive won the race against the increment).
+        SpinWait.SpinUntil(() => sink.SamplesSent > 0, TimeSpan.FromSeconds(2));
         sink.SamplesSent.Should().BeGreaterThan(0);
     }
 
