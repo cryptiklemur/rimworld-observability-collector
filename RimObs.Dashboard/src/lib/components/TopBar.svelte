@@ -20,7 +20,8 @@
         {#if status?.update?.available}
             <a class="update" href={status.update.url ?? '#'} target="_blank" rel="noreferrer">
                 <Icon name="external" size={14} />
-                {status.update.latest_version} available
+                {status.update.latest_version}
+                {t('common.available')}
             </a>
         {/if}
 

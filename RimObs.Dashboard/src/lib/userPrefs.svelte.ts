@@ -2,10 +2,12 @@ const STORAGE_KEY = 'rimobs:userPrefs';
 
 export interface PersistedPrefs {
     closeOnDisconnect: boolean;
+    lang: string;
 }
 
 export const DEFAULT_PREFS: PersistedPrefs = {
     closeOnDisconnect: true,
+    lang: '',
 };
 
 function load(): PersistedPrefs {
@@ -31,19 +33,31 @@ function persist(prefs: PersistedPrefs): void {
 
 export class UserPrefs {
     closeOnDisconnect = $state<boolean>(DEFAULT_PREFS.closeOnDisconnect);
+    lang = $state<string>(DEFAULT_PREFS.lang);
 
     constructor() {
         const loaded = load();
         this.closeOnDisconnect = loaded.closeOnDisconnect;
+        this.lang = loaded.lang;
+    }
+
+    private snapshot(): PersistedPrefs {
+        return { closeOnDisconnect: this.closeOnDisconnect, lang: this.lang };
     }
 
     setCloseOnDisconnect(value: boolean): void {
         this.closeOnDisconnect = value;
-        persist({ closeOnDisconnect: this.closeOnDisconnect });
+        persist(this.snapshot());
+    }
+
+    setLang(value: string): void {
+        this.lang = value;
+        persist(this.snapshot());
     }
 
     reset(): void {
         this.closeOnDisconnect = DEFAULT_PREFS.closeOnDisconnect;
+        this.lang = DEFAULT_PREFS.lang;
         if (typeof localStorage !== 'undefined') {
             try {
                 localStorage.removeItem(STORAGE_KEY);

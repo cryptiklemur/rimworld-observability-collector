@@ -23,9 +23,9 @@
     <div class="legend">
         <span>{t('calltree.title')}</span>
         <span class="cols">
-            <span>share</span>
+            <span>{t('calltree.share')}</span>
             <span>{t('calltree.calls')}</span>
-            <span>total</span>
+            <span>{t('calltree.total')}</span>
         </span>
     </div>
     <div class="tree">

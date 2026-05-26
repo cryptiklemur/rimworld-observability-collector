@@ -4,6 +4,7 @@
     import { Resource } from './lib/poll.svelte';
     import { router } from './lib/router.svelte';
     import { userPrefs } from './lib/userPrefs.svelte';
+    import { t } from './lib/i18n';
     import Sidebar from './lib/components/Sidebar.svelte';
     import TopBar from './lib/components/TopBar.svelte';
     import Overview from './routes/Overview.svelte';
@@ -75,7 +76,7 @@
                 {:else if route.id === 'settings'}
                     <Settings />
                 {:else}
-                    <Soon title={route.title} />
+                    <Soon title={t(`nav.${route.id}`, route.title)} />
                 {/if}
             </div>
         {/key}

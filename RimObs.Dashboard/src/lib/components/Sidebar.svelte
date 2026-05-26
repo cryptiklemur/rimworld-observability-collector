@@ -26,7 +26,7 @@
             >
                 <Icon name={r.icon} size={17} />
                 <span>{t(`nav.${r.id}`, r.title)}</span>
-                {#if !r.ready}<em class="tag">soon</em>{/if}
+                {#if !r.ready}<em class="tag">{t('nav.soon')}</em>{/if}
             </a>
         {/each}
     </nav>

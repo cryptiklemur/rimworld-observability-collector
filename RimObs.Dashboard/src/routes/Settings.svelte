@@ -3,7 +3,7 @@
     import { Resource } from '../lib/poll.svelte';
     import Card from '../lib/components/Card.svelte';
     import Tooltip from '../lib/components/Tooltip.svelte';
-    import { t, getLang } from '../lib/i18n';
+    import { t, getLang, LANGUAGES } from '../lib/i18n';
     import { userPrefs } from '../lib/userPrefs.svelte';
     import { onMount, onDestroy } from 'svelte';
 
@@ -26,7 +26,15 @@
         </div>
         <div class="kv">
             <Tooltip text={t('tip.settings.language')}><span class="k">{t('settings.language')}</span></Tooltip>
-            <span class="v mono">{getLang()}</span>
+            <select
+                class="v lang"
+                value={getLang()}
+                onchange={(e) => userPrefs.setLang((e.currentTarget as HTMLSelectElement).value)}
+            >
+                {#each LANGUAGES as l (l.code)}
+                    <option value={l.code}>{l.label}</option>
+                {/each}
+            </select>
         </div>
         {#if status?.update?.available}
             <div class="kv update">
@@ -81,6 +89,20 @@
     }
     .update .v {
         color: var(--ember-soft);
+    }
+    .lang {
+        background: var(--bg-elev);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        padding: 0.3rem 0.6rem;
+        font-family: var(--font-ui);
+        font-size: 0.85rem;
+        cursor: pointer;
+        transition: border-color var(--t-fast) var(--ease-out);
+    }
+    .lang:hover {
+        border-color: var(--cyan);
     }
     .toggle {
         display: flex;
