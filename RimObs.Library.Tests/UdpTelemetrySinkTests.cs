@@ -171,6 +171,11 @@ public sealed class UdpTelemetrySinkTests : IDisposable {
             }
 
             sawSection.Should().BeTrue("Profiler samples should reach the sink set via Profiler.SetSink and flush over loopback");
+
+            // SamplesSent is incremented on the line after UdpClient.Send returns, so the loopback
+            // receiver can observe the datagram before the counter is bumped. Poll instead of reading
+            // once (same race as Drain_flushes_to_loopback_receiver).
+            SpinWait.SpinUntil(() => sink.SamplesSent > 0, TimeSpan.FromSeconds(2));
             sink.SamplesSent.Should().BeGreaterThan(0);
         }
         finally {
