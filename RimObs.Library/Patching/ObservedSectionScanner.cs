@@ -49,6 +49,13 @@ internal static class ObservedSectionScanner {
                             continue;
                         }
 
+                        if (SectionCatalog.TryGetSectionId(method, out _)) {
+                            result.SkippedDuplicate++;
+                            result.Warnings.Add(
+                                $"[{packageId}] {type.FullName}.{method.Name}: skipped (already registered by core or XML)");
+                            continue;
+                        }
+
                         string computedName = attr.Name ?? $"{type.FullName}.{method.Name}";
                         string prefixed = $"{packageId}.{computedName}";
                         SectionCatalog.RegisterDirect(prefixed, method, subsystem: attr.Subsystem);

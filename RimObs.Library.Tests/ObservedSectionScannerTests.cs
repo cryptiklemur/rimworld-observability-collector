@@ -104,4 +104,24 @@ public class ObservedSectionScannerTests : System.IDisposable {
         SectionCatalog.Entries.Should().NotContain(
             e => e.TypeName == typeName && e.MethodName == methodName);
     }
+
+    public class Target_Dedup {
+        [ObservedSection("dup_name")]
+        public void TargetMethod() { }
+    }
+
+    [Fact]
+    public void Scan_DuplicateAgainstExistingCatalog_Skipped() {
+        MethodBase target = typeof(Target_Dedup).GetMethod(nameof(Target_Dedup.TargetMethod))!;
+        SectionCatalog.RegisterDirect("test.modid.core_owned", target);
+
+        IReadOnlyList<Assembly> asms = new[] { typeof(Target_Dedup).Assembly };
+        ObservedSectionScanner.ScanResult result = ObservedSectionScanner.Scan(
+            new[] { ("test.modid", asms) });
+
+        result.SkippedDuplicate.Should().BeGreaterOrEqualTo(1);
+        SectionCatalog.Entries
+            .Where(e => ReferenceEquals(e.Resolved, target))
+            .Should().HaveCount(1, "scanner must not register a second entry for the same MethodBase");
+    }
 }
