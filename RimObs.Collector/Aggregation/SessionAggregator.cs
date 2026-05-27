@@ -77,8 +77,10 @@ public sealed class SessionAggregator {
         for (int i = 0; i < n; i++) {
             int id = batch.SectionIds[i];
             string name = batch.Names[i];
+            string? subsystem = i < batch.Subsystems.Length ? batch.Subsystems[i] : null;
             SectionStats stats = _sections.GetOrAdd(id, key => new SectionStats { SectionId = key });
             stats.Name = name;
+            stats.Subsystem = subsystem;
         }
     }
 

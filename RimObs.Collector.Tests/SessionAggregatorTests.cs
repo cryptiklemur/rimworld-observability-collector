@@ -436,3 +436,44 @@ public sealed class SessionAggregatorTests {
         stats.TotalElapsedTicks.Should().Be(200);
     }
 }
+
+public sealed class SessionAggregatorSubsystemTests {
+    [Fact]
+    public void OnSectionRegistrations_propagates_subsystem_when_present() {
+        SessionAggregator aggregator = new();
+        SectionRegistrationsBatch batch = new() {
+            SectionIds = [1, 2, 3],
+            Names = ["pawns.work", "core.tick", "render.draw"],
+            Subsystems = ["pawns", null, "render"],
+        };
+
+        aggregator.OnSectionRegistrations(batch);
+
+        SectionStats? s1 = aggregator.FindSection(1);
+        s1.Should().NotBeNull();
+        s1!.Subsystem.Should().Be("pawns");
+
+        SectionStats? s2 = aggregator.FindSection(2);
+        s2.Should().NotBeNull();
+        s2!.Subsystem.Should().BeNull();
+
+        SectionStats? s3 = aggregator.FindSection(3);
+        s3.Should().NotBeNull();
+        s3!.Subsystem.Should().Be("render");
+    }
+
+    [Fact]
+    public void OnSectionRegistrations_subsystem_defaults_to_null_when_subsystems_shorter_than_names() {
+        SessionAggregator aggregator = new();
+        SectionRegistrationsBatch batch = new() {
+            SectionIds = [10, 11],
+            Names = ["a", "b"],
+            Subsystems = [],
+        };
+
+        aggregator.OnSectionRegistrations(batch);
+
+        aggregator.FindSection(10)!.Subsystem.Should().BeNull();
+        aggregator.FindSection(11)!.Subsystem.Should().BeNull();
+    }
+}
