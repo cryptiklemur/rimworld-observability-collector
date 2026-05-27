@@ -84,7 +84,7 @@ Gauges (`RegisterGauge` / `Set`) and histograms (`RegisterHistogram` / `Observe`
 
 1. Build your mod: `dotnet build` or your usual workflow.
 2. Launch RimWorld with your mod and RimObs both active.
-3. Open the dashboard: click the RimObs button in the mod settings widget, or navigate directly to `http://localhost:17654`. Your mod's sections will appear in the sidebar under its `packageId` prefix.
+3. Open the dashboard: it auto-opens in your default browser when RimWorld starts. To re-open later, click the RimObs button in the mod settings widget (the in-game widget shows the current session's port, which is ephemeral). Your mod's sections will appear in the sidebar under its `packageId` prefix.
 
 See [Using the collector](Using-The-Collector) for collector startup options and how to reach the dashboard from a remote machine.
 
