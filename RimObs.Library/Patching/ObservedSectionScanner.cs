@@ -16,9 +16,42 @@ internal static class ObservedSectionScanner {
         public List<string> Warnings { get; } = new();
     }
 
+    internal static bool? AttributesEnabledForTests;
+
+    private static bool IsEnabled() {
+        if (AttributesEnabledForTests.HasValue)
+            return AttributesEnabledForTests.Value;
+        try {
+            Type? settingsType = Type.GetType(
+                "Cryptiklemur.RimObs.Settings.RimObsSettings, RimObs");
+            if (settingsType == null)
+                return true;
+            System.Reflection.PropertyInfo? currentProp =
+                settingsType.GetProperty("Current",
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.Static);
+            object? instance = currentProp?.GetValue(null);
+            if (instance == null)
+                return true;
+            System.Reflection.FieldInfo? field =
+                settingsType.GetField("AttributesEnabled",
+                    System.Reflection.BindingFlags.Public |
+                    System.Reflection.BindingFlags.Instance);
+            if (field == null)
+                return true;
+            return (bool)field.GetValue(instance)!;
+        }
+        catch {
+            return true;
+        }
+    }
+
     public static ScanResult Scan(IEnumerable<(string packageId, IReadOnlyList<Assembly> assemblies)> mods) {
         if (mods == null)
             throw new ArgumentNullException(nameof(mods));
+
+        if (!IsEnabled())
+            return new ScanResult();
 
         ScanResult result = new();
         foreach ((string packageId, IReadOnlyList<Assembly> assemblies) in mods) {

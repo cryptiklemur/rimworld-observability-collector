@@ -173,4 +173,21 @@ public class ObservedSectionScannerTests : System.IDisposable {
         });
         act.Should().NotThrow();
     }
+
+    [Fact]
+    public void Scan_AttributesDisabled_NoOp() {
+        ObservedSectionScanner.AttributesEnabledForTests = false;
+        try {
+            IReadOnlyList<Assembly> asms = new[] { typeof(Target_BareAttribute).Assembly };
+            ObservedSectionScanner.ScanResult result = ObservedSectionScanner.Scan(
+                new[] { ("test.modid", asms) });
+
+            result.AssembliesScanned.Should().Be(0);
+            result.AttributesFound.Should().Be(0);
+            result.Registered.Should().Be(0);
+        }
+        finally {
+            ObservedSectionScanner.AttributesEnabledForTests = null;
+        }
+    }
 }
