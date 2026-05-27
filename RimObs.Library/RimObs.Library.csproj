@@ -22,6 +22,17 @@
         <DefineConstants>DEBUG;TRACE</DefineConstants>
         <RootNamespace>Cryptiklemur.RimObs</RootNamespace>
         <AssemblyName>RimObs</AssemblyName>
+
+        <PackageId>CryptikLemur.RimObs.Library</PackageId>
+        <Description>RimWorld Observability mod-side library. Register named sections and metrics; the out-of-process collector aggregates the data and serves a dashboard. Net48 / RimWorld 1.6+.</Description>
+        <PackageTags>rimworld;observability;telemetry;harmony;mod</PackageTags>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RepositoryUrl>https://github.com/cryptiklemur/rimworld-observability-collector</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageProjectUrl>https://github.com/cryptiklemur/rimworld-observability-collector</PackageProjectUrl>
+        <IncludeSymbols>false</IncludeSymbols>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
     </PropertyGroup>
 
     <PropertyGroup>
@@ -82,6 +93,10 @@
     </ItemGroup>
 
     <ItemGroup Condition="'$(HasLocalRimWorld)' == 'false'">
-        <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.*"/>
+        <PackageReference Include="Krafs.Rimworld.Ref" Version="1.6.*" PrivateAssets="all" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Include="..\README.md" Pack="true" PackagePath="\" />
     </ItemGroup>
 </Project>

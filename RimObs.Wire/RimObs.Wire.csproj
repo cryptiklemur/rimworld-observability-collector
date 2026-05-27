@@ -11,9 +11,25 @@
         <RootNamespace>Cryptiklemur.RimObs.Wire</RootNamespace>
         <AssemblyName>RimObs.Wire</AssemblyName>
         <DebugType>embedded</DebugType>
+
+        <PackageId>CryptikLemur.RimObs.Wire</PackageId>
+        <Description>Wire protocol (MessagePack-style) shared between the RimWorld Observability collector and its mod-side library. Useful for third-party tools that read collector data.</Description>
+        <PackageTags>rimworld;observability;telemetry;wire-protocol</PackageTags>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
+        <PackageReadmeFile>README.md</PackageReadmeFile>
+        <RepositoryUrl>https://github.com/cryptiklemur/rimworld-observability-collector</RepositoryUrl>
+        <RepositoryType>git</RepositoryType>
+        <PackageProjectUrl>https://github.com/cryptiklemur/rimworld-observability-collector</PackageProjectUrl>
+        <IncludeSymbols>false</IncludeSymbols>
+        <GenerateDocumentationFile>true</GenerateDocumentationFile>
+        <NoWarn>$(NoWarn);CS1591</NoWarn>
     </PropertyGroup>
 
     <PropertyGroup Condition="'$(Configuration)' == 'Release'">
         <Optimize>true</Optimize>
     </PropertyGroup>
+
+    <ItemGroup>
+        <None Include="..\README.md" Pack="true" PackagePath="\" />
+    </ItemGroup>
 </Project>

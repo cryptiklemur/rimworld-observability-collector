@@ -17,6 +17,9 @@ RimObs.Dashboard/
 bin/
 obj/
 node_modules/
+nupkgs/
+out/
+scorecard.png
 
 Makefile
 make.ps1
