@@ -1,0 +1,1 @@
+[Source](https://github.com/cryptiklemur/observability-collector) · [Releases](https://github.com/cryptiklemur/rimworld-observability-collector/releases) · [Issues](https://github.com/cryptiklemur/rimworld-observability-collector/issues) · MIT licensed
