@@ -63,14 +63,15 @@ internal static class SectionCatalog {
         }
     }
 
-    public static CatalogEntry RegisterDirect(string name, MethodBase method) {
+    public static CatalogEntry RegisterDirect(string name, MethodBase method, string? subsystem = null) {
         if (method == null)
             throw new ArgumentNullException(nameof(method));
 
         lock (s_Lock) {
             CatalogEntry entry = new(name, method.DeclaringType?.FullName ?? "?", method.Name, null);
             entry.Resolved = method;
-            SectionHandle handle = SectionRegistry.Register(name);
+            entry.Subsystem = subsystem;
+            SectionHandle handle = SectionRegistry.Register(name, subsystem);
             entry.SectionId = handle.Id;
             SectionRegistry.SetActive(handle.Id, true);
             s_Entries.Add(entry);
