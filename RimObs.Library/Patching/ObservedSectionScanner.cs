@@ -32,42 +32,87 @@ internal static class ObservedSectionScanner {
                     continue;
 
                 result.AssembliesScanned++;
-                Type[] types = assembly.GetTypes();
+                Type[] types;
+                try {
+                    types = assembly.GetTypes();
+                }
+                catch (ReflectionTypeLoadException ex) {
+                    List<Type> salvaged = new();
+                    if (ex.Types != null) {
+                        foreach (Type? t in ex.Types) {
+                            if (t != null)
+                                salvaged.Add(t);
+                        }
+                    }
+                    types = salvaged.ToArray();
+                    if (ex.LoaderExceptions != null) {
+                        foreach (Exception? le in ex.LoaderExceptions) {
+                            if (le != null)
+                                result.Warnings.Add(
+                                    $"[{packageId}] {assembly.GetName().Name}: loader exception: {le.Message}");
+                        }
+                    }
+                }
+                catch (Exception ex) {
+                    result.Failed++;
+                    result.Warnings.Add(
+                        $"[{packageId}] {assembly.GetName().Name}: GetTypes failed: {ex.Message}");
+                    continue;
+                }
+
                 foreach (Type type in types) {
-                    foreach (MethodInfo method in type.GetMethods(
-                        BindingFlags.Public | BindingFlags.NonPublic |
-                        BindingFlags.Instance | BindingFlags.Static |
-                        BindingFlags.DeclaredOnly)) {
-                        ObservedSectionAttribute? attr = method.GetCustomAttribute<ObservedSectionAttribute>();
-                        if (attr == null)
-                            continue;
-
-                        result.AttributesFound++;
-
-                        if (!IsPatchable(method, out string reason)) {
-                            result.SkippedUnsupported++;
-                            result.Warnings.Add(
-                                $"[{packageId}] {type.FullName}.{method.Name}: skipped ({reason})");
-                            continue;
+                    try {
+                        foreach (MethodInfo method in type.GetMethods(
+                            BindingFlags.Public | BindingFlags.NonPublic |
+                            BindingFlags.Instance | BindingFlags.Static |
+                            BindingFlags.DeclaredOnly)) {
+                            try {
+                                ScanMethod(method, type, packageId, result);
+                            }
+                            catch (Exception ex) {
+                                result.Failed++;
+                                result.Warnings.Add(
+                                    $"[{packageId}] {type.FullName}.{method.Name}: scan failed: {ex.Message}");
+                            }
                         }
-
-                        if (SectionCatalog.TryGetSectionId(method, out _)) {
-                            result.SkippedDuplicate++;
-                            result.Warnings.Add(
-                                $"[{packageId}] {type.FullName}.{method.Name}: skipped (already registered by core or XML)");
-                            continue;
-                        }
-
-                        string computedName = attr.Name ?? $"{type.FullName}.{method.Name}";
-                        string prefixed = $"{packageId}.{computedName}";
-                        SectionCatalog.RegisterDirect(prefixed, method, subsystem: attr.Subsystem);
-                        PatchInstaller.PatchAttributeMethod(method);
-                        result.Registered++;
+                    }
+                    catch (Exception ex) {
+                        result.Failed++;
+                        result.Warnings.Add(
+                            $"[{packageId}] {type.FullName}: type scan failed: {ex.Message}");
                     }
                 }
             }
         }
         return result;
+    }
+
+    private static void ScanMethod(MethodInfo method, Type type, string packageId, ScanResult result) {
+        ObservedSectionAttribute? attr = method.GetCustomAttribute<ObservedSectionAttribute>();
+        if (attr == null)
+            return;
+
+        result.AttributesFound++;
+
+        if (!IsPatchable(method, out string reason)) {
+            result.SkippedUnsupported++;
+            result.Warnings.Add(
+                $"[{packageId}] {type.FullName}.{method.Name}: skipped ({reason})");
+            return;
+        }
+
+        if (SectionCatalog.TryGetSectionId(method, out _)) {
+            result.SkippedDuplicate++;
+            result.Warnings.Add(
+                $"[{packageId}] {type.FullName}.{method.Name}: skipped (already registered by core or XML)");
+            return;
+        }
+
+        string computedName = attr.Name ?? $"{type.FullName}.{method.Name}";
+        string prefixed = $"{packageId}.{computedName}";
+        SectionCatalog.RegisterDirect(prefixed, method, subsystem: attr.Subsystem);
+        PatchInstaller.PatchAttributeMethod(method);
+        result.Registered++;
     }
 
     private static bool IsPatchable(MethodInfo method, out string reason) {

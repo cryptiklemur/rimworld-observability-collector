@@ -164,4 +164,13 @@ public class ObservedSectionScannerTests : System.IDisposable {
 
         result.AssembliesScanned.Should().Be(0);
     }
+
+    [Fact]
+    public void Scan_PerMethodException_DoesNotAbortScan() {
+        System.Action act = () => ObservedSectionScanner.Scan(new[] {
+            ("test.modid", (IReadOnlyList<Assembly>)new[] { typeof(Target_BareAttribute).Assembly }),
+            ("system", (IReadOnlyList<Assembly>)new[] { typeof(string).Assembly }),
+        });
+        act.Should().NotThrow();
+    }
 }
