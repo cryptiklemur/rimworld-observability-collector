@@ -33,6 +33,7 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
     private readonly long[] _elapsedTicks = new long[BatchSize];
     private readonly int[] _registrationIds = new int[64];
     private readonly string[] _registrationNames = new string[64];
+    private readonly string?[] _registrationSubsystems = new string?[64];
 
     private const int ObserverQueueCapacity = 256;
     private readonly BoundedSampleQueue<GcEventSample> _gcQueue = new(ObserverQueueCapacity);
@@ -146,12 +147,13 @@ internal sealed class UdpTelemetrySink : ISampleSink, IGcEventSink, IAllocationS
     }
 
     private void FlushRegistrations() {
-        int n = SectionRegistry.DrainPendingRegistrations(_registrationIds, _registrationNames);
+        int n = SectionRegistry.DrainPendingRegistrations(_registrationIds, _registrationNames, _registrationSubsystems);
         if (n == 0)
             return;
         SectionRegistrationsBatch batch = new() {
             SectionIds = Slice(_registrationIds, n),
             Names = Slice(_registrationNames, n),
+            Subsystems = Slice(_registrationSubsystems, n),
         };
         SendBatch(BatchType.SectionRegistrations, batch);
     }

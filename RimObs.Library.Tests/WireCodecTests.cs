@@ -105,6 +105,39 @@ public sealed class WireCodecTests {
     }
 
     [Fact]
+    public void SectionRegistrationsBatch_round_trips_subsystems_with_null() {
+        SectionRegistrationsBatch original = new() {
+            SectionIds = [0, 1, 2],
+            Names = ["a", "b", "c"],
+            Subsystems = ["ui", null, "jobs"],
+        };
+        SectionRegistrationsBatch decoded = WireCodec.Deserialize<SectionRegistrationsBatch>(WireCodec.Serialize(original));
+        decoded.SectionIds.Should().Equal(0, 1, 2);
+        decoded.Names.Should().Equal("a", "b", "c");
+        decoded.Subsystems.Should().Equal("ui", null, "jobs");
+    }
+
+    [Fact]
+    public void SectionRegistrationsBatch_back_compat_v2_payload_has_empty_subsystems() {
+        ArrayBufferWriter<byte> buffer = new ArrayBufferWriter<byte>();
+        MessagePackWriter writer = new MessagePackWriter(buffer);
+        writer.WriteArrayHeader(2);
+        writer.WriteArrayHeader(2);
+        writer.Write(0);
+        writer.Write(1);
+        writer.WriteArrayHeader(2);
+        writer.Write("a");
+        writer.Write("b");
+        writer.Flush();
+        byte[] v2Bytes = buffer.WrittenSpan.ToArray();
+
+        SectionRegistrationsBatch decoded = WireCodec.Deserialize<SectionRegistrationsBatch>(v2Bytes);
+        decoded.SectionIds.Should().Equal(0, 1);
+        decoded.Names.Should().Equal("a", "b");
+        decoded.Subsystems.Should().BeEmpty();
+    }
+
+    [Fact]
     public void SectionBatch_round_trips() {
         SectionBatch original = SampleSections();
         SectionBatch decoded = WireCodec.Deserialize<SectionBatch>(WireCodec.Serialize(original));

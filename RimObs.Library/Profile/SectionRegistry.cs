@@ -8,6 +8,7 @@ internal static class SectionRegistry {
 
     internal static readonly string[] s_Names = new string[MaxSections];
     internal static readonly bool[] s_Active = new bool[MaxSections];
+    internal static readonly string?[] s_Subsystems = new string?[MaxSections];
 
     private static readonly Dictionary<string, int> s_Lookup = new(StringComparer.Ordinal);
     private static readonly object s_Lock = new();
@@ -23,7 +24,7 @@ internal static class SectionRegistry {
         }
     }
 
-    public static SectionHandle Register(string name) {
+    public static SectionHandle Register(string name, string? subsystem = null) {
         if (string.IsNullOrEmpty(name))
             throw new ArgumentException("Section name must not be empty.", nameof(name));
 
@@ -39,6 +40,7 @@ internal static class SectionRegistry {
             int id = s_Count++;
             s_Names[id] = name;
             s_Active[id] = true;
+            s_Subsystems[id] = subsystem;
             s_Lookup[name] = id;
             s_PendingRegistrations.Add(id);
             return new SectionHandle(id);
@@ -50,6 +52,9 @@ internal static class SectionRegistry {
 
     public static string GetName(int id) =>
         (uint)id < (uint)s_Count ? s_Names[id] : string.Empty;
+
+    public static string? GetSubsystem(int id) =>
+        (uint)id < (uint)s_Count ? s_Subsystems[id] : null;
 
     public static void SetActive(int id, bool active) {
         if ((uint)id < (uint)s_Count)
@@ -66,13 +71,14 @@ internal static class SectionRegistry {
         }
     }
 
-    public static int DrainPendingRegistrations(int[] ids, string[] names) {
+    public static int DrainPendingRegistrations(int[] ids, string[] names, string?[] subsystems) {
         lock (s_Lock) {
-            int n = Math.Min(s_PendingRegistrations.Count, Math.Min(ids.Length, names.Length));
+            int n = Math.Min(s_PendingRegistrations.Count, Math.Min(ids.Length, Math.Min(names.Length, subsystems.Length)));
             for (int i = 0; i < n; i++) {
                 int id = s_PendingRegistrations[i];
                 ids[i] = id;
                 names[i] = s_Names[id];
+                subsystems[i] = s_Subsystems[id];
             }
             s_PendingRegistrations.RemoveRange(0, n);
             return n;
@@ -83,6 +89,7 @@ internal static class SectionRegistry {
         lock (s_Lock) {
             Array.Clear(s_Names, 0, s_Count);
             Array.Clear(s_Active, 0, s_Count);
+            Array.Clear(s_Subsystems, 0, s_Count);
             s_Lookup.Clear();
             s_PendingRegistrations.Clear();
             s_Count = 0;

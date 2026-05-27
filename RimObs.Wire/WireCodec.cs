@@ -142,9 +142,10 @@ public static class WireCodec {
 
     public static byte[] Serialize(SectionRegistrationsBatch value) {
         WireBufferWriter writer = new WireBufferWriter();
-        writer.WriteArrayHeader(2);
+        writer.WriteArrayHeader(3);
         WriteInt32Array(writer, value.SectionIds);
         WriteStringArray(writer, value.Names);
+        WriteNullableStringArray(writer, value.Subsystems);
         return writer.ToArray();
     }
 
@@ -295,11 +296,14 @@ public static class WireCodec {
 
     private static SectionRegistrationsBatch ReadSectionRegistrationsBatch(byte[] data) {
         WireBufferReader reader = new WireBufferReader(data);
-        reader.ReadArrayHeader();
-        return new SectionRegistrationsBatch {
+        int fieldCount = reader.ReadArrayHeader();
+        SectionRegistrationsBatch batch = new() {
             SectionIds = ReadInt32Array(reader),
             Names = ReadStringArray(reader),
         };
+        if (fieldCount >= 3)
+            batch.Subsystems = ReadNullableStringArray(reader);
+        return batch;
     }
 
     private static SectionBatch ReadSectionBatch(byte[] data) {
@@ -541,6 +545,20 @@ public static class WireCodec {
         string[] result = new string[count];
         for (int i = 0; i < count; i++)
             result[i] = reader.ReadString() ?? string.Empty;
+        return result;
+    }
+
+    private static void WriteNullableStringArray(WireBufferWriter writer, string?[] values) {
+        writer.WriteArrayHeader(values.Length);
+        for (int i = 0; i < values.Length; i++)
+            writer.WriteString(values[i]);
+    }
+
+    private static string?[] ReadNullableStringArray(WireBufferReader reader) {
+        int count = reader.ReadArrayHeader();
+        string?[] result = new string?[count];
+        for (int i = 0; i < count; i++)
+            result[i] = reader.ReadString();
         return result;
     }
 }
