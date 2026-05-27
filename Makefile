@@ -96,6 +96,6 @@ publish-collector: build-dashboard
 		dotnet publish RimObs.Collector/RimObs.Collector.csproj \
 			-c Release -r $$rid --self-contained true \
 			-p:PublishSingleFile=true \
-			-o out/collector/$$rid \
+			-o Collector/$$rid \
 			--nologo; \
 	done
