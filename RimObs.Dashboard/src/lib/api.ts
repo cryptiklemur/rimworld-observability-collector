@@ -72,6 +72,17 @@ export interface SectionTimeseriesResponse {
     points: SectionTimeseriesPoint[];
 }
 
+export interface RegistrySection {
+    id: number;
+    name: string;
+    subsystem: string | null;
+}
+
+export interface RegistrySectionsResponse {
+    schema_version: number;
+    sections: RegistrySection[];
+}
+
 export interface MetricLabel {
     canonical: string;
     latest_value: number;
@@ -249,6 +260,7 @@ export const api = {
     hotspots: (limit = 50) =>
         get<HotspotsResponse>(`/api/v1/sessions/current/hotspots?limit=${limit}`),
     sections: () => get<SectionsResponse>('/api/v1/sessions/current/sections'),
+    allSections: () => get<RegistrySectionsResponse>('/api/v1/sections'),
     sectionTimeseries: (id: number) =>
         get<SectionTimeseriesResponse>(`/api/v1/sessions/current/sections/${id}/timeseries`),
     metrics: () => get<MetricsResponse>('/api/v1/sessions/current/metrics'),

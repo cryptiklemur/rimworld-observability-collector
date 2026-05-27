@@ -97,6 +97,23 @@ describe('error handling', () => {
     });
 });
 
+describe('allSections', () => {
+    it('calls /api/v1/sections and returns parsed registry sections', async () => {
+        const f = mockFetch({
+            schema_version: 1,
+            sections: [
+                { id: 1, name: 'pawns.work.Tick', subsystem: 'pawns.work' },
+                { id: 2, name: 'foo.Bar', subsystem: null },
+            ],
+        });
+        const result = await api.allSections();
+        expect(f.mock.calls[0][0]).toBe('/api/v1/sections');
+        expect(result.sections).toHaveLength(2);
+        expect(result.sections[0].subsystem).toBe('pawns.work');
+        expect(result.sections[1].subsystem).toBeNull();
+    });
+});
+
 describe('ApiError', () => {
     it('carries status and name', () => {
         const err = new ApiError(503, 'down');
