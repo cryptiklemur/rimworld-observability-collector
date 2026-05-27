@@ -12,7 +12,7 @@
     onMount(() => res.start());
     onDestroy(() => res.stop());
 
-    const NULL_SUBSYSTEM = '__none__';
+    const NULL_SUBSYSTEM = '__unset__';
 
     function readFilterFromUrl(): string | null | 'all' {
         const raw = new URLSearchParams(window.location.search).get('subsystem');
@@ -55,7 +55,7 @@
     });
 
     function chipLabel(sub: string | null): string {
-        return sub === null ? t('sections.filter.none') : sub;
+        return sub === null ? t('sections.filter.unset') : sub;
     }
 
     function isActive(sub: string | null | 'all'): boolean {

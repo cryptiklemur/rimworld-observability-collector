@@ -129,7 +129,7 @@
     "sections.empty": "Aún no hay secciones registradas.",
     "sections.filter.label": "Filtrar por subsistema",
     "sections.filter.all": "Todos",
-    "sections.filter.none": "(ninguno)",
+    "sections.filter.unset": "sin asignar",
     "sessions.title": "Sesiones",
     "sessions.summary": "Sesión actual",
     "sessions.list": "Todas las sesiones",

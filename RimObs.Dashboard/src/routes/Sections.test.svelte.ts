@@ -30,7 +30,7 @@ describe('Sections route', () => {
 
         expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
         expect(screen.getByRole('button', { name: 'pawns.work' })).toBeInTheDocument();
-        expect(screen.getByRole('button', { name: '(none)' })).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'unset' })).toBeInTheDocument();
     });
 
     it('filters to a subsystem when its chip is clicked', async () => {
@@ -47,7 +47,7 @@ describe('Sections route', () => {
         expect(screen.queryByText('core.Bar')).not.toBeInTheDocument();
     });
 
-    it('filters to null-subsystem sections when (none) chip is clicked', async () => {
+    it('filters to null-subsystem sections when unset chip is clicked', async () => {
         mockSections([
             { id: 1, name: 'pawns.work.Tick', subsystem: 'pawns.work' },
             { id: 2, name: 'core.Bar', subsystem: null },
@@ -55,7 +55,7 @@ describe('Sections route', () => {
         render(Sections);
 
         await screen.findByText('pawns.work.Tick');
-        await fireEvent.click(screen.getByRole('button', { name: '(none)' }));
+        await fireEvent.click(screen.getByRole('button', { name: 'unset' }));
 
         expect(screen.queryByText('pawns.work.Tick')).not.toBeInTheDocument();
         expect(screen.getByText('core.Bar')).toBeInTheDocument();

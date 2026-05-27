@@ -129,7 +129,7 @@
     "sections.empty": "Noch keine Sektionen registriert.",
     "sections.filter.label": "Nach Subsystem filtern",
     "sections.filter.all": "Alle",
-    "sections.filter.none": "(keine)",
+    "sections.filter.unset": "nicht gesetzt",
     "sessions.title": "Sitzungen",
     "sessions.summary": "Aktuelle Sitzung",
     "sessions.list": "Alle Sitzungen",

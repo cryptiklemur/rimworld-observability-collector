@@ -129,7 +129,7 @@
     "sections.empty": "尚未注册任何节点。",
     "sections.filter.label": "按子系统过滤",
     "sections.filter.all": "全部",
-    "sections.filter.none": "(无)",
+    "sections.filter.unset": "未设置",
     "sessions.title": "会话",
     "sessions.summary": "当前会话",
     "sessions.list": "所有会话",
