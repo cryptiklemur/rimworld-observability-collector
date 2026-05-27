@@ -1,17 +1,57 @@
 # RimWorld Observability Collector
 
-A telemetry framework for RimWorld mods. Mod authors register named
-sections and metrics; an out-of-process collector aggregates the data,
-serves a dashboard SPA, and can export diagnostic bundles.
+A telemetry framework for RimWorld mods. Mod authors register named sections
+and metrics; an out-of-process collector aggregates the data, serves a
+dashboard, and can export diagnostic bundles.
 
-The full specification lives in
-`~/Downloads/rimworld_observability_collector_prd.md` (PRD v0.3.0).
-Every resolved architectural decision is indexed in PRD §35 (Q1-Q72).
+[**Full documentation -->**](https://github.com/cryptiklemur/rimworld-observability-collector/wiki)
 
-## Three runtimes
+## For mod authors
 
-The repo deliberately spans three .NET targets because each piece runs
-in a different host.
+Add the library:
+
+```bash
+dotnet add package CryptikLemur.RimObs.Library
+```
+
+Instrument a tick:
+
+```csharp
+using Cryptiklemur.RimObs.Api;
+
+private static readonly SectionHandle Tick =
+    Obs.Profile.RegisterSection("tick");
+
+public void Tick() {
+    using (Obs.Profile.Measure(Tick)) {
+        // ... your work ...
+    }
+}
+```
+
+Section names are auto-prefixed with your mod's `packageId`. See the
+[Quickstart](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Mod-Author-Quickstart)
+for the full path from zero to dashboard.
+
+## For players
+
+Subscribe to the Workshop item your other mods declare as a dependency. The
+collector launches automatically with the game and opens the dashboard in your
+browser. See [Installation](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Installation).
+
+## Documentation
+
+- [Mod-author quickstart](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Mod-Author-Quickstart)
+- [Profile API](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Profile-API) and [Metrics API](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Metrics-API)
+- [Declarative `profiling.xml`](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Profiling-XML)
+- [Hot-path discipline](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Hot-Path-Discipline)
+- [Wire protocol](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Wire-Protocol) and [Local HTTP API](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Local-HTTP-API)
+- [Architecture](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Architecture)
+
+## For contributors
+
+The repo deliberately spans three .NET targets because each piece runs in a
+different host.
 
 | Project              | Target          | Where it runs                                                       |
 | -------------------- | --------------- | ------------------------------------------------------------------- |
@@ -24,18 +64,19 @@ Test projects (`RimObs.Library.Tests/`, `RimObs.Collector.Tests/`) are
 `net8.0` xUnit hosts; they exercise the library logic that is
 RimWorld-independent.
 
-## Root layout
+### Root layout
 
 The non-obvious neighbors at the repo root exist because this is both a
 RimWorld mod and a multi-project .NET solution:
 
-- `About/` — RimWorld mod metadata (About.xml, Preview.png, loadFolders.xml).
-- `Assemblies/` — RimWorld's deploy directory. `RimObs.Library` builds straight here.
-- `PublishedFileIds.json` — Steam Workshop IDs (one per release channel).
-- `RimObs.sln` — single solution so Rider/VS resolve `RimObs.Wire` from both net48 and net10.0 consumers.
-- `Makefile` + `make.ps1` — see `make build`, `make test`, `make publish-collector`.
+- `About/` -- RimWorld mod metadata (About.xml, Preview.png, loadFolders.xml).
+- `Assemblies/` -- RimWorld's deploy directory. `RimObs.Library` builds straight here.
+- `PublishedFileIds.json` -- Steam Workshop IDs (one per release channel).
+- `RimObs.sln` -- single solution so Rider/VS resolve `RimObs.Wire` from both net48 and net10.0 consumers.
+- `Makefile` + `make.ps1` -- see `make build`, `make test`, `make publish-collector`.
+- `docs/wiki/` -- source for [the wiki](https://github.com/cryptiklemur/rimworld-observability-collector/wiki). Edit here, not on the wiki site; CI mirrors on push to `main`.
 
-## Quick start
+### Quick start
 
 ```bash
 make build              # SPA + full solution
@@ -44,13 +85,17 @@ make watch              # collector hot-reload at :17654
 make publish-collector  # self-contained binaries for win/linux/osx
 ```
 
-## Conventions
+### Conventions
 
-- Hot-path discipline for `RimObs.Library` is mandatory (see PRD §11.6):
-  zero allocation, exception-safe, no locks, no Task/async on the steady path.
-- Section names are auto-prefixed with the mod's `packageId` at
-  registration (PRD §35.69). Mod authors register bare names like `tick`.
-- Wire protocol is MessagePack with per-batch `schema_version`
-  (PRD §35.40, §35.42). Default port `17654` for both HTTP and UDP.
-- Time source is `Stopwatch.GetTimestamp()` with a session-start UTC
-  anchor captured once (PRD §35.67).
+- Hot-path discipline for `RimObs.Library` is mandatory: zero allocation,
+  exception-safe, no locks, no `Task`/`async` on the steady path. See
+  [Hot-path discipline](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Hot-Path-Discipline)
+  for the full rules.
+- Wire protocol is MessagePack with per-batch `schema_version`. Default
+  port `17654` for HTTP and UDP in standalone mode; ephemeral when launched
+  from the game. See
+  [Wire protocol](https://github.com/cryptiklemur/rimworld-observability-collector/wiki/Wire-Protocol).
+
+## License
+
+MIT. See [LICENSE](./LICENSE).
