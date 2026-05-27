@@ -142,4 +142,26 @@ public class ObservedSectionScannerTests : System.IDisposable {
         CatalogEntry entry = SectionCatalog.Entries.First(e => e.Name == "test.modid.patched_by_scan");
         entry.Installed.Should().BeTrue();
     }
+
+    // The library ships as assembly name "RimObs" (see RimObs.Library.csproj <AssemblyName>).
+    // In this test project the library is source-linked into "RimObs.Library.Tests",
+    // so typeof(Profiler).Assembly.GetName().Name is "RimObs.Library.Tests" here.
+    // We verify the guard does NOT exclude the test assembly (wrong name), proving
+    // the guard is name-exact and only fires for "RimObs".
+    // The library ships as assembly name "RimObs" (see RimObs.Library.csproj <AssemblyName>).
+    // In this test project the library is source-linked, so we fabricate a dynamic assembly
+    // named "RimObs" to verify the guard skips it.
+    [Fact]
+    public void Scan_SkipsRimObsLibraryItself() {
+        System.Reflection.Emit.AssemblyBuilder rimobs = System.Reflection.Emit.AssemblyBuilder.DefineDynamicAssembly(
+            new AssemblyName("RimObs"),
+            System.Reflection.Emit.AssemblyBuilderAccess.Run);
+        rimobs.GetName().Name.Should().Be("RimObs");
+
+        IReadOnlyList<Assembly> asms = new[] { (Assembly)rimobs };
+        ObservedSectionScanner.ScanResult result = ObservedSectionScanner.Scan(
+            new[] { ("cryptiklemur.rimobs", asms) });
+
+        result.AssembliesScanned.Should().Be(0);
+    }
 }

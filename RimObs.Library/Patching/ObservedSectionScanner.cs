@@ -28,6 +28,8 @@ internal static class ObservedSectionScanner {
             foreach (Assembly assembly in assemblies) {
                 if (assembly == null)
                     continue;
+                if (assembly.GetName().Name == "RimObs")
+                    continue;
 
                 result.AssembliesScanned++;
                 Type[] types = assembly.GetTypes();
