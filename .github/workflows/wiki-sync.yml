@@ -1,0 +1,49 @@
+# One-time bootstrap (run once, by a maintainer, before the first sync):
+#   1. gh api -X PATCH repos/cryptiklemur/rimworld-observability-collector -f has_wiki=true
+#   2. Visit https://github.com/cryptiklemur/rimworld-observability-collector/wiki
+#      and click "Create the first page". Save any stub content (it will be
+#      overwritten by the first sync).
+# The wiki repo (<repo>.wiki.git) does not exist until a first wiki page is
+# created. After that, this workflow keeps it in sync with docs/wiki/.
+
+name: Wiki sync
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/wiki/**'
+      - '.github/workflows/wiki-sync.yml'
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v4
+
+      - name: Checkout wiki
+        uses: actions/checkout@v4
+        with:
+          repository: ${{ github.repository }}.wiki
+          path: wiki
+
+      - name: Mirror docs/wiki/ to wiki/
+        run: rsync -a --delete --exclude='.git' docs/wiki/ wiki/
+
+      - name: Commit and push
+        working-directory: wiki
+        run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          if [ -z "$(git status --porcelain)" ]; then
+            echo "No wiki changes"
+            exit 0
+          fi
+          git add -A
+          git commit -m "docs: sync from ${GITHUB_SHA:0:7}"
+          git push
