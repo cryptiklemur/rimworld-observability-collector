@@ -92,5 +92,6 @@ See [Using the collector](Using-The-Collector) for collector startup options and
 
 - [Profile API](Profile-API) -- full API for timed sections, including `Start`/`Stop` and nested scopes.
 - [Metrics API](Metrics-API) -- counters, gauges, histograms, and labeled variants.
+- [[ObservedSection] attribute](ObservedSection-Attribute) -- annotate methods directly instead of calling `RegisterSection`.
 - [profiling.xml](Profiling-XML) -- instrument third-party code without writing C#.
 - [Hot-path discipline](Hot-Path-Discipline) -- what you must not do inside a `Measure` block.

@@ -130,4 +130,5 @@ The `packageId` prefix is derived from the calling assembly's registration in `O
 
 - [Metrics API](Metrics-API)
 - [Profiling-XML](Profiling-XML) -- declarative alternative to hand-written `RegisterSection` calls
+- [[ObservedSection] attribute](ObservedSection-Attribute) -- attribute-based alternative for methods you own
 - [Hot-Path-Discipline](Hot-Path-Discipline)

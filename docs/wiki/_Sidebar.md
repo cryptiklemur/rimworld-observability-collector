@@ -9,6 +9,7 @@
 - [Profile API](Profile-API)
 - [Metrics API](Metrics-API)
 - [profiling.xml](Profiling-XML)
+- [[ObservedSection] attribute](ObservedSection-Attribute)
 - [Hot-path discipline](Hot-Path-Discipline)
 - [Troubleshooting](Troubleshooting)
 

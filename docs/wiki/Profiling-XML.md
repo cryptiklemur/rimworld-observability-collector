@@ -116,5 +116,6 @@ Note that XML-declared patches go through the same IL transpiler as code-declare
 ## Related
 
 - [Profile API](Profile-API) - C# instrumentation API for cases XML cannot express
+- [[ObservedSection] attribute](ObservedSection-Attribute) - imperative complement: annotate methods you own directly in source
 - [Hot-Path Discipline](Hot-Path-Discipline) - allocation and performance rules that apply to all patches
 - [Troubleshooting](Troubleshooting) - diagnosing "my target method was not patched" and other startup warnings
