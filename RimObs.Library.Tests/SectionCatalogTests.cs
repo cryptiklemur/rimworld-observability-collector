@@ -20,4 +20,23 @@ public sealed class SectionCatalogTests {
         entry.Subsystem.Should().Be("ui");
         SectionRegistry.GetSubsystem(entry.SectionId).Should().Be("ui");
     }
+
+
+    [Fact]
+    public void Register_AcceptsSubsystem_ThreadsToRegistryAfterResolve() {
+        SectionCatalog.Clear();
+        SectionRegistry.Clear();
+
+        CatalogEntry entry = SectionCatalog.Register(
+            name: "test.lazy",
+            typeName: typeof(string).FullName!,
+            methodName: nameof(string.IsNullOrEmpty),
+            paramTypeNames: null,
+            subsystem: "strings");
+        SectionCatalog.ResolveAll();
+
+        entry.Subsystem.Should().Be("strings");
+        entry.SectionId.Should().BeGreaterOrEqualTo(0);
+        SectionRegistry.GetSubsystem(entry.SectionId).Should().Be("strings");
+    }
 }

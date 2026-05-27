@@ -55,9 +55,10 @@ internal static class SectionCatalog {
         }
     }
 
-    public static CatalogEntry Register(string name, string typeName, string methodName, string[]? paramTypeNames) {
+    public static CatalogEntry Register(string name, string typeName, string methodName, string[]? paramTypeNames, string? subsystem = null) {
         lock (s_Lock) {
             CatalogEntry entry = new(name, typeName, methodName, paramTypeNames);
+            entry.Subsystem = subsystem;
             s_Entries.Add(entry);
             return entry;
         }
@@ -99,7 +100,7 @@ internal static class SectionCatalog {
                         continue;
                     }
 
-                    SectionHandle handle = SectionRegistry.Register(entry.Name);
+                    SectionHandle handle = SectionRegistry.Register(entry.Name, entry.Subsystem);
                     entry.SectionId = handle.Id;
                     entry.Resolved = method;
                     SectionRegistry.SetActive(handle.Id, true);
