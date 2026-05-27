@@ -12,7 +12,27 @@
     onMount(() => res.start());
     onDestroy(() => res.stop());
 
-    let activeFilter = $state<string | null | 'all'>('all');
+    const NULL_SUBSYSTEM = '__none__';
+
+    function readFilterFromUrl(): string | null | 'all' {
+        const raw = new URLSearchParams(window.location.search).get('subsystem');
+        if (raw === null) return 'all';
+        if (raw === NULL_SUBSYSTEM) return null;
+        return raw;
+    }
+
+    function writeFilterToUrl(filter: string | null | 'all'): void {
+        const params = new URLSearchParams(window.location.search);
+        if (filter === 'all') {
+            params.delete('subsystem');
+        } else {
+            params.set('subsystem', filter === null ? NULL_SUBSYSTEM : filter);
+        }
+        const qs = params.toString();
+        window.history.replaceState(null, '', qs ? `?${qs}` : window.location.pathname);
+    }
+
+    let activeFilter = $state<string | null | 'all'>(readFilterFromUrl());
 
     let sections = $derived(res.data?.sections ?? []);
 
@@ -49,7 +69,7 @@
             <button
                 class="chip"
                 class:active={isActive('all')}
-                onclick={() => (activeFilter = 'all')}
+                onclick={() => { activeFilter = 'all'; writeFilterToUrl('all'); }}
             >
                 {t('sections.filter.all')}
             </button>
@@ -57,7 +77,7 @@
                 <button
                     class="chip"
                     class:active={isActive(sub)}
-                    onclick={() => (activeFilter = sub)}
+                    onclick={() => { activeFilter = sub; writeFilterToUrl(sub); }}
                 >
                     {chipLabel(sub)}
                 </button>

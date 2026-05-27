@@ -61,6 +61,46 @@ describe('Sections route', () => {
         expect(screen.getByText('core.Bar')).toBeInTheDocument();
     });
 
+    it('initializes filter from ?subsystem= URL param', async () => {
+        window.history.replaceState({}, '', '/?subsystem=pawns.work');
+        mockSections([
+            { id: 1, name: 'pawns.work.Tick', subsystem: 'pawns.work' },
+            { id: 2, name: 'core.Bar', subsystem: null },
+        ]);
+        render(Sections);
+
+        await screen.findByText('pawns.work.Tick');
+        expect(screen.getByText('pawns.work.Tick')).toBeInTheDocument();
+        expect(screen.queryByText('core.Bar')).not.toBeInTheDocument();
+    });
+
+    it('updates URL when chip is clicked', async () => {
+        window.history.replaceState({}, '', '/');
+        mockSections([
+            { id: 1, name: 'pawns.work.Tick', subsystem: 'pawns.work' },
+            { id: 2, name: 'core.Bar', subsystem: null },
+        ]);
+        render(Sections);
+
+        await screen.findByText('pawns.work.Tick');
+        await fireEvent.click(screen.getByRole('button', { name: 'pawns.work' }));
+
+        expect(new URLSearchParams(window.location.search).get('subsystem')).toBe('pawns.work');
+    });
+
+    it('selects All when ?subsystem= is absent', async () => {
+        window.history.replaceState({}, '', '/');
+        mockSections([
+            { id: 1, name: 'pawns.work.Tick', subsystem: 'pawns.work' },
+            { id: 2, name: 'core.Bar', subsystem: null },
+        ]);
+        render(Sections);
+
+        await screen.findByText('pawns.work.Tick');
+        expect(screen.getByText('core.Bar')).toBeInTheDocument();
+        expect(screen.getByRole('button', { name: 'All' })).toHaveClass('active');
+    });
+
     it('shows empty state when no sections are registered', async () => {
         mockSections([]);
         render(Sections);
