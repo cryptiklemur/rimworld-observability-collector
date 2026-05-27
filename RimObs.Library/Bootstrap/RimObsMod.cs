@@ -90,6 +90,7 @@ public sealed class RimObsMod : Mod {
             }
 
             PatchInstaller.InstallAll();
+            ObservedSectionScanner.ScanResult attrs = LoadObservedSections();
             FrameTickPatches.InstallAll();
             s_Sink?.SetPatchConflicts(HarmonyConflictRecorder.BuildBatch());
             Profiler.Enabled = true;
@@ -100,7 +101,7 @@ public sealed class RimObsMod : Mod {
             // §11.2). It is off by default because the GC.GetTotalMemory delta heuristic
             // is a soft cost on every poll.
             StartConfigPoll(CollectorHost, port);
-            LogBootstrapSummary(declared);
+            LogBootstrapSummary(declared, attrs);
         }
         catch (Exception ex) {
             Log.Error($"[RimObs] Bootstrap failed: {ex}");
@@ -126,7 +127,21 @@ public sealed class RimObsMod : Mod {
         s_Sink = sink;
     }
 
-    private static void LogBootstrapSummary(ProfilingXmlLoader.LoadResult declared) {
+    private static ObservedSectionScanner.ScanResult LoadObservedSections() {
+        List<(string, IReadOnlyList<Assembly>)> mods = new List<(string, IReadOnlyList<Assembly>)>();
+        foreach (ModContentPack pack in LoadedModManager.RunningModsListForReading) {
+            string packageId = pack.PackageId;
+            if (string.IsNullOrEmpty(packageId))
+                continue;
+            List<Assembly> asms = pack.assemblies.loadedAssemblies;
+            if (asms == null || asms.Count == 0)
+                continue;
+            mods.Add((packageId, asms));
+        }
+        return ObservedSectionScanner.Scan(mods);
+    }
+
+    private static void LogBootstrapSummary(ProfilingXmlLoader.LoadResult declared, ObservedSectionScanner.ScanResult attrs) {
         int coreCount = 0;
         int declaredCount = 0;
         int coreInstalled = 0;
@@ -147,12 +162,16 @@ public sealed class RimObsMod : Mod {
         Log.Message(
             $"[RimObs] Loaded. Core: {coreInstalled}/{coreCount} sections installed. "
                 + $"Declared: {declaredInstalled}/{declaredCount} sections from {declared.FilesLoaded}/{declared.FilesScanned} profiling.xml files. "
+                + $"Attributes: {attrs.Registered} registered ({attrs.SkippedDuplicate} duplicate, {attrs.SkippedUnsupported} unsupported, {attrs.Failed} failed) from {attrs.AssembliesScanned} assemblies. "
                 + $"(unresolved={PatchInstaller.UnresolvedCount}, failed={PatchInstaller.FailedCount}, conflicts={HarmonyConflictRecorder.Count}). "
                 + $"Owner registry: {OwnerRegistry.Count} mods. GcObserver: maxGen={GcObserverHost.Instance.MaxGeneration}."
         );
 
         foreach (string warning in declared.Warnings)
             Log.Warning($"[RimObs] profiling.xml: {warning}");
+
+        foreach (string warning in attrs.Warnings)
+            Log.Warning($"[RimObs] [ObservedSection]: {warning}");
 
         foreach (CatalogEntry entry in SectionCatalog.Entries) {
             if (!entry.Installed && entry.ResolutionError != null)
