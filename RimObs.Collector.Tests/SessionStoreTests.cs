@@ -323,3 +323,61 @@ public sealed class SessionStoreTests : IDisposable {
         Convert.ToInt64(cmd.ExecuteScalar()).Should().Be(9);
     }
 }
+
+public sealed class SessionStoreSubsystemTests : IDisposable {
+    private readonly string _tempDir;
+    private readonly string _dbPath;
+
+    public SessionStoreSubsystemTests() {
+        _tempDir = Path.Combine(Path.GetTempPath(), "rimobs-subsys-" + Guid.NewGuid().ToString("N"));
+        _dbPath = Path.Combine(_tempDir, "session.db");
+    }
+
+    public void Dispose() {
+        SqliteConnection.ClearAllPools();
+        if (Directory.Exists(_tempDir)) {
+            try { Directory.Delete(_tempDir, recursive: true); }
+            catch (IOException) { }
+        }
+    }
+
+    [Fact]
+    public void WriteSectionsSnapshot_round_trips_subsystem_string_and_null() {
+        SectionStats withSub = new() {
+            SectionId = 1,
+            Name = "pawns.work",
+            Subsystem = "pawns",
+            SampleCount = 10,
+            TotalElapsedTicks = 1000,
+            MinElapsedTicks = 50,
+            MaxElapsedTicks = 200,
+            LastStartTimestamp = 1L,
+        };
+        SectionStats noSub = new() {
+            SectionId = 2,
+            Name = "core.tick",
+            Subsystem = null,
+            SampleCount = 5,
+            TotalElapsedTicks = 500,
+            MinElapsedTicks = 40,
+            MaxElapsedTicks = 150,
+            LastStartTimestamp = 2L,
+        };
+
+        using SessionStore store = SessionStore.Open(_dbPath);
+        store.WriteSectionsSnapshot([withSub, noSub]);
+
+        List<SectionRow> rows = store.GetAllSections();
+        rows.Should().HaveCount(2);
+
+        SectionRow? pawns = rows.FirstOrDefault(r => r.SectionId == 1);
+        pawns.Should().NotBeNull();
+        pawns!.Name.Should().Be("pawns.work");
+        pawns.Subsystem.Should().Be("pawns");
+
+        SectionRow? core = rows.FirstOrDefault(r => r.SectionId == 2);
+        core.Should().NotBeNull();
+        core!.Name.Should().Be("core.tick");
+        core.Subsystem.Should().BeNull();
+    }
+}

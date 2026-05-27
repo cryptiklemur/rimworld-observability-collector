@@ -6,7 +6,7 @@ using Microsoft.Data.Sqlite;
 namespace Cryptiklemur.RimObs.Collector.Storage;
 
 public sealed class SessionStore : IDisposable {
-    public const int SchemaVersion = 3;
+    public const int SchemaVersion = 4;
     private const string SchemaVersionPragma = "user_version";
 
     private readonly SqliteConnection _connection;
@@ -142,10 +142,11 @@ FROM session_meta LIMIT 1;
         using SqliteCommand upsert = _connection.CreateCommand();
         upsert.Transaction = tx;
         upsert.CommandText = @"
-INSERT INTO sections (section_id, name, sample_count, total_elapsed_ticks, min_elapsed_ticks, max_elapsed_ticks, last_start_timestamp)
-VALUES ($id, $name, $samples, $total, $min, $max, $lastStart)
+INSERT INTO sections (section_id, name, subsystem, sample_count, total_elapsed_ticks, min_elapsed_ticks, max_elapsed_ticks, last_start_timestamp)
+VALUES ($id, $name, $subsystem, $samples, $total, $min, $max, $lastStart)
 ON CONFLICT(section_id) DO UPDATE SET
     name = excluded.name,
+    subsystem = excluded.subsystem,
     sample_count = excluded.sample_count,
     total_elapsed_ticks = excluded.total_elapsed_ticks,
     min_elapsed_ticks = excluded.min_elapsed_ticks,
@@ -154,6 +155,7 @@ ON CONFLICT(section_id) DO UPDATE SET
 ";
         SqliteParameter pId = upsert.Parameters.Add("$id", SqliteType.Integer);
         SqliteParameter pName = upsert.Parameters.Add("$name", SqliteType.Text);
+        SqliteParameter pSubsystem = upsert.Parameters.Add("$subsystem", SqliteType.Text);
         SqliteParameter pSamples = upsert.Parameters.Add("$samples", SqliteType.Integer);
         SqliteParameter pTotal = upsert.Parameters.Add("$total", SqliteType.Integer);
         SqliteParameter pMin = upsert.Parameters.Add("$min", SqliteType.Integer);
@@ -163,6 +165,7 @@ ON CONFLICT(section_id) DO UPDATE SET
         foreach (SectionStats stats in sections) {
             pId.Value = stats.SectionId;
             pName.Value = stats.Name ?? string.Empty;
+            pSubsystem.Value = stats.Subsystem is null ? (object)DBNull.Value : stats.Subsystem;
             pSamples.Value = Interlocked.Read(ref stats.SampleCount);
             pTotal.Value = Interlocked.Read(ref stats.TotalElapsedTicks);
             long min = Interlocked.Read(ref stats.MinElapsedTicks);
@@ -332,6 +335,24 @@ ON CONFLICT(parent_id, section_id) DO UPDATE SET
         return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
+    public List<SectionRow> GetAllSections() {
+        ThrowIfDisposed();
+
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT section_id, name, subsystem FROM sections ORDER BY section_id;";
+
+        List<SectionRow> rows = [];
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        while (reader.Read()) {
+            rows.Add(new SectionRow(
+                SectionId: reader.GetInt32(0),
+                Name: reader.GetString(1),
+                Subsystem: reader.IsDBNull(2) ? null : reader.GetString(2)
+            ));
+        }
+        return rows;
+    }
+
     public void Dispose() {
         if (_disposed)
             return;
@@ -400,6 +421,7 @@ CREATE TABLE session_meta (
 CREATE TABLE sections (
     section_id INTEGER PRIMARY KEY NOT NULL,
     name TEXT NOT NULL,
+    subsystem TEXT NULL,
     sample_count INTEGER NOT NULL,
     total_elapsed_ticks INTEGER NOT NULL,
     min_elapsed_ticks INTEGER NOT NULL,
@@ -444,3 +466,5 @@ CREATE TABLE call_tree_edges (
         cmd.ExecuteNonQuery();
     }
 }
+
+public sealed record SectionRow(int SectionId, string Name, string? Subsystem);
