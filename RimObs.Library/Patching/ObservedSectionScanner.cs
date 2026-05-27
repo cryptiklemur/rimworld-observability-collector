@@ -59,6 +59,7 @@ internal static class ObservedSectionScanner {
                         string computedName = attr.Name ?? $"{type.FullName}.{method.Name}";
                         string prefixed = $"{packageId}.{computedName}";
                         SectionCatalog.RegisterDirect(prefixed, method, subsystem: attr.Subsystem);
+                        PatchInstaller.PatchAttributeMethod(method);
                         result.Registered++;
                     }
                 }

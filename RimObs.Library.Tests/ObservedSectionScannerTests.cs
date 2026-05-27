@@ -11,6 +11,7 @@ namespace Cryptiklemur.RimObs.Tests;
 
 public class ObservedSectionScannerTests : System.IDisposable {
     public ObservedSectionScannerTests() {
+        PatchInstaller.ResetForTests();
         SectionCatalog.Clear();
         SectionRegistry.Clear();
         OwnerRegistry.Clear();
@@ -18,6 +19,7 @@ public class ObservedSectionScannerTests : System.IDisposable {
     }
 
     public void Dispose() {
+        PatchInstaller.ResetForTests();
         SectionCatalog.Clear();
         SectionRegistry.Clear();
         OwnerRegistry.Clear();
@@ -123,5 +125,21 @@ public class ObservedSectionScannerTests : System.IDisposable {
         SectionCatalog.Entries
             .Where(e => ReferenceEquals(e.Resolved, target))
             .Should().HaveCount(1, "scanner must not register a second entry for the same MethodBase");
+    }
+
+    public static class Target_PatchedAtScan {
+        [ObservedSection("patched_by_scan")]
+        public static int Echo(int x) => x;
+    }
+
+    [Fact]
+    public void Scan_RegistersAndPatches() {
+        int beforeInstalled = PatchInstaller.InstalledCount;
+        IReadOnlyList<Assembly> asms = new[] { typeof(Target_PatchedAtScan).Assembly };
+        ObservedSectionScanner.Scan(new[] { ("test.modid", asms) });
+
+        PatchInstaller.InstalledCount.Should().BeGreaterOrEqualTo(beforeInstalled + 1);
+        CatalogEntry entry = SectionCatalog.Entries.First(e => e.Name == "test.modid.patched_by_scan");
+        entry.Installed.Should().BeTrue();
     }
 }
