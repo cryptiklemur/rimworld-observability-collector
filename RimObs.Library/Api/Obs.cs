@@ -18,7 +18,8 @@ public static class Obs {
             NameValidator.ValidateBareName(name, nameof(name));
             string packageId = OwnerRegistry.ResolveOrThrow(owner);
             string fullName = packageId + "." + name;
-            return SectionRegistry.Register(fullName);
+            _ = unit;
+            return SectionRegistry.Register(fullName, subsystem);
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]

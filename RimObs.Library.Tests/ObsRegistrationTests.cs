@@ -164,6 +164,17 @@ public sealed class ObsRegistrationTests : IDisposable {
         }
     }
 
+
+    [Fact]
+    public void Obs_RegisterSection_PropagatesSubsystem() {
+        SectionRegistry.Clear();
+        OwnerRegistry.RegisterMod(typeof(ObsRegistrationTests).Assembly, "test.modid");
+
+        SectionHandle handle = Obs.Profile.RegisterSection("foo", subsystem: "jobs");
+
+        SectionRegistry.GetSubsystem(handle.Id).Should().Be("jobs");
+    }
+
     private sealed class RecordingSink : ISampleSink {
         public int Count;
 
