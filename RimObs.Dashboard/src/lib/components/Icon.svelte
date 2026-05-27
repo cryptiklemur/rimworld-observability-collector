@@ -17,6 +17,7 @@
         chevron: 'm9 6 6 6-6 6',
         external: 'M14 5h5v5m0-5L11 13M9 7H6a2 2 0 0 0-2 2v9a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2v-3',
         probe: 'M9 3h6v4l2 2v8a2 2 0 0 1-2 2H9a2 2 0 0 1-2-2V9l2-2V3Zm3 11v.01M12 10v3',
+        sections: 'M4 6h16M4 10h16M4 14h10M4 18h7',
     } satisfies Record<string, string>;
     export type IconName = keyof typeof PATHS;
     export { PATHS };

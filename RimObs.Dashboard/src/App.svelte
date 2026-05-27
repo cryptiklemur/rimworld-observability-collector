@@ -10,6 +10,7 @@
     import Overview from './routes/Overview.svelte';
     import Hotspots from './routes/Hotspots.svelte';
     import Instrumentation from './routes/Instrumentation.svelte';
+    import Sections from './routes/Sections.svelte';
     import CallTree from './routes/CallTree.svelte';
     import Memory from './routes/Memory.svelte';
     import Metrics from './routes/Metrics.svelte';
@@ -61,6 +62,8 @@
                     <Hotspots />
                 {:else if route.id === 'instrumentation'}
                     <Instrumentation />
+                {:else if route.id === 'sections'}
+                    <Sections />
                 {:else if route.id === 'calltree'}
                     <CallTree />
                 {:else if route.id === 'memory'}

@@ -8,6 +8,7 @@
     "nav.overview": "概览",
     "nav.hotspots": "热点",
     "nav.instrumentation": "插桩",
+    "nav.sections": "节点",
     "nav.calltree": "调用树",
     "nav.memory": "内存",
     "nav.metrics": "指标",

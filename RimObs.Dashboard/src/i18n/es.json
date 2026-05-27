@@ -8,6 +8,7 @@
     "nav.overview": "Resumen",
     "nav.hotspots": "Puntos críticos",
     "nav.instrumentation": "Instrumentación",
+    "nav.sections": "Secciones",
     "nav.calltree": "Árbol de llamadas",
     "nav.memory": "Memoria",
     "nav.metrics": "Métricas",

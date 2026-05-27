@@ -8,6 +8,7 @@
     "nav.overview": "Overview",
     "nav.hotspots": "Hotspots",
     "nav.instrumentation": "Instrumentation",
+    "nav.sections": "Sections",
     "nav.calltree": "Call Tree",
     "nav.memory": "Memory",
     "nav.metrics": "Metrics",
