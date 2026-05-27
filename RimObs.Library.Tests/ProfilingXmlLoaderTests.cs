@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using Cryptiklemur.RimObs.Config;
 using Cryptiklemur.RimObs.Patching;
+using Cryptiklemur.RimObs.Profile;
 using FluentAssertions;
 using Xunit;
 
@@ -276,5 +277,39 @@ public sealed class ProfilingXmlLoaderTests : IDisposable {
     public void Null_mods_argument_throws() {
         Action act = () => ProfilingXmlLoader.LoadFromMods(null!);
         act.Should().Throw<ArgumentNullException>();
+    }
+
+
+    [Fact]
+    public void LoadFromMods_SubsystemAttribute_PropagatesToRegistry() {
+        SectionCatalog.Clear();
+        SectionRegistry.Clear();
+
+        const string xml = """
+        <?xml version="1.0" encoding="utf-8"?>
+        <Profiling>
+            <Section name="jobs" subsystem="jobs">
+                <Methods>
+                    <Method>System.String:IsNullOrEmpty</Method>
+                </Methods>
+            </Section>
+        </Profiling>
+        """;
+
+        string dir = CreateModDir("subsystest", xml);
+
+        ProfilingXmlLoader.LoadResult result = ProfilingXmlLoader.LoadFromMods(
+            new[] { (dir, "test.subsysmod") });
+        SectionCatalog.ResolveAll();
+
+        result.SectionsDeclared.Should().Be(1);
+        result.MethodsDeclared.Should().Be(1);
+
+        CatalogEntry? entryNullable = SectionCatalog.Entries.FirstOrDefault(e => e.Name == "test.subsysmod.jobs");
+        entryNullable.Should().NotBeNull();
+        CatalogEntry entry = entryNullable!;
+        entry.Subsystem.Should().Be("jobs");
+        entry.SectionId.Should().BeGreaterOrEqualTo(0);
+        SectionRegistry.GetSubsystem(entry.SectionId).Should().Be("jobs");
     }
 }

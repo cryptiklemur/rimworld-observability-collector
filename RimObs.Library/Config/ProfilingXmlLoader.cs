@@ -95,11 +95,10 @@ internal static class ProfilingXmlLoader {
                     continue;
                 }
 
-                CatalogEntry entry = SectionCatalog.Register(prefixedName, typeName, methodName, null);
+                string? entrySubsystem = string.IsNullOrEmpty(subsystem) ? null : subsystem;
+                CatalogEntry entry = SectionCatalog.Register(prefixedName, typeName, methodName, null, entrySubsystem);
                 entry.Declared = true;
                 entry.Owner = packageId;
-                if (!string.IsNullOrEmpty(subsystem))
-                    entry.Subsystem = subsystem;
                 result.MethodsDeclared++;
             }
         }
