@@ -1,6 +1,7 @@
 using System;
 using System.Reflection;
 using System.Runtime.CompilerServices;
+using Cryptiklemur.RimObs.Api;
 using Cryptiklemur.RimObs.Patching;
 using Cryptiklemur.RimObs.Profile;
 using FluentAssertions;
@@ -78,6 +79,24 @@ public sealed class PatchInstallerTests : IDisposable {
 
         PatchInstaller.Instance.Should().NotBeNull();
         PatchInstaller.Instance!.Id.Should().Be(PatchInstaller.HarmonyId);
+    }
+
+    [Fact]
+    public void PatchAttributeMethod_InstallsTranspilerAndIncrementsCount() {
+        MethodBase target = typeof(PatchTarget).GetMethod(nameof(PatchTarget.Compute))!;
+        SectionCatalog.RegisterDirect("test.modid.patch_target", target);
+
+        int before = PatchInstaller.InstalledCount;
+        PatchInstaller.PatchAttributeMethod(target);
+
+        CatalogEntry entry = FindEntry("test.modid.patch_target");
+        entry.Installed.Should().BeTrue();
+        PatchInstaller.InstalledCount.Should().Be(before + 1);
+    }
+
+    public static class PatchTarget {
+        [ObservedSection]
+        public static int Compute(int x) => x * 2;
     }
 
     private static CatalogEntry FindEntry(string name) {

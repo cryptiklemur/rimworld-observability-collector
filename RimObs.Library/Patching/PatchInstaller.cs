@@ -47,6 +47,38 @@ internal static class PatchInstaller {
         HarmonyConflictRecorder.RecordConflicts(s_Harmony);
     }
 
+    internal static void PatchAttributeMethod(MethodBase method) {
+        if (method == null)
+            throw new ArgumentNullException(nameof(method));
+
+        s_Harmony ??= new Harmony(HarmonyId);
+
+        HarmonyMethod transpiler = new(MethodTransplanter.TranspilerMethod) {
+            priority = Priority.Low,
+        };
+
+        CatalogEntry? entry = null;
+        foreach (CatalogEntry e in SectionCatalog.Entries) {
+            if (ReferenceEquals(e.Resolved, method)) {
+                entry = e;
+                break;
+            }
+        }
+
+        try {
+            s_Harmony.Patch(method, transpiler: transpiler);
+            if (entry != null) {
+                entry.Installed = true;
+                InstalledCount++;
+            }
+        }
+        catch (Exception ex) {
+            if (entry != null)
+                entry.InstallError = ex;
+            FailedCount++;
+        }
+    }
+
     public static IReadOnlyList<CatalogEntry> InstalledEntries {
         get {
             List<CatalogEntry> list = new();
