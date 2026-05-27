@@ -219,6 +219,17 @@ public static class SessionsEndpoints {
             });
         });
 
+        endpoints.MapGet("/api/v1/sections", (SessionAggregator aggregator) => {
+            return Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                sections = aggregator.Sections.Select(s => new {
+                    id = s.SectionId,
+                    name = s.Name,
+                    subsystem = s.Subsystem,
+                }).ToArray(),
+            });
+        });
+
         return endpoints;
     }
 

@@ -1200,4 +1200,65 @@ public sealed class EndToEndSmokeTests {
             await app.DisposeAsync();
         }
     }
+
+    [Fact]
+    public async Task Sections_endpoint_returns_registered_sections_with_subsystem() {
+        int port = PickFreePort();
+        WebApplication app = Program.BuildApp([], port);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            SendBatch(port, BatchType.SessionMeta, WireCodec.Serialize(new SessionMeta {
+                SessionId = "sections-endpoint-smoke",
+                StartedUtcTicks = DateTime.UtcNow.Ticks,
+                StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                LibraryVersion = "0.0.0-smoke",
+                GameVersion = "1.6",
+            }));
+
+            SendBatch(port, BatchType.SectionRegistrations, WireCodec.Serialize(new SectionRegistrationsBatch {
+                SectionIds = [1, 2],
+                Names = ["pawns.work", "core.tick"],
+                Subsystems = ["pawns", null],
+            }));
+
+            await WaitFor(async () => {
+                string body = await http.GetStringAsync("/api/v1/sections");
+                using JsonDocument doc = JsonDocument.Parse(body);
+                return doc.RootElement.GetProperty("sections").GetArrayLength() >= 2;
+            }, TimeSpan.FromSeconds(3));
+
+            string sectionsBody = await http.GetStringAsync("/api/v1/sections");
+            _out.WriteLine($"sections: {sectionsBody}");
+            using JsonDocument sectionsDoc = JsonDocument.Parse(sectionsBody);
+            JsonElement sections = sectionsDoc.RootElement.GetProperty("sections");
+            sections.GetArrayLength().Should().Be(2);
+
+            JsonElement? withSub = null;
+            JsonElement? noSub = null;
+            foreach (JsonElement s in sections.EnumerateArray()) {
+                if (s.GetProperty("id").GetInt32() == 1) withSub = s;
+                if (s.GetProperty("id").GetInt32() == 2) noSub = s;
+            }
+
+            withSub.Should().NotBeNull();
+            withSub!.Value.GetProperty("name").GetString().Should().Be("pawns.work");
+            withSub.Value.GetProperty("subsystem").GetString().Should().Be("pawns");
+
+            noSub.Should().NotBeNull();
+            noSub!.Value.GetProperty("name").GetString().Should().Be("core.tick");
+            noSub.Value.GetProperty("subsystem").ValueKind.Should().Be(JsonValueKind.Null);
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
 }
