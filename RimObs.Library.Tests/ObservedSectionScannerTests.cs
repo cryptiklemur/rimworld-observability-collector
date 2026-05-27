@@ -113,6 +113,78 @@ public class ObservedSectionScannerTests : System.IDisposable {
     }
 
     [Fact]
+    public void Scan_DuplicateAgainstXmlSeeded_Skipped() {
+        MethodInfo target = typeof(Target_Dedup).GetMethod(nameof(Target_Dedup.TargetMethod))!;
+        SectionCatalog.Register(
+            "test.modid.xml_owned",
+            target.DeclaringType!.FullName!,
+            target.Name,
+            System.Array.Empty<string>(),
+            subsystem: null);
+        SectionCatalog.ResolveAll();
+
+        IReadOnlyList<Assembly> asms = new[] { typeof(Target_Dedup).Assembly };
+        ObservedSectionScanner.ScanResult result = ObservedSectionScanner.Scan(
+            new[] { ("test.modid", asms) });
+
+        result.SkippedDuplicate.Should().BeGreaterOrEqualTo(1);
+        SectionCatalog.Entries
+            .Where(e => ReferenceEquals(e.Resolved, target))
+            .Should().HaveCount(1, "scanner must not register a second entry for the XML-seeded MethodBase");
+    }
+
+    private sealed class PartialLoadAssembly : Assembly {
+        private readonly Type?[] _types;
+        private readonly string _name;
+
+        public PartialLoadAssembly(string name, Type?[] types) {
+            _name = name;
+            _types = types;
+        }
+
+        public override AssemblyName GetName() => new AssemblyName(_name);
+
+        public override Type[] GetTypes() {
+            Exception[] loaderExceptions = new Exception[] { new TypeLoadException("simulated partial load") };
+            throw new ReflectionTypeLoadException(_types, loaderExceptions, "partial load");
+        }
+    }
+
+    [Fact]
+    public void Scan_ReflectionTypeLoadException_Continues() {
+        Type?[] partial = new Type?[] { typeof(Target_BareAttribute), null };
+        PartialLoadAssembly badAssembly = new PartialLoadAssembly("test.partial", partial);
+
+        ObservedSectionScanner.ScanResult result = ObservedSectionScanner.Scan(
+            new[] { ("test.modid", (IReadOnlyList<Assembly>)new Assembly[] { badAssembly }) });
+
+        result.AssembliesScanned.Should().Be(1);
+        result.Warnings.Should().Contain(w =>
+            w.Contains("simulated partial load", System.StringComparison.OrdinalIgnoreCase) ||
+            w.Contains("partial load", System.StringComparison.OrdinalIgnoreCase));
+        result.AttributesFound.Should().BeGreaterOrEqualTo(1);
+    }
+
+    public static class Target_PInvoke {
+        [ObservedSection("pinvoke_method")]
+        [System.Runtime.InteropServices.DllImport("kernel32.dll")]
+        public static extern bool Beep(uint dwFreq, uint dwDuration);
+    }
+
+    [Fact]
+    public void Scan_PatchInstallFailure_Recorded() {
+        MethodInfo rejectedMethod = typeof(Target_PInvoke).GetMethod(nameof(Target_PInvoke.Beep))!;
+        SectionCatalog.RegisterDirect("test.modid.pinvoke_method", rejectedMethod);
+
+        int beforeFailed = PatchInstaller.FailedCount;
+        PatchInstaller.PatchAttributeMethod(rejectedMethod);
+
+        PatchInstaller.FailedCount.Should().BeGreaterOrEqualTo(beforeFailed + 1);
+        CatalogEntry entry = SectionCatalog.Entries.First(e => e.Name == "test.modid.pinvoke_method");
+        entry.InstallError.Should().NotBeNull();
+    }
+
+    [Fact]
     public void Scan_DuplicateAgainstExistingCatalog_Skipped() {
         MethodBase target = typeof(Target_Dedup).GetMethod(nameof(Target_Dedup.TargetMethod))!;
         SectionCatalog.RegisterDirect("test.modid.core_owned", target);
