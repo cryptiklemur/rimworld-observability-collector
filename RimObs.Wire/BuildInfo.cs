@@ -1,6 +1,6 @@
 namespace Cryptiklemur.RimObs.Wire;
 
 public static class BuildInfo {
-    public const string Revision = "0.0.0";
-    public const string BuildTime = "1970-01-01T00:00:00.000Z";
+    public const string Revision = "1.0.0-beta.1";
+    public const string BuildTime = "2026-05-27T01:25:53.232Z";
 }
