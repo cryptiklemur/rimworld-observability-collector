@@ -68,4 +68,40 @@ public class ObservedSectionScannerTests : System.IDisposable {
         entry.Subsystem.Should().Be("jobs");
         SectionRegistry.GetSubsystem(entry.SectionId).Should().Be("jobs");
     }
+
+    public abstract class Target_Abstract {
+        [ObservedSection]
+        public abstract void Tick();
+    }
+
+    public class Target_GenericOpen<T> {
+        [ObservedSection]
+        public void Tick(T item) { }
+    }
+
+    public class Target_Async {
+        [ObservedSection]
+        public async System.Threading.Tasks.Task DoAsync() { await System.Threading.Tasks.Task.Yield(); }
+    }
+
+    public class Target_Iterator {
+        [ObservedSection]
+        public System.Collections.Generic.IEnumerable<int> Yield() { yield return 1; }
+    }
+
+    [Theory]
+    [InlineData(typeof(Target_Abstract), nameof(Target_Abstract.Tick))]
+    [InlineData(typeof(Target_GenericOpen<>), "Tick")]
+    [InlineData(typeof(Target_Async), nameof(Target_Async.DoAsync))]
+    [InlineData(typeof(Target_Iterator), nameof(Target_Iterator.Yield))]
+    public void Scan_UnsupportedMethod_Skipped(System.Type type, string methodName) {
+        IReadOnlyList<Assembly> asms = new[] { type.Assembly };
+        ObservedSectionScanner.ScanResult result = ObservedSectionScanner.Scan(
+            new[] { ("test.modid", asms) });
+
+        result.SkippedUnsupported.Should().BeGreaterOrEqualTo(1);
+        string typeName = type.FullName!;
+        SectionCatalog.Entries.Should().NotContain(
+            e => e.TypeName == typeName && e.MethodName == methodName);
+    }
 }

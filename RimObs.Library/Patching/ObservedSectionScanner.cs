@@ -41,6 +41,14 @@ internal static class ObservedSectionScanner {
                             continue;
 
                         result.AttributesFound++;
+
+                        if (!IsPatchable(method, out string reason)) {
+                            result.SkippedUnsupported++;
+                            result.Warnings.Add(
+                                $"[{packageId}] {type.FullName}.{method.Name}: skipped ({reason})");
+                            continue;
+                        }
+
                         string computedName = attr.Name ?? $"{type.FullName}.{method.Name}";
                         string prefixed = $"{packageId}.{computedName}";
                         SectionCatalog.RegisterDirect(prefixed, method, subsystem: attr.Subsystem);
@@ -50,5 +58,26 @@ internal static class ObservedSectionScanner {
             }
         }
         return result;
+    }
+
+    private static bool IsPatchable(MethodInfo method, out string reason) {
+        if (method.IsAbstract) {
+            reason = "method is abstract";
+            return false;
+        }
+        if (method.ContainsGenericParameters) {
+            reason = "method has unresolved generic parameters";
+            return false;
+        }
+        if (method.GetCustomAttribute<System.Runtime.CompilerServices.AsyncStateMachineAttribute>() != null) {
+            reason = "async methods are not supported in v1";
+            return false;
+        }
+        if (method.GetCustomAttribute<System.Runtime.CompilerServices.IteratorStateMachineAttribute>() != null) {
+            reason = "iterator (yield) methods are not supported in v1";
+            return false;
+        }
+        reason = string.Empty;
+        return true;
     }
 }
