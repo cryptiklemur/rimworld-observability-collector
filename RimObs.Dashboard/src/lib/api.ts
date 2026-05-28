@@ -20,6 +20,18 @@ export interface StatusResponse {
         latest_version: string | null;
         url: string | null;
     };
+    exporters: {
+        prometheus_enabled: boolean;
+        prometheus_port: number;
+        otlp_enabled: boolean;
+        prometheus_health: {
+            total_scrapes: number;
+            last_scrape_utc: string | null;
+            last_sample_count: number;
+            total_errors: number;
+            last_error: string | null;
+        };
+    };
 }
 
 export interface Hotspot {
@@ -302,8 +314,11 @@ export const api = {
     sessionSummary: () => get<SessionSummaryResponse>('/api/v1/sessions/current/summary'),
     patches: () => get<PatchesResponse>('/api/v1/sessions/current/patches'),
     instrumentationSearch: (q: string, limit = 50) =>
-        get<InstrumentationSearchResponse>(`/api/v1/instrumentation/search?q=${encodeURIComponent(q)}&limit=${limit}`),
-    instrumentationPatches: () => get<InstrumentationPatchesResponse>('/api/v1/instrumentation/patches'),
+        get<InstrumentationSearchResponse>(
+            `/api/v1/instrumentation/search?q=${encodeURIComponent(q)}&limit=${limit}`,
+        ),
+    instrumentationPatches: () =>
+        get<InstrumentationPatchesResponse>('/api/v1/instrumentation/patches'),
     instrumentationPatch: async (req: {
         typeFullName: string;
         methodName: string;

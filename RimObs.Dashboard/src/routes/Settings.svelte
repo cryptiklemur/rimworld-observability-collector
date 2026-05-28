@@ -17,15 +17,21 @@
 <Card title={t('settings.title')} accent="ember">
     <div class="rows">
         <div class="kv">
-            <Tooltip text={t('tip.settings.version')}><span class="k">{t('settings.version')}</span></Tooltip>
+            <Tooltip text={t('tip.settings.version')}
+                ><span class="k">{t('settings.version')}</span></Tooltip
+            >
             <span class="v mono">{status?.version ?? '—'}</span>
         </div>
         <div class="kv">
-            <Tooltip text={t('tip.settings.schema')}><span class="k">{t('settings.schema')}</span></Tooltip>
+            <Tooltip text={t('tip.settings.schema')}
+                ><span class="k">{t('settings.schema')}</span></Tooltip
+            >
             <span class="v mono">{status?.schema_version ?? '—'}</span>
         </div>
         <div class="kv">
-            <Tooltip text={t('tip.settings.language')}><span class="k">{t('settings.language')}</span></Tooltip>
+            <Tooltip text={t('tip.settings.language')}
+                ><span class="k">{t('settings.language')}</span></Tooltip
+            >
             <select
                 class="v lang"
                 value={getLang()}
@@ -45,6 +51,52 @@
             </div>
         {/if}
     </div>
+</Card>
+
+<Card title={t('settings.exporters')} accent="ember">
+    {#if status?.exporters}
+        <div class="rows">
+            <div class="kv">
+                <Tooltip text={t('tip.settings.prometheus')}
+                    ><span class="k">{t('settings.prometheus')}</span></Tooltip
+                >
+                <span class="v" class:on={status.exporters.prometheus_enabled}>
+                    {status.exporters.prometheus_enabled
+                        ? t('settings.exporter.enabled')
+                        : t('settings.exporter.disabled')}
+                </span>
+            </div>
+            {#if status.exporters.prometheus_enabled}
+                <div class="kv">
+                    <span class="k">{t('settings.exporter.endpoint')}</span>
+                    <span class="v mono">/metrics</span>
+                </div>
+                <div class="kv">
+                    <span class="k">{t('settings.exporter.last_scrape')}</span>
+                    <span class="v mono"
+                        >{status.exporters.prometheus_health.last_scrape_utc ?? '—'}</span
+                    >
+                </div>
+                <div class="kv">
+                    <span class="k">{t('settings.exporter.sample_count')}</span>
+                    <span class="v mono"
+                        >{status.exporters.prometheus_health.last_sample_count}</span
+                    >
+                </div>
+                {#if status.exporters.prometheus_health.total_errors > 0}
+                    <div class="kv">
+                        <span class="k">{t('settings.exporter.errors')}</span>
+                        <span class="v mono err"
+                            >{status.exporters.prometheus_health.total_errors} ·
+                            {status.exporters.prometheus_health.last_error ?? ''}</span
+                        >
+                    </div>
+                {/if}
+            {/if}
+        </div>
+    {:else}
+        <p class="muted">{t('settings.exporter.unavailable')}</p>
+    {/if}
 </Card>
 
 <Card title={t('settings.behavior')} accent="cyan">
@@ -89,6 +141,17 @@
     }
     .update .v {
         color: var(--ember-soft);
+    }
+    .v.on {
+        color: var(--cyan);
+    }
+    .v.err {
+        color: var(--ember-soft);
+    }
+    .muted {
+        font-size: 0.85rem;
+        color: var(--text-faint);
+        margin: 0;
     }
     .lang {
         background: var(--bg-elev);
