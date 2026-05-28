@@ -102,6 +102,10 @@ public static class Program {
         builder.Services.AddSingleton(configStore ?? new Config.ConfigStore(ResolveConfigFilePath(sessionsDir)));
         builder.Services.AddSingleton<Panels.PanelRegistry>();
         builder.Services.AddSingleton<Aggregation.SessionAggregator>();
+        builder.Services.AddSingleton(sp => new Bundle.BundleExportService(
+            sp.GetRequiredService<Aggregation.SessionAggregator>(),
+            sp.GetService<Storage.ISessionPersister>(),
+            BuildInfo.Revision));
         builder.Services.AddSingleton<Instrumentation.SessionMetaRegistry>();
         builder.Services.AddSingleton(hasPersister
             ? Storage.DynamicPatchStore.Open(ResolveDynamicPatchStorePath(sessionsDir)!)
@@ -153,6 +157,7 @@ public static class Program {
         app.MapPanelsEndpoints();
         app.MapLogsEndpoints();
         app.MapInstrumentationEndpoints();
+        app.MapBundleEndpoints();
         app.MapSpaEndpoints();
     }
 
