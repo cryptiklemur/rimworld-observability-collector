@@ -22,6 +22,17 @@
 
     let sessions = $derived(list.data?.sessions ?? []);
     let current = $derived(summary.data ?? null);
+
+    async function exportSession(s: { id: string }) {
+        const result = await api.exportBundle({ sessionId: s.id, includes: [], force: false });
+        if (result.kind !== 'ok') return;
+        const url = URL.createObjectURL(result.blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `${s.id}.rimobs.zip`;
+        a.click();
+        URL.revokeObjectURL(url);
+    }
 </script>
 
 <DataState
@@ -92,6 +103,7 @@
                 <span>{t('sessions.col.started')}</span>
                 <span>{t('sessions.col.library')}</span>
                 <span>{t('sessions.col.game')}</span>
+                <span></span>
             </div>
             {#each sessions as s (s.id)}
                 <div class="rowline" class:current={s.is_current}>
@@ -102,6 +114,14 @@
                     <span class="cell mono">{relativeTime(s.started_utc)}</span>
                     <span class="cell mono">{s.library_version}</span>
                     <span class="cell mono">{s.game_version || '—'}</span>
+                    <button
+                        type="button"
+                        onclick={() => exportSession(s)}
+                        disabled={!s.is_current}
+                        title={s.is_current ? 'Export this session' : 'Only the current session can be exported'}
+                    >
+                        Export bundle
+                    </button>
                 </div>
             {/each}
         </div>
@@ -142,7 +162,7 @@
     .head,
     .rowline {
         display: grid;
-        grid-template-columns: minmax(0, 2fr) repeat(3, minmax(96px, 1fr));
+        grid-template-columns: minmax(0, 2fr) repeat(3, minmax(96px, 1fr)) auto;
         gap: 0.75rem;
         align-items: center;
         padding: 0.55rem 0.4rem;

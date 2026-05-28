@@ -71,4 +71,12 @@ describe('Sessions route', () => {
         expect(container.querySelector('.rowline.current')).not.toBeNull();
         expect(screen.getByText('current')).toBeInTheDocument();
     });
+
+    it('shows "Export bundle" action for the current session row', async () => {
+        mockSessions();
+        const { findAllByRole } = render(Sessions);
+        const buttons = await findAllByRole('button', { name: /Export bundle/i });
+        const enabled = buttons.find((b) => !(b as HTMLButtonElement).disabled);
+        expect(enabled).toBeTruthy();
+    });
 });
