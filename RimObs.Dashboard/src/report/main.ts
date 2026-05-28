@@ -7,9 +7,7 @@ declare global {
     }
 }
 
-const app = mount(ReportApp, {
+mount(ReportApp, {
     target: document.getElementById('app')!,
     props: { raw: window.__BUNDLE__ ?? null },
 });
-
-export default app;
