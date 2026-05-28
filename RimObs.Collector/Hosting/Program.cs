@@ -106,6 +106,10 @@ public static class Program {
             sp.GetRequiredService<Aggregation.SessionAggregator>(),
             sp.GetService<Storage.ISessionPersister>(),
             BuildInfo.Revision));
+        string importsDir = System.IO.Path.Combine(sessionsDir ?? ConfigDirResolver.Resolve(), "imports");
+        builder.Services.AddSingleton(new Bundle.BundleImportRegistry(importsDir, TimeSpan.FromMinutes(30)));
+        builder.Services.AddSingleton<Bundle.BundleImportService>();
+        builder.Services.AddHostedService<Bundle.BundleImportSweeper>();
         builder.Services.AddSingleton<Instrumentation.SessionMetaRegistry>();
         builder.Services.AddSingleton(hasPersister
             ? Storage.DynamicPatchStore.Open(ResolveDynamicPatchStorePath(sessionsDir)!)

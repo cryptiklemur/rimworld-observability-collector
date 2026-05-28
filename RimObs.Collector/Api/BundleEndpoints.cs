@@ -1,4 +1,6 @@
+using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using Cryptiklemur.RimObs.Collector.Bundle;
@@ -36,6 +38,47 @@ public static class BundleEndpoints {
                 }, statusCode: StatusCodes.Status413PayloadTooLarge),
                 _ => Results.StatusCode(500),
             };
+        });
+
+        endpoints.MapPost("/api/v1/import/bundle", async (HttpContext ctx, BundleImportService importer) => {
+            if (!ctx.Request.HasFormContentType)
+                return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "expected multipart/form-data" });
+
+            IFormCollection form = await ctx.Request.ReadFormAsync(ctx.RequestAborted);
+            if (form.Files.Count == 0)
+                return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "no file uploaded" });
+
+            IFormFile file = form.Files[0];
+            using Stream stream = file.OpenReadStream();
+            BundleImportResult result = await importer.ImportAsync(stream);
+            return result.Status switch {
+                BundleImportStatus.Ok => Results.Ok(new {
+                    schema_version = SchemaVersion.Current,
+                    token = result.Entry!.Token,
+                    manifest = result.Manifest,
+                    contents = result.Entry.Contents,
+                }),
+                BundleImportStatus.MissingManifest => Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "missing manifest.json" }),
+                BundleImportStatus.InvalidArchive => Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "invalid archive" }),
+                _ => Results.StatusCode(500),
+            };
+        });
+
+        endpoints.MapGet("/api/v1/import/bundle/{token}/file/{name}", (string token, string name, BundleImportRegistry registry) => {
+            if (!registry.TryGet(token, out BundleImportEntry? entry) || entry is null)
+                return Results.NotFound();
+            registry.Touch(token);
+            string safePath = Path.Combine(entry.TempDir, Path.GetFileName(name));
+            if (!File.Exists(safePath)) return Results.NotFound();
+
+            string contentType = name.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ? "text/html"
+                : name.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase) ? "application/octet-stream"
+                : "application/json";
+            return Results.File(File.ReadAllBytes(safePath), contentType);
+        });
+
+        endpoints.MapDelete("/api/v1/import/bundle/{token}", (string token, BundleImportRegistry registry) => {
+            return registry.Remove(token) ? Results.NoContent() : Results.NotFound();
         });
 
         return endpoints;

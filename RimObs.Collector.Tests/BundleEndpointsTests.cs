@@ -1,7 +1,9 @@
 using System.IO.Compression;
 using System.Net;
+using System.Net.Http.Json;
 using System.Net.Sockets;
 using System.Text;
+using System.Text.Json;
 using Cryptiklemur.RimObs.Collector.Aggregation;
 using Cryptiklemur.RimObs.Collector.Hosting;
 using Cryptiklemur.RimObs.Collector.Security;
@@ -121,6 +123,95 @@ public sealed class BundleEndpointsTests {
         finally {
             await app.StopAsync();
             await app.DisposeAsync();
+        }
+    }
+
+
+    [Fact]
+    public async Task Import_roundtrip_exposes_files_by_token() {
+        int port = PickFreePort();
+        string tempDir = Path.Combine(Path.GetTempPath(), $"rimobs-import-rt-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(tempDir);
+        string sessionsDir = Path.Combine(tempDir, "sessions");
+        Directory.CreateDirectory(sessionsDir);
+
+        try {
+            CollectorToken token = CollectorToken.FromExplicitValue("bundle-bearer-token");
+            WebApplication app = Program.BuildApp([], port, token, sessionsDir);
+            await app.StartAsync();
+            try {
+                using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+                await WaitFor(async () => {
+                    HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                    return r.IsSuccessStatusCode;
+                }, TimeSpan.FromSeconds(3));
+
+                SessionAggregator aggregator = app.Services.GetRequiredService<SessionAggregator>();
+                aggregator.OnSessionMeta(new SessionMeta {
+                    SessionId = "rt-session",
+                    StartedUtcTicks = DateTime.UtcNow.Ticks,
+                    StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                    AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                    LibraryVersion = "0.0.0-bundle",
+                    GameVersion = "1.6",
+                });
+
+                using HttpRequestMessage exportRequest = new(HttpMethod.Post, "/api/v1/export/bundle") {
+                    Content = new StringContent(
+                        "{\"session_id\":\"rt-session\",\"include\":[],\"force\":false}",
+                        Encoding.UTF8,
+                        "application/json"),
+                };
+                exportRequest.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+                exportRequest.Headers.Add("Authorization", $"Bearer {token.Value}");
+                HttpResponseMessage exportResponse = await http.SendAsync(exportRequest);
+                exportResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+                byte[] zipBytes = await exportResponse.Content.ReadAsByteArrayAsync();
+                zipBytes.Length.Should().BeGreaterThan(0);
+
+                using ByteArrayContent fileContent = new ByteArrayContent(zipBytes);
+                fileContent.Headers.ContentType = new System.Net.Http.Headers.MediaTypeHeaderValue("application/zip");
+                using MultipartFormDataContent form = new MultipartFormDataContent {
+                    { fileContent, "bundle", "test.rimobs.zip" },
+                };
+                using HttpRequestMessage importRequest = new(HttpMethod.Post, "/api/v1/import/bundle") {
+                    Content = form,
+                };
+                importRequest.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+                importRequest.Headers.Add("Authorization", $"Bearer {token.Value}");
+                HttpResponseMessage importResponse = await http.SendAsync(importRequest);
+                _out.WriteLine($"import status: {importResponse.StatusCode}");
+                importResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                JsonElement body = await importResponse.Content.ReadFromJsonAsync<JsonElement>();
+                string importToken = body.GetProperty("token").GetString()!;
+                importToken.Should().NotBeNullOrEmpty();
+
+                using HttpRequestMessage fileRequest = new(HttpMethod.Get, $"/api/v1/import/bundle/{importToken}/file/report.html");
+                fileRequest.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+                fileRequest.Headers.Add("Authorization", $"Bearer {token.Value}");
+                HttpResponseMessage fileResponse = await http.SendAsync(fileRequest);
+                fileResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+                using HttpRequestMessage deleteRequest = new(HttpMethod.Delete, $"/api/v1/import/bundle/{importToken}");
+                deleteRequest.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+                deleteRequest.Headers.Add("Authorization", $"Bearer {token.Value}");
+                HttpResponseMessage deleteResponse = await http.SendAsync(deleteRequest);
+                deleteResponse.StatusCode.Should().Be(HttpStatusCode.NoContent);
+
+                using HttpRequestMessage afterDeleteRequest = new(HttpMethod.Get, $"/api/v1/import/bundle/{importToken}/file/report.html");
+                afterDeleteRequest.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+                afterDeleteRequest.Headers.Add("Authorization", $"Bearer {token.Value}");
+                HttpResponseMessage afterDeleteResponse = await http.SendAsync(afterDeleteRequest);
+                afterDeleteResponse.StatusCode.Should().Be(HttpStatusCode.NotFound);
+            }
+            finally {
+                await app.StopAsync();
+                await app.DisposeAsync();
+            }
+        }
+        finally {
+            if (Directory.Exists(tempDir)) Directory.Delete(tempDir, recursive: true);
         }
     }
 
