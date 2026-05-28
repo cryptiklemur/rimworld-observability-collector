@@ -50,7 +50,27 @@ public sealed class RimObsMod : Mod {
             if (string.IsNullOrEmpty(rootDir))
                 continue;
             string collectorDir = Path.Combine(rootDir, CollectorScanner.CollectorDirName);
+            if (Directory.Exists(collectorDir)) {
+                Log.Message(
+                    $"[RimObs] Collector discovery: scanning '{collectorDir}' (mod '{pack.PackageId}')."
+                );
+            }
             CollectorScanner.ReadCandidates(collectorDir, candidates);
+        }
+
+        if (candidates.Count == 0) {
+            Log.Warning(
+                "[RimObs] Collector discovery found 0 candidates across all running mods' Collector directories. "
+                    + "No collector binary could be located to launch."
+            );
+        }
+        else {
+            for (int i = 0; i < candidates.Count; i++) {
+                CollectorCandidate candidate = candidates[i];
+                Log.Message(
+                    $"[RimObs] Collector discovery: candidate {i + 1}/{candidates.Count} -> '{candidate.ExecutablePath}' (version {candidate.Version})."
+                );
+            }
         }
 
         return candidates;
@@ -84,7 +104,8 @@ public sealed class RimObsMod : Mod {
                 Log.Error(
                     "[RimObs] No collector is running and none could be launched from any installed mod's "
                         + "Collector directory. Telemetry instrumentation is disabled for this session "
-                        + "(no patches installed). Install the collector binary to enable profiling. (PRD §35.66)"
+                        + $"(no patches installed). launchAttempted={collector.LaunchAttempted}. "
+                        + "Install the collector binary to enable profiling. (PRD §35.66)"
                 );
                 return;
             }
