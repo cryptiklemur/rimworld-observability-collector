@@ -1,0 +1,151 @@
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.IO.Compression;
+using System.Linq;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+using Cryptiklemur.RimObs.Collector.Aggregation;
+using Cryptiklemur.RimObs.Collector.Bundle;
+using Cryptiklemur.RimObs.Wire;
+using FluentAssertions;
+using Xunit;
+
+namespace Cryptiklemur.RimObs.Collector.Tests;
+
+public class BundleExportServiceTests {
+    private static SessionAggregator BuildAggregator() {
+        SessionAggregator aggregator = new SessionAggregator();
+        aggregator.OnSessionMeta(new SessionMeta {
+            SessionId = "sess-test",
+            StartedUtcTicks = new DateTime(2026, 5, 28, 10, 0, 0, DateTimeKind.Utc).Ticks,
+            StopwatchFrequency = 10_000_000,
+            LibraryVersion = "0.1.0",
+            GameVersion = "1.5",
+        });
+        return aggregator;
+    }
+
+    [Fact]
+    public async Task Export_WritesAllRequiredEntries() {
+        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0");
+
+        BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
+            SessionId = "sess-test",
+            Includes = new HashSet<BundleContentKey>(),
+            Force = false,
+        }, CancellationToken.None);
+
+        result.Status.Should().Be(BundleExportStatus.Ok);
+        result.Bytes.Should().NotBeNull();
+
+        using MemoryStream ms = new MemoryStream(result.Bytes!);
+        using ZipArchive zip = new ZipArchive(ms, ZipArchiveMode.Read);
+        IEnumerable<string> names = zip.Entries.Select(e => e.FullName);
+        names.Should().Contain(new[] {
+            "manifest.json",
+            "session_summary.json",
+            "metric_descriptors.json",
+            "hotspots.json",
+            "custom_metrics.json",
+            "load_order.json",
+            "collector_health.json",
+            "report.html",
+        });
+    }
+
+    [Fact]
+    public async Task Export_OptionalEntriesAddedWhenIncluded() {
+        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0");
+
+        BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
+            SessionId = "sess-test",
+            Includes = new HashSet<BundleContentKey> {
+                BundleContentKey.Allocations,
+                BundleContentKey.GcEvents,
+                BundleContentKey.Patches,
+                BundleContentKey.CallHierarchy,
+            },
+            Force = false,
+        }, CancellationToken.None);
+
+        using MemoryStream ms = new MemoryStream(result.Bytes!);
+        using ZipArchive zip = new ZipArchive(ms, ZipArchiveMode.Read);
+        IEnumerable<string> names = zip.Entries.Select(e => e.FullName).ToArray();
+        names.Should().Contain(new[] {
+            "allocations.json",
+            "gc_events.json",
+            "patches.json",
+            "call_hierarchy.json",
+        });
+        names.Should().NotContain("metrics.sqlite");
+    }
+
+    [Fact]
+    public async Task Export_RejectsUnknownSession() {
+        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0");
+
+        BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
+            SessionId = "wrong-id",
+            Includes = new HashSet<BundleContentKey>(),
+            Force = false,
+        }, CancellationToken.None);
+
+        result.Status.Should().Be(BundleExportStatus.UnknownSession);
+        result.Bytes.Should().BeNull();
+    }
+
+    [Fact]
+    public async Task Export_RejectsOverCapWithoutForce() {
+        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0") {
+            EstimateOverride = _ => new BundleSizeEstimate(BundleSizeEstimator.SoftCapBytes + 1),
+        };
+
+        BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
+            SessionId = "sess-test",
+            Includes = new HashSet<BundleContentKey>(),
+            Force = false,
+        }, CancellationToken.None);
+
+        result.Status.Should().Be(BundleExportStatus.ExceedsSoftCap);
+        result.EstimatedBytes.Should().BeGreaterThan(BundleSizeEstimator.SoftCapBytes);
+    }
+
+    [Fact]
+    public async Task Export_OverCapWithForce_Succeeds() {
+        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0") {
+            EstimateOverride = _ => new BundleSizeEstimate(BundleSizeEstimator.SoftCapBytes + 1),
+        };
+
+        BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
+            SessionId = "sess-test",
+            Includes = new HashSet<BundleContentKey>(),
+            Force = true,
+        }, CancellationToken.None);
+
+        result.Status.Should().Be(BundleExportStatus.Ok);
+    }
+
+    [Fact]
+    public async Task Export_ManifestLooksWellFormed() {
+        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0");
+        BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
+            SessionId = "sess-test",
+            Includes = new HashSet<BundleContentKey>(),
+            Force = false,
+        }, CancellationToken.None);
+
+        using MemoryStream ms = new MemoryStream(result.Bytes!);
+        using ZipArchive zip = new ZipArchive(ms, ZipArchiveMode.Read);
+        ZipArchiveEntry manifestEntry = zip.GetEntry("manifest.json")!;
+        using StreamReader reader = new StreamReader(manifestEntry.Open());
+        BundleManifest? manifest = JsonSerializer.Deserialize<BundleManifest>(reader.ReadToEnd(), BundleManifest.JsonOptions);
+
+        manifest.Should().NotBeNull();
+        manifest!.SessionId.Should().Be("sess-test");
+        manifest.SchemaVersion.Should().Be(1);
+        manifest.CollectorVersion.Should().Be("0.1.0");
+        manifest.Entries.Should().Contain("report.html");
+    }
+}
