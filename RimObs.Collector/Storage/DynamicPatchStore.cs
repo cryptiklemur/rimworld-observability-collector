@@ -19,7 +19,18 @@ public sealed class DynamicPatchStore : IDisposable {
     public static DynamicPatchStore Open(string path) {
         SqliteConnection conn = new SqliteConnection($"Data Source={path};Mode=ReadWriteCreate");
         conn.Open();
+        ConfigureConcurrency(conn);
         return new DynamicPatchStore(conn);
+    }
+
+    private static void ConfigureConcurrency(SqliteConnection conn) {
+        using SqliteCommand timeout = conn.CreateCommand();
+        timeout.CommandText = "PRAGMA busy_timeout=5000;";
+        timeout.ExecuteNonQuery();
+
+        using SqliteCommand wal = conn.CreateCommand();
+        wal.CommandText = "PRAGMA journal_mode=WAL;";
+        wal.ExecuteNonQuery();
     }
 
     private void EnsureSchema() {

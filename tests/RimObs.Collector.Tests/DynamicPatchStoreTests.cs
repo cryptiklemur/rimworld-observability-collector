@@ -1,5 +1,8 @@
+using System;
+using System.IO;
 using Cryptiklemur.RimObs.Collector.Storage;
 using FluentAssertions;
+using Microsoft.Data.Sqlite;
 using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
@@ -46,5 +49,45 @@ public class DynamicPatchStoreTests {
         long id = store.Insert("A", "B", "");
         store.Delete(id).Should().BeTrue();
         store.List().Should().BeEmpty();
+    }
+
+    [Fact]
+    public void Open_enables_wal_so_overlapping_collectors_dont_crash_on_locked_db() {
+        string path = Path.Combine(Path.GetTempPath(), $"rimobs-patch-{Guid.NewGuid():N}.db");
+        try {
+            using (DynamicPatchStore store = DynamicPatchStore.Open(path)) {
+                store.Insert("Verse.PathFinder", "FindPath", "Verse.IntVec3");
+                File.Exists(path + "-wal").Should().BeTrue(
+                    "WAL leaves a -wal sidecar after the first write; without it a second collector hits a locked DB at startup");
+            }
+        }
+        finally {
+            Cleanup(path);
+        }
+    }
+
+    [Fact]
+    public void Two_stores_on_same_file_share_state_without_throwing() {
+        string path = Path.Combine(Path.GetTempPath(), $"rimobs-patch-{Guid.NewGuid():N}.db");
+        try {
+            using DynamicPatchStore first = DynamicPatchStore.Open(path);
+            using DynamicPatchStore second = DynamicPatchStore.Open(path);
+
+            first.Insert("First.Type", "M", "P1");
+            second.Insert("Second.Type", "M", "P2");
+
+            second.List().Should().HaveCount(2);
+        }
+        finally {
+            Cleanup(path);
+        }
+    }
+
+    private static void Cleanup(string path) {
+        SqliteConnection.ClearAllPools();
+        foreach (string sidecar in new[] { path, path + "-wal", path + "-shm" }) {
+            if (File.Exists(sidecar))
+                File.Delete(sidecar);
+        }
     }
 }
