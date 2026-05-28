@@ -128,28 +128,46 @@ describe('api.exportBundle', () => {
     it('POSTs to /api/v1/export/bundle and returns Blob', async () => {
         const blob = new Blob(['zipcontent'], { type: 'application/zip' });
         const fetchMock = vi.fn(
-            async () => new Response(blob, { status: 200, headers: { 'Content-Type': 'application/zip' } }),
+            async (_input: RequestInfo | URL, _init?: RequestInit) =>
+                new Response(blob, { status: 200, headers: { 'Content-Type': 'application/zip' } }),
         );
         vi.stubGlobal('fetch', fetchMock);
 
-        const result = await api.exportBundle({ sessionId: 'sess', includes: ['allocations'], force: false });
+        const result = await api.exportBundle({
+            sessionId: 'sess',
+            includes: ['allocations'],
+            force: false,
+        });
 
         expect(fetchMock).toHaveBeenCalledOnce();
         const [url, init] = fetchMock.mock.calls[0];
         expect(url).toBe('/api/v1/export/bundle');
         expect((init as RequestInit).method).toBe('POST');
         expect(JSON.parse((init as RequestInit).body as string)).toEqual({
-            session_id: 'sess', include: ['allocations'], force: false,
+            session_id: 'sess',
+            include: ['allocations'],
+            force: false,
         });
         expect(result.kind).toBe('ok');
         if (result.kind === 'ok') expect(result.blob.type).toBe('application/zip');
     });
 
     it('returns over_cap on 413', async () => {
-        const body = JSON.stringify({ error: 'estimate_exceeds_soft_cap', estimated_bytes: 30_000_000, cap_bytes: 26_214_400 });
-        vi.stubGlobal('fetch', vi.fn(
-            async () => new Response(body, { status: 413, headers: { 'Content-Type': 'application/json' } }),
-        ));
+        const body = JSON.stringify({
+            error: 'estimate_exceeds_soft_cap',
+            estimated_bytes: 30_000_000,
+            cap_bytes: 26_214_400,
+        });
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(
+                async () =>
+                    new Response(body, {
+                        status: 413,
+                        headers: { 'Content-Type': 'application/json' },
+                    }),
+            ),
+        );
 
         const result = await api.exportBundle({ sessionId: 'sess', includes: [], force: false });
 

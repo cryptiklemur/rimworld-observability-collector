@@ -17,7 +17,7 @@ export const routes: RouteDef[] = [
     { id: 'metrics', title: 'Metrics', icon: 'metric', ready: true },
     { id: 'patches', title: 'Patches', icon: 'patch', ready: true },
     { id: 'sessions', title: 'Sessions', icon: 'stack', ready: true },
-    { id: 'bundle', title: 'Bundle', icon: 'external', ready: true },
+    { id: 'bundle', title: 'Bundle', icon: 'archive', ready: true },
     { id: 'logs', title: 'Logs', icon: 'logs', ready: true },
     { id: 'incidents', title: 'Incidents', icon: 'alert', ready: false },
     { id: 'errors', title: 'Errors', icon: 'bug', ready: false },
