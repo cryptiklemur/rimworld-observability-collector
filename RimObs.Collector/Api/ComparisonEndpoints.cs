@@ -1,6 +1,7 @@
 using System;
 using System.Linq;
 using Cryptiklemur.RimObs.Collector.Aggregation;
+using Cryptiklemur.RimObs.Collector.Bundle;
 using Cryptiklemur.RimObs.Collector.Comparison;
 using Cryptiklemur.RimObs.Collector.Storage;
 using Cryptiklemur.RimObs.Wire;
@@ -108,12 +109,13 @@ public static class ComparisonEndpoints {
                 return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "base and head query parameters are required" });
 
             SessionSnapshotReader reader = Reader(aggregator, services);
-            SessionSnapshot? baseline = reader.Read(@base);
+            BundleSnapshotReader? bundleReader = BundleReader(services);
+            SessionSnapshot? baseline = ResolveSource(@base, reader, bundleReader);
             if (baseline is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown base session" });
-            SessionSnapshot? headSnapshot = reader.Read(head);
+                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown base source" });
+            SessionSnapshot? headSnapshot = ResolveSource(head, reader, bundleReader);
             if (headSnapshot is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown head session" });
+                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown head source" });
 
             ComparisonResult result = SessionComparer.Compare(baseline, headSnapshot);
             return Results.Ok(MapComparison(result));
@@ -122,8 +124,21 @@ public static class ComparisonEndpoints {
         return endpoints;
     }
 
+    private const string BundleSourcePrefix = "bundle:";
+
     private static SessionSnapshotReader Reader(SessionAggregator aggregator, IServiceProvider services) {
         return new SessionSnapshotReader(aggregator, services.GetService<ISessionPersister>());
+    }
+
+    private static BundleSnapshotReader? BundleReader(IServiceProvider services) {
+        BundleImportRegistry? registry = services.GetService<BundleImportRegistry>();
+        return registry is null ? null : new BundleSnapshotReader(registry);
+    }
+
+    private static SessionSnapshot? ResolveSource(string source, SessionSnapshotReader sessionReader, BundleSnapshotReader? bundleReader) {
+        if (source.StartsWith(BundleSourcePrefix, StringComparison.Ordinal))
+            return bundleReader?.Read(source.Substring(BundleSourcePrefix.Length));
+        return sessionReader.Read(source);
     }
 
     private static object LoadOrderPayload(SessionSnapshot snapshot) {

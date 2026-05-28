@@ -1,15 +1,19 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Net;
 using System.Net.Sockets;
 using System.Text.Json;
+using System.Threading;
 using System.Threading.Tasks;
 using Cryptiklemur.RimObs.Collector.Aggregation;
+using Cryptiklemur.RimObs.Collector.Bundle;
 using Cryptiklemur.RimObs.Collector.Hosting;
 using Cryptiklemur.RimObs.Collector.Storage;
 using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
+using Microsoft.Extensions.DependencyInjection;
 using Xunit;
 
 namespace Cryptiklemur.RimObs.Collector.Tests;
@@ -65,17 +69,53 @@ public class ComparisonEndpointsTests : IDisposable {
     }
 
     private async Task WithApp(Func<HttpClient, Task> body) {
+        await WithApp((http, _) => body(http));
+    }
+
+    private async Task WithApp(Func<HttpClient, WebApplication, Task> body) {
         int port = PickFreePort();
         WebApplication app = Program.BuildApp([], port, sessionsDir: _sessionsDir);
         await app.StartAsync();
         try {
             using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
-            await body(http);
+            await body(http, app);
         }
         finally {
             await app.StopAsync();
             await app.DisposeAsync();
         }
+    }
+
+    private static byte[] BuildBundleZip(string sessionId, params (int Id, string Name, long ElapsedTicks)[] sections) {
+        SessionAggregator aggregator = new SessionAggregator();
+        aggregator.OnSessionMeta(new SessionMeta {
+            SessionId = sessionId,
+            StartedUtcTicks = DateTime.UtcNow.Ticks,
+            StopwatchFrequency = 10_000_000,
+            LibraryVersion = "1.0.0",
+            GameVersion = "1.5",
+        });
+        int[] ids = new int[sections.Length];
+        string[] names = new string[sections.Length];
+        long[] starts = new long[sections.Length];
+        long[] elapsed = new long[sections.Length];
+        for (int i = 0; i < sections.Length; i++) {
+            ids[i] = sections[i].Id;
+            names[i] = sections[i].Name;
+            starts[i] = (i + 1) * 100;
+            elapsed[i] = sections[i].ElapsedTicks;
+        }
+        aggregator.OnSectionRegistrations(new SectionRegistrationsBatch { SectionIds = ids, Names = names });
+        aggregator.OnSectionBatch(new SectionBatch { SectionIds = ids, StartTimestamps = starts, ElapsedTicks = elapsed });
+
+        BundleExportService export = new BundleExportService(aggregator, persister: null, collectorVersion: "0.1.0");
+        BundleExportResult result = export.ExportAsync(new BundleExportRequest {
+            SessionId = sessionId,
+            Includes = new HashSet<BundleContentKey>(),
+            Force = false,
+        }, CancellationToken.None).GetAwaiter().GetResult();
+        result.Status.Should().Be(BundleExportStatus.Ok);
+        return result.Bytes!;
     }
 
     [Fact]
@@ -170,6 +210,55 @@ public class ComparisonEndpointsTests : IDisposable {
 
             root.GetProperty("load_order").GetProperty("added")[0].GetString().Should().Be("modC");
             root.GetProperty("load_order").GetProperty("removed")[0].GetString().Should().Be("modB");
+        });
+    }
+
+    [Fact]
+    public async Task Compare_accepts_imported_bundle_as_base_source() {
+        byte[] zip = BuildBundleZip("bundle-base", (1, "modA_scan", 10));
+        SeedSession("head", "1.5", (1, "modA_scan", 10, 1500));
+        await WithApp(async (http, app) => {
+            BundleImportService importer = app.Services.GetRequiredService<BundleImportService>();
+            using MemoryStream archive = new MemoryStream(zip);
+            BundleImportResult import = await importer.ImportAsync(archive);
+            import.Status.Should().Be(BundleImportStatus.Ok);
+
+            HttpResponseMessage res = await http.GetAsync($"/api/v1/sessions/compare?base=bundle:{import.Entry!.Token}&head=head");
+            res.StatusCode.Should().Be(HttpStatusCode.OK);
+            JsonElement root = JsonDocument.Parse(await res.Content.ReadAsStringAsync()).RootElement;
+            root.GetProperty("timing").GetProperty("base_total_ns").GetInt64().Should().Be(1000);
+            root.GetProperty("timing").GetProperty("head_total_ns").GetInt64().Should().Be(1500);
+            root.GetProperty("timing").GetProperty("delta_ns").GetInt64().Should().Be(500);
+        });
+    }
+
+    [Fact]
+    public async Task Compare_supports_bundle_versus_bundle() {
+        byte[] baseZip = BuildBundleZip("bundle-base", (1, "modA_scan", 10));
+        byte[] headZip = BuildBundleZip("bundle-head", (1, "modA_scan", 30));
+        await WithApp(async (http, app) => {
+            BundleImportService importer = app.Services.GetRequiredService<BundleImportService>();
+            using MemoryStream baseArchive = new MemoryStream(baseZip);
+            BundleImportResult baseImport = await importer.ImportAsync(baseArchive);
+            using MemoryStream headArchive = new MemoryStream(headZip);
+            BundleImportResult headImport = await importer.ImportAsync(headArchive);
+
+            HttpResponseMessage res = await http.GetAsync(
+                $"/api/v1/sessions/compare?base=bundle:{baseImport.Entry!.Token}&head=bundle:{headImport.Entry!.Token}");
+            res.StatusCode.Should().Be(HttpStatusCode.OK);
+            JsonElement timing = JsonDocument.Parse(await res.Content.ReadAsStringAsync()).RootElement.GetProperty("timing");
+            timing.GetProperty("base_total_ns").GetInt64().Should().Be(1000);
+            timing.GetProperty("head_total_ns").GetInt64().Should().Be(3000);
+            timing.GetProperty("delta_ns").GetInt64().Should().Be(2000);
+        });
+    }
+
+    [Fact]
+    public async Task Compare_404_when_bundle_token_unknown() {
+        SeedSession("head", "1.5", (1, "modA_scan", 10, 1500));
+        await WithApp(async http => {
+            HttpResponseMessage res = await http.GetAsync("/api/v1/sessions/compare?base=bundle:deadbeef&head=head");
+            res.StatusCode.Should().Be(HttpStatusCode.NotFound);
         });
     }
 }

@@ -7,8 +7,13 @@
     import { t } from '../lib/i18n';
     import { onMount } from 'svelte';
 
+    type ImportedBundle = { value: string; label: string };
+
     let sessions = $state<SessionInfo[]>([]);
     let sessionsError = $state('');
+    let imports = $state<ImportedBundle[]>([]);
+    let importing = $state(false);
+    let importError = $state('');
     let base = $state('');
     let head = $state('');
     let result = $state<ComparisonResponse | null>(null);
@@ -25,6 +30,30 @@
             sessionsError = e instanceof ApiError ? e.message : String(e);
         }
     });
+
+    async function importBundle(e: Event) {
+        const input = e.currentTarget as HTMLInputElement;
+        const file = input.files?.[0];
+        if (!file) return;
+        importing = true;
+        importError = '';
+        try {
+            const res = await api.importBundle(file);
+            const sessionId = String(res.manifest.session_id ?? file.name);
+            const value = `bundle:${res.token}`;
+            imports = [
+                { value, label: t('comparison.importedLabel', '{id} (imported)').replace('{id}', sessionId) },
+                ...imports.filter((b) => b.value !== value),
+            ];
+            if (!base) base = value;
+            else if (!head) head = value;
+        } catch (err) {
+            importError = err instanceof ApiError ? err.message : String(err);
+        } finally {
+            importing = false;
+            input.value = '';
+        }
+    }
 
     async function runCompare() {
         if (!base || !head || base === head) return;
@@ -55,32 +84,61 @@
                 <label class="field">
                     <span class="lbl">{t('comparison.base', 'Baseline')}</span>
                     <select bind:value={base}>
-                        <option value="" disabled>{t('comparison.choose', 'Choose a session')}</option>
-                        {#each sessions as s (s.id)}
-                            <option value={s.id}
-                                >{s.id}{s.is_current ? ` (${t('sessions.current', 'current')})` : ''}</option
-                            >
-                        {/each}
+                        <option value="" disabled>{t('comparison.choose', 'Choose a source')}</option>
+                        <optgroup label={t('comparison.sourceSessions', 'Sessions')}>
+                            {#each sessions as s (s.id)}
+                                <option value={s.id}
+                                    >{s.id}{s.is_current ? ` (${t('sessions.current', 'current')})` : ''}</option
+                                >
+                            {/each}
+                        </optgroup>
+                        {#if imports.length > 0}
+                            <optgroup label={t('comparison.sourceBundles', 'Imported bundles')}>
+                                {#each imports as b (b.value)}
+                                    <option value={b.value}>{b.label}</option>
+                                {/each}
+                            </optgroup>
+                        {/if}
                     </select>
                 </label>
                 <Icon name="compare" size={20} />
                 <label class="field">
                     <span class="lbl">{t('comparison.head', 'Comparison target')}</span>
                     <select bind:value={head}>
-                        <option value="" disabled>{t('comparison.choose', 'Choose a session')}</option>
-                        {#each sessions as s (s.id)}
-                            <option value={s.id}
-                                >{s.id}{s.is_current ? ` (${t('sessions.current', 'current')})` : ''}</option
-                            >
-                        {/each}
+                        <option value="" disabled>{t('comparison.choose', 'Choose a source')}</option>
+                        <optgroup label={t('comparison.sourceSessions', 'Sessions')}>
+                            {#each sessions as s (s.id)}
+                                <option value={s.id}
+                                    >{s.id}{s.is_current ? ` (${t('sessions.current', 'current')})` : ''}</option
+                                >
+                            {/each}
+                        </optgroup>
+                        {#if imports.length > 0}
+                            <optgroup label={t('comparison.sourceBundles', 'Imported bundles')}>
+                                {#each imports as b (b.value)}
+                                    <option value={b.value}>{b.label}</option>
+                                {/each}
+                            </optgroup>
+                        {/if}
                     </select>
                 </label>
                 <button class="run" onclick={runCompare} disabled={!canCompare}>
                     {loading ? t('comparison.comparing', 'Comparing…') : t('comparison.run', 'Compare')}
                 </button>
             </div>
+            <div class="import">
+                <label class="import-btn" class:busy={importing}>
+                    <Icon name="upload" size={16} />
+                    <span>{importing ? t('comparison.importing', 'Importing…') : t('comparison.importBundle', 'Import bundle to compare')}</span>
+                    <input type="file" accept=".zip" onchange={importBundle} disabled={importing} />
+                </label>
+                <span class="import-hint">{t('comparison.importHint', 'Add an exported .rimobs.zip as a comparison source.')}</span>
+            </div>
+            {#if importError}
+                <p class="err">{importError}</p>
+            {/if}
             {#if base !== '' && base === head}
-                <p class="hint">{t('comparison.samePair', 'Pick two different sessions.')}</p>
+                <p class="hint">{t('comparison.samePair', 'Pick two different sources.')}</p>
             {/if}
         {/if}
     </Card>
@@ -277,6 +335,40 @@
     .run:disabled {
         opacity: 0.5;
         cursor: not-allowed;
+    }
+    .import {
+        display: flex;
+        align-items: center;
+        gap: 0.7rem;
+        margin-top: 0.9rem;
+        flex-wrap: wrap;
+    }
+    .import-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.4rem 0.8rem;
+        border: 1px dashed var(--border);
+        border-radius: var(--r-md);
+        color: var(--text-dim);
+        font-size: 0.82rem;
+        cursor: pointer;
+        transition: border-color var(--t-fast) var(--ease-out), color var(--t-fast) var(--ease-out);
+    }
+    .import-btn:hover {
+        border-color: var(--cyan);
+        color: var(--cyan);
+    }
+    .import-btn.busy {
+        opacity: 0.6;
+        cursor: progress;
+    }
+    .import-btn input {
+        display: none;
+    }
+    .import-hint {
+        font-size: 0.78rem;
+        color: var(--text-faint);
     }
     .disclaimer {
         display: flex;
