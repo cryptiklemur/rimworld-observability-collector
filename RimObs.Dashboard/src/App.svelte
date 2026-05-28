@@ -16,6 +16,7 @@
     import Metrics from './routes/Metrics.svelte';
     import Patches from './routes/Patches.svelte';
     import Sessions from './routes/Sessions.svelte';
+    import Bundle from './routes/Bundle.svelte';
     import Logs from './routes/Logs.svelte';
     import Settings from './routes/Settings.svelte';
     import Soon from './routes/Soon.svelte';
@@ -74,6 +75,8 @@
                     <Patches />
                 {:else if route.id === 'sessions'}
                     <Sessions />
+                {:else if route.id === 'bundle'}
+                    <Bundle />
                 {:else if route.id === 'logs'}
                     <Logs />
                 {:else if route.id === 'settings'}
