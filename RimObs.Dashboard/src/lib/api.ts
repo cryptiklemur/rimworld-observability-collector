@@ -237,6 +237,23 @@ export interface InstrumentationPatchResult {
     };
 }
 
+export type ExportBundleResult =
+    | { kind: 'ok'; blob: Blob }
+    | { kind: 'over_cap'; estimatedBytes: number; capBytes: number }
+    | { kind: 'error'; message: string };
+
+export interface ExportBundleParams {
+    sessionId: string;
+    includes: string[];
+    force: boolean;
+}
+
+export interface ImportBundleResponse {
+    token: string;
+    manifest: Record<string, unknown>;
+    contents: string[];
+}
+
 export class ApiError extends Error {
     constructor(
         public readonly status: number,
@@ -294,5 +311,35 @@ export const api = {
     instrumentationUnpatch: async (id: number) => {
         const res = await fetch(`/api/v1/instrumentation/patches/${id}`, { method: 'DELETE' });
         if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`);
+    },
+    exportBundle: async (params: ExportBundleParams): Promise<ExportBundleResult> => {
+        const res = await fetch('/api/v1/export/bundle', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                session_id: params.sessionId,
+                include: params.includes,
+                force: params.force,
+            }),
+        });
+        if (res.status === 413) {
+            const body = await res.json();
+            return { kind: 'over_cap', estimatedBytes: body.estimated_bytes, capBytes: body.cap_bytes };
+        }
+        if (!res.ok) return { kind: 'error', message: `server returned ${res.status}` };
+        return { kind: 'ok', blob: await res.blob() };
+    },
+    importBundle: async (file: File): Promise<ImportBundleResponse> => {
+        const form = new FormData();
+        form.append('bundle', file);
+        const res = await fetch('/api/v1/import/bundle', { method: 'POST', body: form });
+        if (!res.ok) throw new ApiError(res.status, `import failed: ${res.status}`);
+        return (await res.json()) as ImportBundleResponse;
+    },
+    getImportFileUrl: (token: string, name: string): string =>
+        `/api/v1/import/bundle/${encodeURIComponent(token)}/file/${encodeURIComponent(name)}`,
+    deleteImport: async (token: string): Promise<void> => {
+        const res = await fetch(`/api/v1/import/bundle/${encodeURIComponent(token)}`, { method: 'DELETE' });
+        if (!res.ok && res.status !== 404) throw new ApiError(res.status, `delete failed: ${res.status}`);
     },
 };
