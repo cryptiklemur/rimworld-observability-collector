@@ -76,7 +76,7 @@ describe('Sessions route', () => {
         mockSessions();
         const { findAllByRole } = render(Sessions);
         const buttons = await findAllByRole('button', { name: /Export bundle/i });
-        const enabled = buttons.find((b) => !(b as HTMLButtonElement).disabled);
-        expect(enabled).toBeTruthy();
+        const enabled = (buttons as HTMLButtonElement[]).filter((b) => !b.disabled);
+        expect(enabled).toHaveLength(1);
     });
 });

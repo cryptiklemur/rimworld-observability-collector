@@ -103,7 +103,7 @@
                 <span>{t('sessions.col.started')}</span>
                 <span>{t('sessions.col.library')}</span>
                 <span>{t('sessions.col.game')}</span>
-                <span></span>
+                <span aria-hidden="true"></span>
             </div>
             {#each sessions as s (s.id)}
                 <div class="rowline" class:current={s.is_current}>
