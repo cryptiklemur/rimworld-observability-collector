@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Concurrent;
 using Cryptiklemur.RimObs.Collector.Storage;
 using Cryptiklemur.RimObs.Wire;
@@ -61,6 +62,9 @@ public sealed class SessionAggregator {
 
     public IReadOnlyList<PatchConflictRecord> PatchConflicts => Volatile.Read(ref _patchConflicts);
 
+    public Action<SectionBatch>? SectionBatchObserver { get; set; }
+    public Action<int, string>? SectionRegistrationObserver { get; set; }
+
     public void OnBatchReceived(int byteCount) {
         Interlocked.Increment(ref _totalBatches);
         Interlocked.Add(ref _totalBytes, byteCount);
@@ -81,6 +85,7 @@ public sealed class SessionAggregator {
             SectionStats stats = _sections.GetOrAdd(id, key => new SectionStats { SectionId = key });
             stats.Name = name;
             stats.Subsystem = subsystem;
+            SectionRegistrationObserver?.Invoke(id, name);
         }
     }
 
@@ -200,6 +205,7 @@ public sealed class SessionAggregator {
             Interlocked.Add(ref edge.TotalElapsedTicks, elapsed);
         }
         Interlocked.Add(ref _totalSamples, n);
+        SectionBatchObserver?.Invoke(batch);
     }
 
     private static void UpdateMin(ref long location, long value) {
