@@ -7,7 +7,6 @@
     "dev": "vite",
     "build": "vite build && pnpm run build:report",
     "build:report": "VITE_TARGET=report vite build && node scripts/move-report.mjs",
-    "build:all": "pnpm run build && pnpm run build:report",
     "preview": "vite preview",
     "check": "svelte-check --tsconfig ./tsconfig.json",
     "test": "vitest run",
