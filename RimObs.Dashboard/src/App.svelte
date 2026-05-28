@@ -18,6 +18,7 @@
     import Patches from './routes/Patches.svelte';
     import Sessions from './routes/Sessions.svelte';
     import Bundle from './routes/Bundle.svelte';
+    import Comparison from './routes/Comparison.svelte';
     import Logs from './routes/Logs.svelte';
     import Settings from './routes/Settings.svelte';
     import Soon from './routes/Soon.svelte';
@@ -80,6 +81,8 @@
                     <Sessions />
                 {:else if route.id === 'bundle'}
                     <Bundle />
+                {:else if route.id === 'comparison'}
+                    <Comparison />
                 {:else if route.id === 'logs'}
                     <Logs />
                 {:else if route.id === 'settings'}

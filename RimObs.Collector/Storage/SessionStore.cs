@@ -353,6 +353,62 @@ ON CONFLICT(parent_id, section_id) DO UPDATE SET
         return rows;
     }
 
+    public List<SectionStatsRow> GetFullSections() {
+        ThrowIfDisposed();
+
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT section_id, name, sample_count, total_elapsed_ticks, min_elapsed_ticks, max_elapsed_ticks FROM sections ORDER BY section_id;";
+
+        List<SectionStatsRow> rows = [];
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        while (reader.Read()) {
+            rows.Add(new SectionStatsRow(
+                SectionId: reader.GetInt32(0),
+                Name: reader.GetString(1),
+                SampleCount: reader.GetInt64(2),
+                TotalElapsedTicks: reader.GetInt64(3),
+                MinElapsedTicks: reader.GetInt64(4),
+                MaxElapsedTicks: reader.GetInt64(5)));
+        }
+        return rows;
+    }
+
+    public List<MetricRow> GetMetrics() {
+        ThrowIfDisposed();
+
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT metric_id, name, kind, unit FROM metrics ORDER BY metric_id;";
+
+        List<MetricRow> rows = [];
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        while (reader.Read()) {
+            rows.Add(new MetricRow(
+                MetricId: reader.GetInt32(0),
+                Name: reader.GetString(1),
+                Kind: (byte)reader.GetInt32(2),
+                Unit: reader.GetString(3)));
+        }
+        return rows;
+    }
+
+    public List<MetricLabelRow> GetMetricLabels() {
+        ThrowIfDisposed();
+
+        using SqliteCommand cmd = _connection.CreateCommand();
+        cmd.CommandText = "SELECT metric_id, canonical, latest_value, total_sample_count FROM metric_labels ORDER BY metric_id, canonical;";
+
+        List<MetricLabelRow> rows = [];
+        using SqliteDataReader reader = cmd.ExecuteReader();
+        while (reader.Read()) {
+            rows.Add(new MetricLabelRow(
+                MetricId: reader.GetInt32(0),
+                Canonical: reader.GetString(1),
+                LatestValue: reader.GetInt64(2),
+                TotalSampleCount: reader.GetInt64(3)));
+        }
+        return rows;
+    }
+
     public void Dispose() {
         if (_disposed)
             return;
@@ -468,3 +524,15 @@ CREATE TABLE call_tree_edges (
 }
 
 public sealed record SectionRow(int SectionId, string Name, string? Subsystem);
+
+public sealed record SectionStatsRow(
+    int SectionId,
+    string Name,
+    long SampleCount,
+    long TotalElapsedTicks,
+    long MinElapsedTicks,
+    long MaxElapsedTicks);
+
+public sealed record MetricRow(int MetricId, string Name, byte Kind, string Unit);
+
+public sealed record MetricLabelRow(int MetricId, string Canonical, long LatestValue, long TotalSampleCount);

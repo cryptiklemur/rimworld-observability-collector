@@ -161,6 +161,7 @@ public static class Program {
         app.MapStatusEndpoints();
         app.MapSessionsEndpoints();
         app.MapCapturesEndpoints();
+        app.MapComparisonEndpoints();
         app.MapVersionEndpoints();
         app.MapConfigEndpoints();
         app.MapPanelsEndpoints();

@@ -19,6 +19,11 @@ public sealed class SqliteSessionPersister : ISessionPersister {
 
     public string SessionsDirectory => _sessionsDir;
 
+    public string ResolveDatabasePath(string sessionId) {
+        ValidateSessionId(sessionId);
+        return Path.Combine(_sessionsDir, SanitizeFileName(sessionId) + ".db");
+    }
+
     public void WriteSessionMeta(SessionMeta meta) {
         ArgumentNullException.ThrowIfNull(meta);
         if (string.IsNullOrWhiteSpace(meta.SessionId))

@@ -27,10 +27,9 @@ describe('routes', () => {
         expect(ready).toContain('metrics');
         expect(ready).toContain('logs');
         expect(ready).toContain('settings');
+        expect(ready).toContain('comparison');
 
         const notReady = routes.filter((r) => !r.ready).map((r) => r.id);
-        expect(notReady).toEqual(
-            expect.arrayContaining(['incidents', 'errors', 'comparison', 'panels']),
-        );
+        expect(notReady).toEqual(expect.arrayContaining(['incidents', 'errors', 'panels']));
     });
 });

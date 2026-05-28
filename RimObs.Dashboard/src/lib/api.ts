@@ -306,6 +306,83 @@ export class ApiError extends Error {
     }
 }
 
+export interface ComparisonSessionRef {
+    id: string;
+    library_version: string;
+    game_version: string;
+    started_utc: string;
+}
+
+export interface ComparisonTiming {
+    base_total_ns: number;
+    head_total_ns: number;
+    delta_ns: number;
+    delta_percent: number | null;
+    base_sample_count: number;
+    head_sample_count: number;
+    base_mean_ns: number;
+    head_mean_ns: number;
+    delta_mean_ns: number;
+}
+
+export type DeltaStatus = 'added' | 'removed' | 'regressed' | 'improved' | 'unchanged';
+
+export interface SectionDelta {
+    id: number;
+    name: string;
+    owner: string;
+    status: DeltaStatus;
+    base_total_ns: number;
+    head_total_ns: number;
+    delta_ns: number;
+    delta_percent: number | null;
+    base_mean_ns: number;
+    head_mean_ns: number;
+    likely_regression_candidate: boolean;
+}
+
+export interface OwnerDelta {
+    owner: string;
+    status: DeltaStatus;
+    base_total_ns: number;
+    head_total_ns: number;
+    delta_ns: number;
+    delta_percent: number | null;
+    likely_regression_candidate: boolean;
+}
+
+export interface MetricDelta {
+    name: string;
+    owner: string;
+    kind: number;
+    unit: string;
+    status: DeltaStatus;
+    base_value: number;
+    head_value: number;
+    delta_value: number;
+    delta_percent: number | null;
+}
+
+export interface LoadOrderDiff {
+    added: string[];
+    removed: string[];
+    common: string[];
+}
+
+export interface ComparisonResponse {
+    schema_version: number;
+    unit: string;
+    disclaimer: string;
+    base: ComparisonSessionRef;
+    head: ComparisonSessionRef;
+    timing: ComparisonTiming;
+    hotspots: SectionDelta[];
+    mod_costs: OwnerDelta[];
+    metrics: MetricDelta[];
+    load_order: LoadOrderDiff;
+    warnings: string[];
+}
+
 async function get<T>(path: string): Promise<T> {
     const res = await fetch(path, { headers: { accept: 'application/json' } });
     if (!res.ok) {
@@ -336,6 +413,10 @@ export const api = {
             `/api/v1/logs?limit=${limit}${level ? `&level=${encodeURIComponent(level)}` : ''}`,
         ),
     sessions: () => get<SessionsResponse>('/api/v1/sessions'),
+    compareSessions: (base: string, head: string) =>
+        get<ComparisonResponse>(
+            `/api/v1/sessions/compare?base=${encodeURIComponent(base)}&head=${encodeURIComponent(head)}`,
+        ),
     currentSession: () => get<CurrentSessionResponse>('/api/v1/sessions/current'),
     sessionSummary: () => get<SessionSummaryResponse>('/api/v1/sessions/current/summary'),
     patches: () => get<PatchesResponse>('/api/v1/sessions/current/patches'),

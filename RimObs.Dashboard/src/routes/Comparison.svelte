@@ -1,0 +1,446 @@
+<script lang="ts">
+    import { api, ApiError, type SessionInfo, type ComparisonResponse } from '../lib/api';
+    import Card from '../lib/components/Card.svelte';
+    import Icon from '../lib/components/Icon.svelte';
+    import { ns, count, metricKind } from '../lib/format';
+    import { signedNs, signedPercent, deltaTone } from '../lib/comparison';
+    import { t } from '../lib/i18n';
+    import { onMount } from 'svelte';
+
+    let sessions = $state<SessionInfo[]>([]);
+    let sessionsError = $state('');
+    let base = $state('');
+    let head = $state('');
+    let result = $state<ComparisonResponse | null>(null);
+    let loading = $state(false);
+    let error = $state('');
+
+    onMount(async () => {
+        try {
+            const res = await api.sessions();
+            sessions = res.sessions;
+            if (sessions.length > 0) head = sessions[0].id;
+            if (sessions.length > 1) base = sessions[1].id;
+        } catch (e) {
+            sessionsError = e instanceof ApiError ? e.message : String(e);
+        }
+    });
+
+    async function runCompare() {
+        if (!base || !head || base === head) return;
+        loading = true;
+        error = '';
+        try {
+            result = await api.compareSessions(base, head);
+        } catch (e) {
+            error = e instanceof ApiError ? e.message : String(e);
+            result = null;
+        } finally {
+            loading = false;
+        }
+    }
+
+    let canCompare = $derived(base !== '' && head !== '' && base !== head && !loading);
+    let regressionCount = $derived(
+        result ? result.hotspots.filter((h) => h.likely_regression_candidate).length : 0,
+    );
+</script>
+
+<div class="page">
+    <Card title={t('comparison.pick', 'Select sessions to compare')} accent="cyan">
+        {#if sessionsError}
+            <p class="err">{sessionsError}</p>
+        {:else}
+            <div class="picker">
+                <label class="field">
+                    <span class="lbl">{t('comparison.base', 'Baseline')}</span>
+                    <select bind:value={base}>
+                        <option value="" disabled>{t('comparison.choose', 'Choose a session')}</option>
+                        {#each sessions as s (s.id)}
+                            <option value={s.id}
+                                >{s.id}{s.is_current ? ` (${t('sessions.current', 'current')})` : ''}</option
+                            >
+                        {/each}
+                    </select>
+                </label>
+                <Icon name="compare" size={20} />
+                <label class="field">
+                    <span class="lbl">{t('comparison.head', 'Comparison target')}</span>
+                    <select bind:value={head}>
+                        <option value="" disabled>{t('comparison.choose', 'Choose a session')}</option>
+                        {#each sessions as s (s.id)}
+                            <option value={s.id}
+                                >{s.id}{s.is_current ? ` (${t('sessions.current', 'current')})` : ''}</option
+                            >
+                        {/each}
+                    </select>
+                </label>
+                <button class="run" onclick={runCompare} disabled={!canCompare}>
+                    {loading ? t('comparison.comparing', 'Comparing…') : t('comparison.run', 'Compare')}
+                </button>
+            </div>
+            {#if base !== '' && base === head}
+                <p class="hint">{t('comparison.samePair', 'Pick two different sessions.')}</p>
+            {/if}
+        {/if}
+    </Card>
+
+    {#if error}
+        <Card><p class="err">{error}</p></Card>
+    {/if}
+
+    {#if result}
+        <p class="disclaimer" role="note">
+            <Icon name="alert" size={16} />
+            {t('comparison.disclaimer', result.disclaimer)}
+        </p>
+
+        {#if result.warnings.length > 0}
+            <Card title={t('comparison.warnings', 'Confidence warnings')} accent="ember">
+                <ul class="warnings">
+                    {#each result.warnings as w (w)}
+                        <li>{w}</li>
+                    {/each}
+                </ul>
+            </Card>
+        {/if}
+
+        <Card title={t('comparison.timing', 'Tick timing comparison')}>
+            <div class="stats">
+                <div class="stat">
+                    <span class="k">{t('comparison.totalTime', 'Total section time')}</span>
+                    <span class="v">{ns(result.timing.base_total_ns)} → {ns(result.timing.head_total_ns)}</span>
+                    <span class="d {deltaTone(result.timing.delta_ns > 0 ? 'regressed' : result.timing.delta_ns < 0 ? 'improved' : 'unchanged')}"
+                        >{signedNs(result.timing.delta_ns)} ({signedPercent(result.timing.delta_percent)})</span
+                    >
+                </div>
+                <div class="stat">
+                    <span class="k">{t('comparison.meanTime', 'Mean per sample')}</span>
+                    <span class="v">{ns(result.timing.base_mean_ns)} → {ns(result.timing.head_mean_ns)}</span>
+                    <span class="d {deltaTone(result.timing.delta_mean_ns > 0 ? 'regressed' : result.timing.delta_mean_ns < 0 ? 'improved' : 'unchanged')}"
+                        >{signedNs(result.timing.delta_mean_ns)}</span
+                    >
+                </div>
+                <div class="stat">
+                    <span class="k">{t('comparison.samples', 'Samples')}</span>
+                    <span class="v">{count(result.timing.base_sample_count)} → {count(result.timing.head_sample_count)}</span>
+                </div>
+                <div class="stat">
+                    <span class="k">{t('comparison.candidates', 'Likely regression candidates')}</span>
+                    <span class="v">{count(regressionCount)}</span>
+                </div>
+            </div>
+        </Card>
+
+        <Card title={t('comparison.hotspots', 'Hotspot deltas')}>
+            <div class="table">
+                <div class="head row5">
+                    <span>{t('comparison.col.section', 'Section')}</span>
+                    <span>{t('comparison.col.owner', 'Owner')}</span>
+                    <span class="num">{t('comparison.col.base', 'Base')}</span>
+                    <span class="num">{t('comparison.col.head', 'Head')}</span>
+                    <span class="num">{t('comparison.col.delta', 'Delta')}</span>
+                </div>
+                {#each result.hotspots.slice(0, 50) as h (h.name)}
+                    <div class="rowline row5" class:flag={h.likely_regression_candidate}>
+                        <span class="name mono"
+                            >{h.name}{#if h.likely_regression_candidate}<span class="badge"
+                                    >{t('comparison.candidate', 'Likely regression candidate')}</span
+                                >{/if}</span
+                        >
+                        <span class="cell mono">{h.owner}</span>
+                        <span class="cell num mono">{ns(h.base_total_ns)}</span>
+                        <span class="cell num mono">{ns(h.head_total_ns)}</span>
+                        <span class="cell num mono d {deltaTone(h.status)}"
+                            >{signedNs(h.delta_ns)} ({signedPercent(h.delta_percent)})</span
+                        >
+                    </div>
+                {/each}
+            </div>
+        </Card>
+
+        <Card title={t('comparison.modCosts', 'Mod cost changes')}>
+            <div class="table">
+                <div class="head row4">
+                    <span>{t('comparison.col.owner', 'Owner')}</span>
+                    <span class="num">{t('comparison.col.base', 'Base')}</span>
+                    <span class="num">{t('comparison.col.head', 'Head')}</span>
+                    <span class="num">{t('comparison.col.delta', 'Delta')}</span>
+                </div>
+                {#each result.mod_costs as m (m.owner)}
+                    <div class="rowline row4" class:flag={m.likely_regression_candidate}>
+                        <span class="name mono"
+                            >{m.owner}{#if m.likely_regression_candidate}<span class="badge"
+                                    >{t('comparison.candidate', 'Likely regression candidate')}</span
+                                >{/if}</span
+                        >
+                        <span class="cell num mono">{ns(m.base_total_ns)}</span>
+                        <span class="cell num mono">{ns(m.head_total_ns)}</span>
+                        <span class="cell num mono d {deltaTone(m.status)}"
+                            >{signedNs(m.delta_ns)} ({signedPercent(m.delta_percent)})</span
+                        >
+                    </div>
+                {/each}
+            </div>
+        </Card>
+
+        {#if result.metrics.length > 0}
+            <Card title={t('comparison.metrics', 'Metric changes')}>
+                <div class="table">
+                    <div class="head row5">
+                        <span>{t('comparison.col.metric', 'Metric')}</span>
+                        <span>{t('comparison.col.kind', 'Kind')}</span>
+                        <span class="num">{t('comparison.col.base', 'Base')}</span>
+                        <span class="num">{t('comparison.col.head', 'Head')}</span>
+                        <span class="num">{t('comparison.col.delta', 'Delta')}</span>
+                    </div>
+                    {#each result.metrics as m (m.name)}
+                        <div class="rowline row5">
+                            <span class="name mono">{m.name}</span>
+                            <span class="cell mono">{metricKind(m.kind)}</span>
+                            <span class="cell num mono">{count(m.base_value)}</span>
+                            <span class="cell num mono">{count(m.head_value)}</span>
+                            <span class="cell num mono d {deltaTone(m.status)}"
+                                >{m.delta_value >= 0 ? '+' : ''}{count(m.delta_value)} ({signedPercent(m.delta_percent)})</span
+                            >
+                        </div>
+                    {/each}
+                </div>
+            </Card>
+        {/if}
+
+        <Card title={t('comparison.loadOrder', 'Load order changes')}>
+            <p class="hint">{t('comparison.loadOrderNote', 'Owners are derived from section name prefixes, not the game load order.')}</p>
+            <div class="lo">
+                <div class="lo-col">
+                    <span class="lo-h new">{t('comparison.added', 'Added')} ({result.load_order.added.length})</span>
+                    {#each result.load_order.added as o (o)}<span class="chip new">{o}</span>{/each}
+                </div>
+                <div class="lo-col">
+                    <span class="lo-h gone">{t('comparison.removed', 'Removed')} ({result.load_order.removed.length})</span>
+                    {#each result.load_order.removed as o (o)}<span class="chip gone">{o}</span>{/each}
+                </div>
+                <div class="lo-col">
+                    <span class="lo-h">{t('comparison.common', 'In both')} ({result.load_order.common.length})</span>
+                    {#each result.load_order.common as o (o)}<span class="chip">{o}</span>{/each}
+                </div>
+            </div>
+        </Card>
+    {/if}
+</div>
+
+<style>
+    .page {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .picker {
+        display: flex;
+        align-items: flex-end;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .field {
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+        min-width: 220px;
+    }
+    .lbl {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-faint);
+    }
+    select {
+        background: var(--bg-elev);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        padding: 0.45rem 0.6rem;
+        font-family: var(--font-ui);
+    }
+    .run {
+        background: var(--bg-elev);
+        color: var(--text);
+        border: 1px solid var(--border);
+        border-radius: var(--r-md);
+        padding: 0.5rem 1.2rem;
+        cursor: pointer;
+        font-family: var(--font-ui);
+        transition: border-color var(--t-fast) var(--ease-out);
+    }
+    .run:hover:not(:disabled) {
+        border-color: var(--cyan);
+    }
+    .run:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+    }
+    .disclaimer {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin: 0;
+        padding: 0.6rem 0.9rem;
+        font-size: 0.82rem;
+        color: var(--text-dim);
+        background: color-mix(in srgb, var(--ember) 8%, transparent);
+        border: 1px solid color-mix(in srgb, var(--ember) 30%, transparent);
+        border-radius: var(--r-md);
+    }
+    .warnings {
+        margin: 0;
+        padding-left: 1.1rem;
+        color: var(--text-dim);
+        font-size: 0.84rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.3rem;
+    }
+    .stats {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 0.8rem 1.4rem;
+    }
+    .stat {
+        display: flex;
+        flex-direction: column;
+        gap: 0.2rem;
+        padding: 0.5rem 0;
+        border-bottom: 1px solid var(--border-soft);
+    }
+    .stat .k {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-faint);
+    }
+    .stat .v {
+        font-size: 0.9rem;
+        color: var(--text);
+    }
+    .table {
+        display: flex;
+        flex-direction: column;
+        overflow-x: auto;
+    }
+    .head,
+    .rowline {
+        display: grid;
+        gap: 0.75rem;
+        align-items: center;
+        padding: 0.55rem 0.4rem;
+        min-width: 560px;
+    }
+    .row5 {
+        grid-template-columns: minmax(0, 2.2fr) minmax(80px, 1fr) repeat(3, minmax(96px, 1fr));
+    }
+    .row4 {
+        grid-template-columns: minmax(0, 2.2fr) repeat(3, minmax(96px, 1fr));
+    }
+    .head {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        color: var(--text-faint);
+        border-bottom: 1px solid var(--border);
+    }
+    .rowline {
+        border-bottom: 1px solid var(--border-soft);
+    }
+    .rowline.flag {
+        background: color-mix(in srgb, var(--ember) 8%, transparent);
+    }
+    .num {
+        text-align: right;
+        justify-self: end;
+    }
+    .name {
+        font-size: 0.84rem;
+        color: var(--text);
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .cell {
+        font-size: 0.82rem;
+        color: var(--text-dim);
+    }
+    .badge {
+        font-size: 0.62rem;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--ember);
+        border: 1px solid color-mix(in srgb, var(--ember) 40%, transparent);
+        border-radius: 99px;
+        padding: 0.1rem 0.5rem;
+        white-space: nowrap;
+    }
+    .d.up {
+        color: var(--bad);
+    }
+    .d.down {
+        color: var(--good);
+    }
+    .d.flat {
+        color: var(--text-faint);
+    }
+    .d.new {
+        color: var(--cyan);
+    }
+    .d.gone {
+        color: var(--text-faint);
+    }
+    .lo {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+        gap: 1rem;
+    }
+    .lo-col {
+        display: flex;
+        flex-direction: column;
+        gap: 0.4rem;
+    }
+    .lo-h {
+        font-size: 0.72rem;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-faint);
+    }
+    .lo-h.new {
+        color: var(--cyan);
+    }
+    .lo-h.gone {
+        color: var(--ember);
+    }
+    .chip {
+        font-size: 0.78rem;
+        font-family: var(--font-mono, monospace);
+        color: var(--text-dim);
+        border: 1px solid var(--border-soft);
+        border-radius: var(--r-md);
+        padding: 0.2rem 0.5rem;
+    }
+    .chip.new {
+        border-color: color-mix(in srgb, var(--cyan) 40%, transparent);
+        color: var(--cyan);
+    }
+    .chip.gone {
+        border-color: color-mix(in srgb, var(--ember) 40%, transparent);
+        color: var(--ember);
+    }
+    .hint {
+        margin: 0 0 0.6rem;
+        font-size: 0.8rem;
+        color: var(--text-faint);
+    }
+    .err {
+        color: var(--bad);
+        font-size: 0.85rem;
+    }
+</style>

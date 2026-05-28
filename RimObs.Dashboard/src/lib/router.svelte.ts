@@ -22,7 +22,7 @@ export const routes: RouteDef[] = [
     { id: 'logs', title: 'Logs', icon: 'logs', ready: true },
     { id: 'incidents', title: 'Incidents', icon: 'alert', ready: false },
     { id: 'errors', title: 'Errors', icon: 'bug', ready: false },
-    { id: 'comparison', title: 'Comparison', icon: 'compare', ready: false },
+    { id: 'comparison', title: 'Comparison', icon: 'compare', ready: true },
     { id: 'panels', title: 'Panels', icon: 'panel', ready: false },
     { id: 'settings', title: 'Settings', icon: 'cog', ready: true },
 ];
