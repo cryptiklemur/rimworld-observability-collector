@@ -12,7 +12,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <ProjectReference Include="..\RimObs.Collector\RimObs.Collector.csproj"/>
+        <ProjectReference Include="..\..\RimObs.Collector\RimObs.Collector.csproj"/>
     </ItemGroup>
 
     <ItemGroup>

@@ -46,10 +46,10 @@ all: restore build-dashboard build
 clean:
 	rm -rf Assemblies/*.dll Assemblies/*.pdb Assemblies/Collector Collector
 	rm -rf RimObs.Library/bin RimObs.Library/obj
-	rm -rf RimObs.Library.Tests/bin RimObs.Library.Tests/obj
+	rm -rf tests/RimObs.Library.Tests/bin tests/RimObs.Library.Tests/obj
 	rm -rf RimObs.Wire/bin RimObs.Wire/obj
 	rm -rf RimObs.Collector/bin RimObs.Collector/obj
-	rm -rf RimObs.Collector.Tests/bin RimObs.Collector.Tests/obj
+	rm -rf tests/RimObs.Collector.Tests/bin tests/RimObs.Collector.Tests/obj
 	rm -rf $(DASHBOARD_DIR)/dist
 
 restore:

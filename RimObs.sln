@@ -8,9 +8,9 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RimObs.Wire", "RimObs.Wire\
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RimObs.Collector", "RimObs.Collector\RimObs.Collector.csproj", "{A0000001-0000-0000-0000-000000000003}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RimObs.Library.Tests", "RimObs.Library.Tests\RimObs.Library.Tests.csproj", "{A0000001-0000-0000-0000-000000000004}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RimObs.Library.Tests", "tests\RimObs.Library.Tests\RimObs.Library.Tests.csproj", "{A0000001-0000-0000-0000-000000000004}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RimObs.Collector.Tests", "RimObs.Collector.Tests\RimObs.Collector.Tests.csproj", "{A0000001-0000-0000-0000-000000000005}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "RimObs.Collector.Tests", "tests\RimObs.Collector.Tests\RimObs.Collector.Tests.csproj", "{A0000001-0000-0000-0000-000000000005}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
