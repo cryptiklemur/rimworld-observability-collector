@@ -175,3 +175,65 @@ describe('api.exportBundle', () => {
         if (result.kind === 'over_cap') expect(result.estimatedBytes).toBe(30_000_000);
     });
 });
+
+describe('bearer token injection', () => {
+    afterEach(() => {
+        delete (globalThis as { __RIMOBS_TOKEN__?: string }).__RIMOBS_TOKEN__;
+    });
+
+    function typedFetch(body: unknown) {
+        const f = vi.fn(
+            async (_input: RequestInfo | URL, _init?: RequestInit) =>
+                new Response(JSON.stringify(body), {
+                    status: 200,
+                    headers: { 'Content-Type': 'application/json' },
+                }),
+        );
+        vi.stubGlobal('fetch', f);
+        return f;
+    }
+
+    function headersOf(init: RequestInit | undefined): Record<string, string> {
+        return (init?.headers ?? {}) as Record<string, string>;
+    }
+
+    it('sends Authorization bearer on bundle estimate when the token is present', async () => {
+        (globalThis as { __RIMOBS_TOKEN__?: string }).__RIMOBS_TOKEN__ = 'injected-token';
+        const f = typedFetch({ estimated_bytes: 1, cap_bytes: 2, exceeds_soft_cap: false });
+
+        await api.estimateBundle('sess', []);
+
+        expect(headersOf(f.mock.calls[0][1]).authorization).toBe('Bearer injected-token');
+    });
+
+    it('sends Authorization bearer on export bundle when the token is present', async () => {
+        (globalThis as { __RIMOBS_TOKEN__?: string }).__RIMOBS_TOKEN__ = 'injected-token';
+        const blob = new Blob(['z'], { type: 'application/zip' });
+        const f = vi.fn(
+            async (_input: RequestInfo | URL, _init?: RequestInit) =>
+                new Response(blob, { status: 200 }),
+        );
+        vi.stubGlobal('fetch', f);
+
+        await api.exportBundle({ sessionId: 'sess', includes: [], force: false });
+
+        expect(headersOf(f.mock.calls[0][1]).authorization).toBe('Bearer injected-token');
+    });
+
+    it('omits Authorization when no token is injected', async () => {
+        const f = typedFetch({ estimated_bytes: 1, cap_bytes: 2, exceeds_soft_cap: false });
+
+        await api.estimateBundle('sess', []);
+
+        expect(headersOf(f.mock.calls[0][1]).authorization).toBeUndefined();
+    });
+
+    it('does not send Authorization on GET requests', async () => {
+        (globalThis as { __RIMOBS_TOKEN__?: string }).__RIMOBS_TOKEN__ = 'injected-token';
+        const f = typedFetch({ status: 'running' });
+
+        await api.status();
+
+        expect(headersOf(f.mock.calls[0][1]).authorization).toBeUndefined();
+    });
+});

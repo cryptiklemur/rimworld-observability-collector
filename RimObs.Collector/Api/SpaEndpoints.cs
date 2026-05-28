@@ -1,6 +1,9 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reflection;
+using System.Text.Json;
+using Cryptiklemur.RimObs.Collector.Security;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
@@ -25,17 +28,38 @@ public static class SpaEndpoints {
     };
 
     public static IEndpointRouteBuilder MapSpaEndpoints(this IEndpointRouteBuilder endpoints) {
-        endpoints.MapGet("/", () => ServeFile("index.html"));
+        endpoints.MapGet("/", (CollectorToken token) => ServeIndexHtml(token));
         endpoints.MapGet("/assets/{**path}", (string path) => ServeFile("assets/" + path));
-        endpoints.MapFallback((HttpContext context) => {
+        endpoints.MapFallback((HttpContext context, CollectorToken token) => {
             if (context.Request.Path.StartsWithSegments("/api")) {
                 return Results.NotFound();
             }
 
-            return ServeFile("index.html");
+            return ServeIndexHtml(token);
         });
 
         return endpoints;
+    }
+
+    private static IResult ServeIndexHtml(CollectorToken token) {
+        Stream? stream = Host.GetManifestResourceStream(ResourcePrefix + "index.html");
+        if (stream is null) {
+            return Results.NotFound();
+        }
+
+        using StreamReader reader = new(stream);
+        string html = reader.ReadToEnd();
+        return Results.Content(InjectToken(html, token.Value), "text/html; charset=utf-8");
+    }
+
+    internal static string InjectToken(string html, string tokenValue) {
+        int headEnd = html.IndexOf("</head>", StringComparison.OrdinalIgnoreCase);
+        if (headEnd < 0) {
+            return html;
+        }
+
+        string script = "<script>window.__RIMOBS_TOKEN__ = " + JsonSerializer.Serialize(tokenValue) + ";</script>";
+        return html.Insert(headEnd, script);
     }
 
     private static IResult ServeFile(string relativePath) {

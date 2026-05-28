@@ -276,6 +276,11 @@ async function get<T>(path: string): Promise<T> {
     return (await res.json()) as T;
 }
 
+function authHeaders(): Record<string, string> {
+    const token = (globalThis as { __RIMOBS_TOKEN__?: string }).__RIMOBS_TOKEN__;
+    return token ? { authorization: `Bearer ${token}` } : {};
+}
+
 export const api = {
     status: () => get<StatusResponse>('/api/v1/status'),
     hotspots: (limit = 50) =>
@@ -306,20 +311,23 @@ export const api = {
     }): Promise<InstrumentationPatchResult> => {
         const res = await fetch('/api/v1/instrumentation/patch', {
             method: 'POST',
-            headers: { 'content-type': 'application/json', accept: 'application/json' },
+            headers: { 'content-type': 'application/json', accept: 'application/json', ...authHeaders() },
             body: JSON.stringify(req),
         });
         if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`);
         return res.json() as Promise<InstrumentationPatchResult>;
     },
     instrumentationUnpatch: async (id: number) => {
-        const res = await fetch(`/api/v1/instrumentation/patches/${id}`, { method: 'DELETE' });
+        const res = await fetch(`/api/v1/instrumentation/patches/${id}`, {
+            method: 'DELETE',
+            headers: authHeaders(),
+        });
         if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`);
     },
     exportBundle: async (params: ExportBundleParams): Promise<ExportBundleResult> => {
         const res = await fetch('/api/v1/export/bundle', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
             body: JSON.stringify({
                 session_id: params.sessionId,
                 include: params.includes,
@@ -336,7 +344,7 @@ export const api = {
     estimateBundle: async (sessionId: string, includes: string[]): Promise<EstimateBundleResult> => {
         const res = await fetch('/api/v1/export/bundle/estimate', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', ...authHeaders() },
             body: JSON.stringify({ session_id: sessionId, include: includes, force: false }),
         });
         if (!res.ok) return { kind: 'error', message: `server returned ${res.status}` };
@@ -351,14 +359,21 @@ export const api = {
     importBundle: async (file: File): Promise<ImportBundleResponse> => {
         const form = new FormData();
         form.append('bundle', file);
-        const res = await fetch('/api/v1/import/bundle', { method: 'POST', body: form });
+        const res = await fetch('/api/v1/import/bundle', {
+            method: 'POST',
+            headers: authHeaders(),
+            body: form,
+        });
         if (!res.ok) throw new ApiError(res.status, `import failed: ${res.status}`);
         return (await res.json()) as ImportBundleResponse;
     },
     getImportFileUrl: (token: string, name: string): string =>
         `/api/v1/import/bundle/${encodeURIComponent(token)}/file/${encodeURIComponent(name)}`,
     deleteImport: async (token: string): Promise<void> => {
-        const res = await fetch(`/api/v1/import/bundle/${encodeURIComponent(token)}`, { method: 'DELETE' });
+        const res = await fetch(`/api/v1/import/bundle/${encodeURIComponent(token)}`, {
+            method: 'DELETE',
+            headers: authHeaders(),
+        });
         if (!res.ok && res.status !== 404) throw new ApiError(res.status, `delete failed: ${res.status}`);
     },
 };
