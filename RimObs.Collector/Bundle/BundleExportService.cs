@@ -32,6 +32,12 @@ public sealed class BundleExportResult {
     public long EstimatedBytes { get; init; }
 }
 
+public sealed class BundleEstimateResult {
+    public BundleExportStatus Status { get; init; }
+    public long EstimatedBytes { get; init; }
+    public bool ExceedsSoftCap { get; init; }
+}
+
 public sealed class BundleExportService {
     public const int BundleSchemaVersion = 1;
 
@@ -72,6 +78,25 @@ public sealed class BundleExportService {
             Bytes = bytes,
             EstimatedBytes = estimate.TotalBytes,
         });
+    }
+
+    public BundleEstimateResult Estimate(string sessionId, IReadOnlySet<BundleContentKey> includes) {
+        SessionMeta? meta = _aggregator.Meta;
+        if (meta is null)
+            return new BundleEstimateResult { Status = BundleExportStatus.NoActiveSession };
+        if (!string.Equals(meta.SessionId, sessionId, StringComparison.Ordinal))
+            return new BundleEstimateResult { Status = BundleExportStatus.UnknownSession };
+
+        BundleEstimateInput estimateInput = BuildEstimateInput(includes);
+        BundleSizeEstimate estimate = EstimateOverride is not null
+            ? EstimateOverride(estimateInput)
+            : BundleSizeEstimator.Estimate(estimateInput);
+
+        return new BundleEstimateResult {
+            Status = BundleExportStatus.Ok,
+            EstimatedBytes = estimate.TotalBytes,
+            ExceedsSoftCap = estimate.ExceedsSoftCap,
+        };
     }
 
     private BundleEstimateInput BuildEstimateInput(IReadOnlySet<BundleContentKey> includes) {

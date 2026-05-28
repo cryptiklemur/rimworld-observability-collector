@@ -40,6 +40,27 @@ public static class BundleEndpoints {
             };
         });
 
+        endpoints.MapPost("/api/v1/export/bundle/estimate", async (HttpContext ctx, BundleExportService service) => {
+            BundleExportRequestDto? dto = await ctx.Request.ReadFromJsonAsync<BundleExportRequestDto>();
+            if (dto is null || string.IsNullOrEmpty(dto.SessionId))
+                return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "missing session_id" });
+
+            HashSet<BundleContentKey> includes = ParseIncludes(dto.Include);
+            BundleEstimateResult result = service.Estimate(dto.SessionId, includes);
+
+            return result.Status switch {
+                BundleExportStatus.Ok => Results.Ok(new {
+                    schema_version = SchemaVersion.Current,
+                    estimated_bytes = result.EstimatedBytes,
+                    cap_bytes = BundleSizeEstimator.SoftCapBytes,
+                    exceeds_soft_cap = result.ExceedsSoftCap,
+                }),
+                BundleExportStatus.UnknownSession => Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown session" }),
+                BundleExportStatus.NoActiveSession => Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "no active session" }),
+                _ => Results.StatusCode(500),
+            };
+        });
+
         endpoints.MapPost("/api/v1/import/bundle", async (HttpContext ctx, BundleImportService importer) => {
             if (!ctx.Request.HasFormContentType)
                 return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "expected multipart/form-data" });

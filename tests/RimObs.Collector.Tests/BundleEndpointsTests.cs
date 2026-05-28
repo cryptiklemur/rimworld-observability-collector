@@ -126,6 +126,93 @@ public sealed class BundleEndpointsTests {
         }
     }
 
+    [Fact]
+    public async Task Estimate_current_session_returns_size_and_cap() {
+        int port = PickFreePort();
+        CollectorToken token = CollectorToken.FromExplicitValue("bundle-bearer-token");
+        WebApplication app = Program.BuildApp([], port, token);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            SessionAggregator aggregator = app.Services.GetRequiredService<SessionAggregator>();
+            aggregator.OnSessionMeta(new SessionMeta {
+                SessionId = "estimate-session",
+                StartedUtcTicks = DateTime.UtcNow.Ticks,
+                StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                LibraryVersion = "0.0.0-bundle",
+                GameVersion = "1.6",
+            });
+
+            using HttpRequestMessage post = new(HttpMethod.Post, "/api/v1/export/bundle/estimate") {
+                Content = new StringContent(
+                    "{\"session_id\":\"estimate-session\",\"include\":[],\"force\":false}",
+                    Encoding.UTF8,
+                    "application/json"),
+            };
+            post.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+            post.Headers.Add("Authorization", $"Bearer {token.Value}");
+            HttpResponseMessage resp = await http.SendAsync(post);
+            _out.WriteLine($"estimate status: {resp.StatusCode}");
+            resp.StatusCode.Should().Be(HttpStatusCode.OK);
+
+            JsonElement body = await resp.Content.ReadFromJsonAsync<JsonElement>();
+            body.GetProperty("estimated_bytes").GetInt64().Should().BeGreaterThan(0);
+            body.GetProperty("cap_bytes").GetInt64().Should().BeGreaterThan(0);
+            body.GetProperty("exceeds_soft_cap").GetBoolean().Should().BeFalse();
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
+    [Fact]
+    public async Task Estimate_unknown_session_returns_404() {
+        int port = PickFreePort();
+        CollectorToken token = CollectorToken.FromExplicitValue("bundle-bearer-token");
+        WebApplication app = Program.BuildApp([], port, token);
+        await app.StartAsync();
+        try {
+            using HttpClient http = new() { BaseAddress = new Uri($"http://127.0.0.1:{port}") };
+            await WaitFor(async () => {
+                HttpResponseMessage r = await http.GetAsync("/api/v1/status");
+                return r.IsSuccessStatusCode;
+            }, TimeSpan.FromSeconds(3));
+
+            SessionAggregator aggregator = app.Services.GetRequiredService<SessionAggregator>();
+            aggregator.OnSessionMeta(new SessionMeta {
+                SessionId = "real-session",
+                StartedUtcTicks = DateTime.UtcNow.Ticks,
+                StopwatchFrequency = System.Diagnostics.Stopwatch.Frequency,
+                AnchorTimestamp = System.Diagnostics.Stopwatch.GetTimestamp(),
+                LibraryVersion = "0.0.0-bundle",
+                GameVersion = "1.6",
+            });
+
+            using HttpRequestMessage post = new(HttpMethod.Post, "/api/v1/export/bundle/estimate") {
+                Content = new StringContent(
+                    "{\"session_id\":\"nope\",\"include\":[],\"force\":false}",
+                    Encoding.UTF8,
+                    "application/json"),
+            };
+            post.Headers.Add("Origin", $"http://127.0.0.1:{port}");
+            post.Headers.Add("Authorization", $"Bearer {token.Value}");
+            HttpResponseMessage resp = await http.SendAsync(post);
+            _out.WriteLine($"estimate status: {resp.StatusCode}");
+            resp.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        }
+        finally {
+            await app.StopAsync();
+            await app.DisposeAsync();
+        }
+    }
+
 
     [Fact]
     public async Task Import_roundtrip_exposes_files_by_token() {

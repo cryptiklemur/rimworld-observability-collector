@@ -248,6 +248,10 @@ export interface ExportBundleParams {
     force: boolean;
 }
 
+export type EstimateBundleResult =
+    | { kind: 'ok'; estimatedBytes: number; capBytes: number; exceedsSoftCap: boolean }
+    | { kind: 'error'; message: string };
+
 export interface ImportBundleResponse {
     token: string;
     manifest: Record<string, unknown>;
@@ -328,6 +332,21 @@ export const api = {
         }
         if (!res.ok) return { kind: 'error', message: `server returned ${res.status}` };
         return { kind: 'ok', blob: await res.blob() };
+    },
+    estimateBundle: async (sessionId: string, includes: string[]): Promise<EstimateBundleResult> => {
+        const res = await fetch('/api/v1/export/bundle/estimate', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ session_id: sessionId, include: includes, force: false }),
+        });
+        if (!res.ok) return { kind: 'error', message: `server returned ${res.status}` };
+        const body = await res.json();
+        return {
+            kind: 'ok',
+            estimatedBytes: body.estimated_bytes,
+            capBytes: body.cap_bytes,
+            exceedsSoftCap: body.exceeds_soft_cap,
+        };
     },
     importBundle: async (file: File): Promise<ImportBundleResponse> => {
         const form = new FormData();

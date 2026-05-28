@@ -1,5 +1,7 @@
 <script lang="ts">
     import { t } from '../i18n';
+    import { api, type EstimateBundleResult } from '../api';
+    import { bytes } from '../format';
     import Icon from './Icon.svelte';
 
     interface ExportPayload {
@@ -25,12 +27,26 @@
     let selected = $state<Set<string>>(new Set(defaultIncludes));
     let force = $state(false);
     let submitting = $state(false);
+    let estimate = $state<EstimateBundleResult | null>(null);
+
+    let overCap = $derived(estimate?.kind === 'ok' && estimate.exceedsSoftCap);
 
     function toggle(key: string) {
         if (selected.has(key)) selected.delete(key);
         else selected.add(key);
         selected = new Set(selected);
     }
+
+    $effect(() => {
+        const sid = sessionId;
+        const includes = Array.from(selected);
+        const handle = setTimeout(async () => {
+            const result = await api.estimateBundle(sid, includes);
+            estimate = result;
+            if (!(result.kind === 'ok' && result.exceedsSoftCap)) force = false;
+        }, 300);
+        return () => clearTimeout(handle);
+    });
 
     async function submit() {
         if (submitting) return;
@@ -67,13 +83,27 @@
         </div>
     </fieldset>
 
-    <label class="force" for="bundle-force">
-        <input id="bundle-force" type="checkbox" bind:checked={force} />
-        <span class="force-text">
-            <span class="force-label">{t('bundle.export.force')}</span>
-            <span class="hint">{t('bundle.export.forceHint')}</span>
-        </span>
-    </label>
+    <div class="estimate" aria-live="polite">
+        <span class="estimate-label">{t('bundle.export.estimateLabel')}</span>
+        {#if estimate?.kind === 'ok'}
+            <span class="estimate-value" class:over={overCap}>{bytes(estimate.estimatedBytes)}</span>
+        {:else if estimate?.kind === 'error'}
+            <span class="estimate-value muted">{t('bundle.export.estimateUnavailable')}</span>
+        {:else}
+            <span class="estimate-value muted">{t('bundle.export.estimating')}</span>
+        {/if}
+    </div>
+
+    {#if overCap}
+        <p class="over-warning" role="alert">{t('bundle.export.overCapWarning')}</p>
+        <label class="force" for="bundle-force">
+            <input id="bundle-force" type="checkbox" bind:checked={force} />
+            <span class="force-text">
+                <span class="force-label">{t('bundle.export.force')}</span>
+                <span class="hint">{t('bundle.export.forceHint')}</span>
+            </span>
+        </label>
+    {/if}
 
     <button type="submit" class="primary" disabled={submitting} aria-busy={submitting}>
         <Icon name="download" size={16} />
@@ -143,6 +173,43 @@
         height: 16px;
         flex: none;
         cursor: pointer;
+    }
+    .estimate {
+        display: flex;
+        align-items: baseline;
+        justify-content: space-between;
+        gap: 0.75rem;
+        padding: 0.55rem 0.75rem;
+        border-radius: var(--r-sm);
+        background: color-mix(in srgb, var(--bg-base) 40%, transparent);
+        font-size: 0.82rem;
+    }
+    .estimate-label {
+        color: var(--text-faint);
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        font-size: 0.72rem;
+    }
+    .estimate-value {
+        font-variant-numeric: tabular-nums;
+        font-weight: 600;
+        color: var(--text);
+    }
+    .estimate-value.muted {
+        font-weight: 400;
+        color: var(--text-faint);
+    }
+    .estimate-value.over {
+        color: var(--ember-soft);
+    }
+    .over-warning {
+        margin: 0;
+        padding: 0.55rem 0.75rem;
+        border-radius: var(--r-sm);
+        background: color-mix(in srgb, var(--ember) 12%, transparent);
+        color: var(--ember-soft);
+        font-size: 0.78rem;
+        line-height: 1.45;
     }
     .force {
         display: flex;

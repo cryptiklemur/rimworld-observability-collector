@@ -1,8 +1,40 @@
 import { render, fireEvent } from '@testing-library/svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import BundleExportForm from './BundleExportForm.svelte';
+import { api } from '../api';
+
+vi.mock('../api', () => ({
+    api: { estimateBundle: vi.fn() },
+}));
+
+const estimateBundle = vi.mocked(api.estimateBundle);
+
+const CAP = 25 * 1024 * 1024;
+
+function underCap() {
+    estimateBundle.mockResolvedValue({
+        kind: 'ok',
+        estimatedBytes: 1024,
+        capBytes: CAP,
+        exceedsSoftCap: false,
+    });
+}
+
+function overCap() {
+    estimateBundle.mockResolvedValue({
+        kind: 'ok',
+        estimatedBytes: 30 * 1024 * 1024,
+        capBytes: CAP,
+        exceedsSoftCap: true,
+    });
+}
 
 describe('BundleExportForm', () => {
+    beforeEach(() => {
+        estimateBundle.mockReset();
+        underCap();
+    });
+
     it('renders include toggles for each optional content key', () => {
         const { getByLabelText } = render(BundleExportForm, {
             sessionId: 'sess-1',
@@ -33,13 +65,41 @@ describe('BundleExportForm', () => {
         expect(call.force).toBe(false);
     });
 
-    it('toggles force flag when over-cap override is checked', async () => {
+    it('shows the running size estimate', async () => {
+        const { findByText } = render(BundleExportForm, {
+            sessionId: 'sess-1',
+            onExport: vi.fn(),
+        });
+        expect(await findByText(/1\.0 KB/)).toBeTruthy();
+    });
+
+    it('hides the force toggle while the estimate is under the soft cap', async () => {
+        const { findByText, queryByLabelText } = render(BundleExportForm, {
+            sessionId: 'sess-1',
+            onExport: vi.fn(),
+        });
+        await findByText(/1\.0 KB/);
+        expect(queryByLabelText(/Export anyway/i)).toBeNull();
+    });
+
+    it('reveals the force toggle and a warning when the estimate exceeds the soft cap', async () => {
+        overCap();
+        const { findByLabelText, findByRole } = render(BundleExportForm, {
+            sessionId: 'sess-1',
+            onExport: vi.fn(),
+        });
+        expect(await findByLabelText(/Export anyway/i)).toBeTruthy();
+        expect(await findByRole('alert')).toBeTruthy();
+    });
+
+    it('sends force=true when the over-cap override is checked', async () => {
+        overCap();
         const handler = vi.fn();
-        const { getByLabelText, getByRole } = render(BundleExportForm, {
+        const { findByLabelText, getByRole } = render(BundleExportForm, {
             sessionId: 'sess-1',
             onExport: handler,
         });
-        await fireEvent.click(getByLabelText(/Export anyway/i));
+        await fireEvent.click(await findByLabelText(/Export anyway/i));
         await fireEvent.click(getByRole('button', { name: /Download bundle/i }));
         expect(handler.mock.calls[0][0].force).toBe(true);
     });
