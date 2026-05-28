@@ -23,9 +23,8 @@ public static class CliRouter {
             return SessionsCommand.Run(args.AsSpan(1).ToArray(), stdout, stderr, sessionsDirOverride, outputIsRedirected);
         }
 
-        if (args[0] == "export-bundle") {
-            stderr.WriteLine("export-bundle is not yet implemented. Tracked under Phase 4 of the project plan.");
-            return 3;
+        if (args[0] == "bundle") {
+            return BundleCommand.Run(args.AsSpan(1).ToArray(), stdout, stderr);
         }
 
         stderr.WriteLine($"Unknown command: {args[0]}");
@@ -40,7 +39,8 @@ public static class CliRouter {
         writer.WriteLine("  Collector serve                       Start the daemon and dashboard.");
         writer.WriteLine("  Collector sessions list [--format=table|json]");
         writer.WriteLine("                                        List sessions in the local store.");
-        writer.WriteLine("  Collector export-bundle <id>          (Phase 4 -- not yet implemented.)");
+        writer.WriteLine("  Collector bundle export <id> --output <path> [--include <key>]... [--force]");
+        writer.WriteLine("                                        Export a diagnostic bundle for the given session.");
         writer.WriteLine("  Collector version                     Print version and exit.");
         writer.WriteLine("  Collector --help                      Show this help.");
     }

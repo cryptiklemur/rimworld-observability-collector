@@ -75,14 +75,14 @@ public sealed class CliTests {
     }
 
     [Fact]
-    public void Export_bundle_is_not_yet_implemented() {
+    public void Bundle_export_routes_to_BundleCommand() {
         StringWriter stdout = new StringWriter();
         StringWriter stderr = new StringWriter();
 
-        int code = CliRouter.Run(["export-bundle", "session-abc"], stdout, stderr);
+        int code = CliRouter.Run(["bundle"], stdout, stderr);
 
-        code.Should().Be(3);
-        stderr.ToString().Should().Contain("not yet implemented");
+        code.Should().Be(2);
+        stderr.ToString().Should().Contain("bundle export");
     }
 
     [Fact]
