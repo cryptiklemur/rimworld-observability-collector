@@ -4,27 +4,23 @@ export interface RouteDef {
     id: string;
     title: string;
     icon: IconName;
-    ready: boolean;
 }
 
 export const routes: RouteDef[] = [
-    { id: 'overview', title: 'Overview', icon: 'gauge', ready: true },
-    { id: 'hotspots', title: 'Hotspots', icon: 'flame', ready: true },
-    { id: 'instrumentation', title: 'Instrumentation', icon: 'probe', ready: true },
-    { id: 'sections', title: 'Sections', icon: 'sections', ready: true },
-    { id: 'calltree', title: 'Call Tree', icon: 'tree', ready: true },
-    { id: 'captures', title: 'Captures', icon: 'flame', ready: true },
-    { id: 'memory', title: 'Memory', icon: 'memory', ready: true },
-    { id: 'metrics', title: 'Metrics', icon: 'metric', ready: true },
-    { id: 'patches', title: 'Patches', icon: 'patch', ready: true },
-    { id: 'sessions', title: 'Sessions', icon: 'stack', ready: true },
-    { id: 'bundle', title: 'Bundle', icon: 'archive', ready: true },
-    { id: 'logs', title: 'Logs', icon: 'logs', ready: true },
-    { id: 'incidents', title: 'Incidents', icon: 'alert', ready: false },
-    { id: 'errors', title: 'Errors', icon: 'bug', ready: false },
-    { id: 'comparison', title: 'Comparison', icon: 'compare', ready: true },
-    { id: 'panels', title: 'Panels', icon: 'panel', ready: false },
-    { id: 'settings', title: 'Settings', icon: 'cog', ready: true },
+    { id: 'overview', title: 'Overview', icon: 'gauge' },
+    { id: 'hotspots', title: 'Hotspots', icon: 'flame' },
+    { id: 'instrumentation', title: 'Instrumentation', icon: 'probe' },
+    { id: 'sections', title: 'Sections', icon: 'sections' },
+    { id: 'calltree', title: 'Call Tree', icon: 'tree' },
+    { id: 'captures', title: 'Captures', icon: 'flame' },
+    { id: 'memory', title: 'Memory', icon: 'memory' },
+    { id: 'metrics', title: 'Metrics', icon: 'metric' },
+    { id: 'patches', title: 'Patches', icon: 'patch' },
+    { id: 'sessions', title: 'Sessions', icon: 'stack' },
+    { id: 'bundle', title: 'Bundle', icon: 'archive' },
+    { id: 'logs', title: 'Logs', icon: 'logs' },
+    { id: 'comparison', title: 'Comparison', icon: 'compare' },
+    { id: 'settings', title: 'Settings', icon: 'cog' },
 ];
 
 const DEFAULT_ROUTE = 'overview';

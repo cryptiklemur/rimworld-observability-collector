@@ -20,12 +20,4 @@ describe('App route dispatch', () => {
         render(App);
         expect(await screen.findByText('Warning')).toBeInTheDocument();
     });
-
-    it('renders the Soon placeholder for a not-ready route', async () => {
-        window.location.hash = '#/incidents';
-        render(App);
-        expect(
-            await screen.findByRole('heading', { name: 'Incidents', level: 2 }),
-        ).toBeInTheDocument();
-    });
 });

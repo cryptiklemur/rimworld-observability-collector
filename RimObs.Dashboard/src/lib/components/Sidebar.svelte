@@ -19,14 +19,12 @@
                 href="#/{r.id}"
                 class="item"
                 class:active={router.current === r.id}
-                class:soon={!r.ready}
                 aria-current={router.current === r.id ? 'page' : undefined}
                 aria-label={t(`nav.${r.id}`, r.title)}
                 title={t(`nav.${r.id}`, r.title)}
             >
                 <Icon name={r.icon} size={17} />
                 <span>{t(`nav.${r.id}`, r.title)}</span>
-                {#if !r.ready}<em class="tag">{t('nav.soon')}</em>{/if}
             </a>
         {/each}
     </nav>
@@ -119,20 +117,6 @@
         border-radius: 0 3px 3px 0;
         background: var(--ember);
     }
-    .item.soon {
-        opacity: 0.55;
-    }
-    .tag {
-        margin-left: auto;
-        font-style: normal;
-        font-size: 0.6rem;
-        text-transform: uppercase;
-        letter-spacing: 0.08em;
-        color: var(--text-faint);
-        border: 1px solid var(--border);
-        border-radius: 99px;
-        padding: 0 0.4rem;
-    }
     @media (max-width: 900px) {
         .brand {
             justify-content: center;
@@ -153,9 +137,6 @@
             width: 40px;
         }
         .item span {
-            display: none;
-        }
-        .tag {
             display: none;
         }
         .item.active::before {
