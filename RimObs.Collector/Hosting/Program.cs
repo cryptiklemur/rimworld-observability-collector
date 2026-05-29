@@ -113,7 +113,7 @@ public static class Program {
         builder.Services.AddSingleton<Captures.CaptureManager>();
         builder.Services.AddHostedService<Captures.CaptureTimeCapWatcher>();
         builder.Services.AddSingleton<Instrumentation.SessionMetaRegistry>();
-        builder.Services.AddSingleton(hasPersister
+        builder.Services.AddSingleton(_ => hasPersister
             ? Storage.DynamicPatchStore.Open(ResolveDynamicPatchStorePath(sessionsDir)!)
             : Storage.DynamicPatchStore.OpenInMemory());
         builder.Services.AddSingleton<Receive.UdpReceiver>(sp =>

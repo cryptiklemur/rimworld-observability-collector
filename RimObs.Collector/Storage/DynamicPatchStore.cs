@@ -18,7 +18,7 @@ public sealed class DynamicPatchStore : IDisposable {
     }
 
     public static DynamicPatchStore Open(string path) {
-        SqliteConnection conn = new SqliteConnection($"Data Source={path};Mode=ReadWriteCreate");
+        SqliteConnection conn = new SqliteConnection($"Data Source={path};Mode=ReadWriteCreate;Pooling=False");
         conn.Open();
         ConfigureConcurrency(conn);
         return new DynamicPatchStore(conn);

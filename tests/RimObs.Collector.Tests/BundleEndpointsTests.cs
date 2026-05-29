@@ -7,6 +7,7 @@ using System.Text.Json;
 using Cryptiklemur.RimObs.Collector.Aggregation;
 using Cryptiklemur.RimObs.Collector.Hosting;
 using Cryptiklemur.RimObs.Collector.Security;
+using Cryptiklemur.RimObs.Collector.Storage;
 using Cryptiklemur.RimObs.Wire;
 using FluentAssertions;
 using Microsoft.AspNetCore.Builder;
@@ -29,6 +30,37 @@ public sealed class BundleEndpointsTests {
         int port = ((IPEndPoint)listener.LocalEndpoint).Port;
         listener.Stop();
         return port;
+    }
+
+    [Fact]
+    public async Task BuildApp_disposes_dynamic_patch_store_so_db_file_unlocks() {
+        // Regression: the DynamicPatchStore was registered as a pre-built singleton
+        // instance, which the DI container never disposes. Its SqliteConnection stayed
+        // open, and on Windows that kept dynamic_patches.db locked, so test cleanup
+        // (Directory.Delete) threw IOException. The fix registers it via a factory so the
+        // container owns and disposes it. Linux unlinks open files silently, so the teeth
+        // here are the disposal assertion, not the delete.
+        int port = PickFreePort();
+        CollectorToken token = CollectorToken.FromExplicitValue("dispose-bearer-token");
+        string tempDir = Path.Combine(Path.GetTempPath(), "rimobs-dispose-" + Guid.NewGuid().ToString("N"));
+        string sessionsDir = Path.Combine(tempDir, "sessions");
+        Directory.CreateDirectory(sessionsDir);
+        try {
+            WebApplication app = Program.BuildApp([], port, token, sessionsDir);
+            DynamicPatchStore store = app.Services.GetRequiredService<DynamicPatchStore>();
+            await app.DisposeAsync();
+
+            store.Invoking(s => s.List())
+                .Should().Throw<InvalidOperationException>(
+                    "the container must own and dispose the store on shutdown, closing the "
+                    + "SQLite connection that otherwise keeps dynamic_patches.db locked on Windows");
+
+            Directory.Delete(tempDir, recursive: true);
+        }
+        finally {
+            if (Directory.Exists(tempDir))
+                Directory.Delete(tempDir, recursive: true);
+        }
     }
 
     [Fact]
