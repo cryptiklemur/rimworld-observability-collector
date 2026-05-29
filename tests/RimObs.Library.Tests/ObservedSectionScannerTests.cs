@@ -181,7 +181,10 @@ public class ObservedSectionScannerTests : System.IDisposable {
 
         PatchInstaller.FailedCount.Should().BeGreaterOrEqualTo(beforeFailed + 1);
         CatalogEntry entry = SectionCatalog.Entries.First(e => e.Name == "test.modid.pinvoke_method");
-        entry.InstallError.Should().NotBeNull();
+        entry.Installed.Should().BeFalse();
+        entry.InstallError.Should().BeOfType<NotSupportedException>(
+            "P/Invoke methods have no patchable IL body and must be rejected deterministically, "
+            + "not left to Harmony's environment-dependent behavior");
     }
 
     [Fact]

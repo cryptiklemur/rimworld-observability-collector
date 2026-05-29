@@ -33,15 +33,7 @@ internal static class PatchInstaller {
                 continue;
             }
 
-            try {
-                s_Harmony.Patch(entry.Resolved, transpiler: transpiler);
-                entry.Installed = true;
-                InstalledCount++;
-            }
-            catch (Exception ex) {
-                entry.InstallError = ex;
-                FailedCount++;
-            }
+            PatchOne(entry, entry.Resolved, transpiler);
         }
 
         HarmonyConflictRecorder.RecordConflicts(s_Harmony);
@@ -65,8 +57,19 @@ internal static class PatchInstaller {
             }
         }
 
+        PatchOne(entry, method, transpiler);
+    }
+
+    private static void PatchOne(CatalogEntry? entry, MethodBase method, HarmonyMethod transpiler) {
+        if (IsUnpatchable(method, out string reason)) {
+            if (entry != null)
+                entry.InstallError = new NotSupportedException(reason);
+            FailedCount++;
+            return;
+        }
+
         try {
-            s_Harmony.Patch(method, transpiler: transpiler);
+            s_Harmony!.Patch(method, transpiler: transpiler);
             if (entry != null) {
                 entry.Installed = true;
                 InstalledCount++;
@@ -77,6 +80,19 @@ internal static class PatchInstaller {
                 entry.InstallError = ex;
             FailedCount++;
         }
+    }
+
+    private static bool IsUnpatchable(MethodBase method, out string reason) {
+        if ((method.Attributes & MethodAttributes.PinvokeImpl) != 0) {
+            reason = "method is a P/Invoke (extern) and has no patchable IL body";
+            return true;
+        }
+        if ((method.GetMethodImplementationFlags() & MethodImplAttributes.InternalCall) != 0) {
+            reason = "method is an internal call (intrinsic) and has no patchable IL body";
+            return true;
+        }
+        reason = string.Empty;
+        return false;
     }
 
     public static IReadOnlyList<CatalogEntry> InstalledEntries {
