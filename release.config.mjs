@@ -1,10 +1,3 @@
-import { readFileSync } from 'node:fs';
-
-const publishedFileIds = JSON.parse(readFileSync(new URL('./PublishedFileIds.json', import.meta.url), 'utf8'));
-
-const workshopIds = publishedFileIds.RimObs ?? {};
-const hasWorkshopIds = Object.values(workshopIds).some(Boolean);
-
 const plugins = [
     [
         '@semantic-release/commit-analyzer',
@@ -68,27 +61,21 @@ const plugins = [
             message: 'chore(release): ${nextRelease.version} [skip ci]\n\n${nextRelease.notes}',
         },
     ],
-];
-
-if (hasWorkshopIds) {
-    plugins.push([
+    [
         'semantic-release-steam',
         {
             appId: '294100',
-            branchTargets: {
-                main: 'stable',
-                beta: 'beta',
-            },
+            branchTargets: { main: 'stable' },
             mods: [
                 {
                     name: 'RimObs',
                     path: '.',
-                    workshopIds,
+                    workshopIds: { stable: '3733585062' },
                 },
             ],
         },
-    ]);
-}
+    ],
+];
 
 /** @type {import('semantic-release').GlobalConfig} */
 export default {

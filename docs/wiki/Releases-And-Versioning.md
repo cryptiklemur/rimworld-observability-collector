@@ -27,7 +27,7 @@ Releases are driven by `semantic-release` and triggered on every push to a relea
 | `main` | `v1.2.3` | Stable releases |
 | `beta` | `v1.2.3-beta.N` | Pre-release candidates |
 
-When Steam Workshop IDs are configured in `PublishedFileIds.json`, the `main` branch publishes to the `stable` Steam depot and `beta` publishes to the `beta` Steam depot.
+Steam Workshop IDs are configured inline in `release.config.mjs`. The `main` branch publishes to the `stable` Steam depot; `beta` does not publish to Steam (no workshop item exists yet).
 
 ## What ships per release
 
@@ -43,7 +43,7 @@ Each release produces the following artifacts:
 - `collector-osx-arm64-<version>.zip`
 - `collector-osx-x64-<version>.zip`
 
-**Steam Workshop**: the mod directory is uploaded via SteamCMD to the configured Workshop item IDs (conditional on `PublishedFileIds.json` having entries).
+**Steam Workshop**: on the `main` branch, the mod directory is uploaded via SteamCMD to the configured Workshop item ID.
 
 **Build metadata commit**: `semantic-release` writes the resolved version and build timestamp back into `RimObs.Wire/BuildInfo.cs` and commits it with `[skip ci]`.
 

@@ -45,9 +45,6 @@ jobs:
       - name: Install release dependencies
         run: npm install
 
-      - name: Install steamdown
-        run: npm install -g @steamdown/cli@1.0.0-beta.2
-
       - name: pnpm install (dashboard)
         working-directory: RimObs.Dashboard
         run: pnpm install --no-frozen-lockfile
