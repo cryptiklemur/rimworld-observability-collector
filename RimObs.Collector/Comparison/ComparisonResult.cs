@@ -29,7 +29,7 @@ public sealed record SectionDelta(
     int SectionId,
     string Name,
     string Owner,
-    string Status,
+    DeltaStatus Status,
     long BaseTotalNs,
     long HeadTotalNs,
     long DeltaNs,
@@ -40,7 +40,7 @@ public sealed record SectionDelta(
 
 public sealed record OwnerDelta(
     string Owner,
-    string Status,
+    DeltaStatus Status,
     long BaseTotalNs,
     long HeadTotalNs,
     long DeltaNs,
@@ -52,7 +52,7 @@ public sealed record MetricDelta(
     string Owner,
     byte Kind,
     string Unit,
-    string Status,
+    DeltaStatus Status,
     long BaseValue,
     long HeadValue,
     long DeltaValue,

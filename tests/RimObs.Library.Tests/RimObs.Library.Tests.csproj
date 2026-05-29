@@ -15,17 +15,16 @@
         <ProjectReference Include="..\..\RimObs.Wire\RimObs.Wire.csproj"/>
     </ItemGroup>
 
+    <!--
+      Library targets net48 (Unity Mono) while this test project targets net10, so a ProjectReference
+      cannot link the two TFMs. We compile the Library sources directly instead. A single recursive glob
+      picks up new directories automatically; the Exclude list drops the obj/bin build output and the
+      game-coupled files (they reference Verse/RimWorld assemblies that are absent under net10).
+    -->
     <ItemGroup>
-        <Compile Include="..\..\RimObs.Library\Profile\**\*.cs" LinkBase="LinkedSource\Profile"/>
-        <Compile Include="..\..\RimObs.Library\Transport\**\*.cs" LinkBase="LinkedSource\Transport"/>
-        <Compile Include="..\..\RimObs.Library\Patching\**\*.cs" LinkBase="LinkedSource\Patching"/>
-        <Compile Include="..\..\RimObs.Library\Api\**\*.cs" LinkBase="LinkedSource\Api"/>
-        <Compile Include="..\..\RimObs.Library\Metrics\**\*.cs" LinkBase="LinkedSource\Metrics"/>
-        <Compile Include="..\..\RimObs.Library\Observers\**\*.cs" LinkBase="LinkedSource\Observers"/>
-        <Compile Include="..\..\RimObs.Library\Config\**\*.cs" LinkBase="LinkedSource\Config"/>
-        <Compile Include="..\..\RimObs.Library\Session\**\*.cs" LinkBase="LinkedSource\Session"/>
-        <Compile Include="..\..\RimObs.Library\Control\**\*.cs" LinkBase="LinkedSource\Control"/>
-        <Compile Include="..\..\RimObs.Library\Settings\**\*.cs" Exclude="..\..\RimObs.Library\Settings\SettingsWindow.cs;..\..\RimObs.Library\Settings\RimObsSettings.cs" LinkBase="LinkedSource\Settings"/>
+        <Compile Include="..\..\RimObs.Library\**\*.cs"
+                 Exclude="..\..\RimObs.Library\obj\**\*.cs;..\..\RimObs.Library\bin\**\*.cs;..\..\RimObs.Library\Bootstrap\RimObsMod.cs;..\..\RimObs.Library\Settings\SettingsWindow.cs;..\..\RimObs.Library\Settings\RimObsSettings.cs"
+                 LinkBase="LinkedSource"/>
     </ItemGroup>
 
     <ItemGroup>

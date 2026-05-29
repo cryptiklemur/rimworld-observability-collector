@@ -1,3 +1,5 @@
+using Cryptiklemur.RimObs.Wire.Control;
+
 namespace Cryptiklemur.RimObs.Collector.Storage;
 
 public sealed record DynamicPatchRow(
@@ -6,5 +8,5 @@ public sealed record DynamicPatchRow(
     string MethodName,
     string ParamTypesJoined,
     string CreatedUtc,
-    string LastStatus,
+    PatchStatus LastStatus,
     string? LastError);

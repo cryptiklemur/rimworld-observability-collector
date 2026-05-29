@@ -1,3 +1,4 @@
+using Cryptiklemur.RimObs.Wire.Control;
 using Microsoft.Data.Sqlite;
 
 namespace Cryptiklemur.RimObs.Collector.Storage;
@@ -73,19 +74,24 @@ public sealed class DynamicPatchStore : IDisposable {
         while (r.Read()) {
             rows.Add(new DynamicPatchRow(
                 r.GetInt64(0), r.GetString(1), r.GetString(2), r.GetString(3),
-                r.GetString(4), r.GetString(5), r.IsDBNull(6) ? null : r.GetString(6)));
+                r.GetString(4), ParseStatus(r.GetString(5)), r.IsDBNull(6) ? null : r.GetString(6)));
         }
         return rows;
     }
 
-    public void UpdateStatus(long id, string status, string? error) {
+    public void UpdateStatus(long id, PatchStatus status, string? error) {
         using SqliteCommand cmd = _conn.CreateCommand();
         cmd.CommandText = "UPDATE dynamic_patches SET last_status=$s, last_error=$e WHERE id=$id";
-        cmd.Parameters.AddWithValue("$s", status);
+        cmd.Parameters.AddWithValue("$s", ToText(status));
         cmd.Parameters.AddWithValue("$e", (object?)error ?? DBNull.Value);
         cmd.Parameters.AddWithValue("$id", id);
         cmd.ExecuteNonQuery();
     }
+
+    private static string ToText(PatchStatus status) => status.ToString().ToLowerInvariant();
+
+    private static PatchStatus ParseStatus(string raw) =>
+        Enum.TryParse(raw, true, out PatchStatus status) ? status : PatchStatus.Pending;
 
     public bool Delete(long id) {
         using SqliteCommand cmd = _conn.CreateCommand();

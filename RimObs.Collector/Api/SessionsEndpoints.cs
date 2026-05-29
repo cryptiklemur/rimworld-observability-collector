@@ -32,7 +32,7 @@ public static class SessionsEndpoints {
                 seen.Add(current.SessionId);
             }
 
-            if (services.GetService<ISessionPersister>() is SqliteSessionPersister persister) {
+            if (services.GetService<SqliteSessionPersister>() is { } persister) {
                 foreach (SessionMeta meta in SessionCatalog.List(persister.SessionsDirectory)) {
                     if (seen.Add(meta.SessionId))
                         sessions.Add(MapSession(meta, isCurrent: meta.SessionId == current?.SessionId));
@@ -233,10 +233,7 @@ public static class SessionsEndpoints {
         return endpoints;
     }
 
-    private static double NsPerTick(SessionMeta? meta) {
-        long freq = meta is { StopwatchFrequency: > 0 } ? meta.StopwatchFrequency : Stopwatch.Frequency;
-        return 1_000_000_000.0 / freq;
-    }
+    private static double NsPerTick(SessionMeta? meta) => TickConverter.NsPerTick(meta);
 
     internal static object MapSession(SessionMeta meta, bool isCurrent) {
         return new {

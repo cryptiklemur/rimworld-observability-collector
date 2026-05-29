@@ -14,8 +14,10 @@ namespace Cryptiklemur.RimObs.Collector.Api;
 public static class BundleEndpoints {
     public static IEndpointRouteBuilder MapBundleEndpoints(this IEndpointRouteBuilder endpoints) {
         endpoints.MapPost("/api/v1/export/bundle", async (HttpContext ctx, BundleExportService service) => {
-            BundleExportRequestDto? dto = await ctx.Request.ReadFromJsonAsync<BundleExportRequestDto>();
-            if (dto is null || string.IsNullOrEmpty(dto.SessionId))
+            (BundleExportRequestDto? dto, IResult? error) = await RequestBody.Read<BundleExportRequestDto>(ctx, "bundle export");
+            if (error is not null)
+                return error;
+            if (string.IsNullOrEmpty(dto!.SessionId))
                 return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "missing session_id" });
 
             HashSet<BundleContentKey> includes = ParseIncludes(dto.Include);
@@ -41,8 +43,10 @@ public static class BundleEndpoints {
         });
 
         endpoints.MapPost("/api/v1/export/bundle/estimate", async (HttpContext ctx, BundleExportService service) => {
-            BundleExportRequestDto? dto = await ctx.Request.ReadFromJsonAsync<BundleExportRequestDto>();
-            if (dto is null || string.IsNullOrEmpty(dto.SessionId))
+            (BundleExportRequestDto? dto, IResult? error) = await RequestBody.Read<BundleExportRequestDto>(ctx, "bundle estimate");
+            if (error is not null)
+                return error;
+            if (string.IsNullOrEmpty(dto!.SessionId))
                 return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "missing session_id" });
 
             HashSet<BundleContentKey> includes = ParseIncludes(dto.Include);

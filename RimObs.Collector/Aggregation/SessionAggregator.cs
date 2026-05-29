@@ -155,22 +155,28 @@ public sealed class SessionAggregator {
     }
 
     public void OnGcEvents(GcEventsBatch batch) {
-        int n = batch.Generations.Length;
-        int pauseLen = batch.PauseTypes.Length;
-        int heapBeforeLen = batch.HeapBefore.Length;
-        int heapAfterLen = batch.HeapAfter.Length;
-        int durLen = batch.DurationMicros.Length;
-        int tickLen = batch.Ticks.Length;
-        int rateLen = batch.AllocationRateBytesPerMinute.Length;
+        int n = Math.Min(
+            batch.Generations.Length,
+            Math.Min(
+                batch.PauseTypes.Length,
+                Math.Min(
+                    batch.HeapBefore.Length,
+                    Math.Min(
+                        batch.HeapAfter.Length,
+                        Math.Min(batch.DurationMicros.Length, Math.Min(batch.Ticks.Length, batch.AllocationRateBytesPerMinute.Length))
+                    )
+                )
+            )
+        );
         for (int i = 0; i < n; i++) {
             GcEventRecord record = new(
                 generation: batch.Generations[i],
-                pauseType: (GcPauseType)(i < pauseLen ? batch.PauseTypes[i] : (byte)0),
-                heapBefore: i < heapBeforeLen ? batch.HeapBefore[i] : 0L,
-                heapAfter: i < heapAfterLen ? batch.HeapAfter[i] : 0L,
-                durationMicros: i < durLen ? batch.DurationMicros[i] : 0L,
-                ticks: i < tickLen ? batch.Ticks[i] : 0L,
-                allocationRateBytesPerMinute: i < rateLen ? batch.AllocationRateBytesPerMinute[i] : 0L
+                pauseType: (GcPauseType)batch.PauseTypes[i],
+                heapBefore: batch.HeapBefore[i],
+                heapAfter: batch.HeapAfter[i],
+                durationMicros: batch.DurationMicros[i],
+                ticks: batch.Ticks[i],
+                allocationRateBytesPerMinute: batch.AllocationRateBytesPerMinute[i]
             );
             _gcEvents.Add(in record);
         }

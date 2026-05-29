@@ -1,0 +1,8 @@
+# RimObs.Library targets net48 (Unity Mono). Its private static fields use an s_ prefix, the
+# Roslyn/Unity house style, which overrides the repo-root bare-PascalCase convention for this
+# project only. Re-points the inherited private_static_fields rule to the s_ prefixed style.
+[*.cs]
+dotnet_naming_rule.private_static_fields_pascal.style = s_pascal_case
+
+dotnet_naming_style.s_pascal_case.capitalization = pascal_case
+dotnet_naming_style.s_pascal_case.required_prefix = s_

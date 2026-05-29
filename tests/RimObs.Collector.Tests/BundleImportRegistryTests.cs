@@ -51,9 +51,10 @@ public class BundleImportRegistryTests : IDisposable {
 
     [Fact]
     public void SweepIdle_RemovesEntriesPastTimeout() {
-        BundleImportRegistry registry = new BundleImportRegistry(_baseDir, TimeSpan.FromMilliseconds(1));
+        DateTime now = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        BundleImportRegistry registry = new BundleImportRegistry(_baseDir, TimeSpan.FromMinutes(30), () => now);
         BundleImportEntry entry = registry.Register(new[] { "manifest.json" });
-        System.Threading.Thread.Sleep(20);
+        now = now.AddMinutes(31);
 
         int removed = registry.SweepIdle();
 
@@ -63,11 +64,12 @@ public class BundleImportRegistryTests : IDisposable {
 
     [Fact]
     public void Touch_ResetsLastAccess() {
-        BundleImportRegistry registry = new BundleImportRegistry(_baseDir, TimeSpan.FromMilliseconds(50));
+        DateTime now = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        BundleImportRegistry registry = new BundleImportRegistry(_baseDir, TimeSpan.FromMinutes(30), () => now);
         BundleImportEntry entry = registry.Register(new[] { "manifest.json" });
-        System.Threading.Thread.Sleep(30);
+        now = now.AddMinutes(20);
         registry.Touch(entry.Token);
-        System.Threading.Thread.Sleep(30);
+        now = now.AddMinutes(20);
 
         int removed = registry.SweepIdle();
 

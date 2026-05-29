@@ -1,3 +1,4 @@
+using System.Net;
 using Cryptiklemur.RimObs.Wire;
 using Cryptiklemur.RimObs.Wire.Control;
 
@@ -21,16 +22,18 @@ public sealed class ControlClient {
     public async Task<ControlPatchListResponse> ListAsync() =>
         await Roundtrip<ControlPatchListResponse>(HttpMethod.Get, "/patches", null);
 
-    public async Task<bool> UnpatchAsync(int id) {
+    public async Task UnpatchAsync(long id) {
         HttpRequestMessage req = new(HttpMethod.Delete, $"/patch/{id}");
-        req.Headers.Add("X-RimObs-Control", _secret);
+        req.Headers.Add(ControlProtocol.SecretHeader, _secret);
         HttpResponseMessage res = await _http.SendAsync(req);
-        return res.IsSuccessStatusCode;
+        if (res.IsSuccessStatusCode || res.StatusCode == HttpStatusCode.NotFound)
+            return;
+        throw new ControlClientException((int)res.StatusCode);
     }
 
     private async Task<T> Roundtrip<T>(HttpMethod method, string path, byte[]? body) where T : class {
         HttpRequestMessage req = new(method, path);
-        req.Headers.Add("X-RimObs-Control", _secret);
+        req.Headers.Add(ControlProtocol.SecretHeader, _secret);
         if (body is not null) {
             req.Content = new ByteArrayContent(body);
         }

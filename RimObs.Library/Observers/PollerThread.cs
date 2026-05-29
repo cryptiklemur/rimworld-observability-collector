@@ -61,14 +61,15 @@ internal sealed class PollerThread {
     private void Loop() {
         while (!_stop) {
             // A single throwing tick must not tear down the poll thread: that would silently
-            // strip config polling / panel refresh for the rest of the session while IsRunning
-            // still reported false. Ticks own their own error reporting (see
-            // CollectorConfigClient.Fetch); the loop just guarantees liveness.
+            // strip config polling / panel refresh for the rest of the session. Failures here
+            // are swallowed without reporting, matching the tick implementations themselves
+            // (e.g. CollectorConfigClient.Fetch returns null on transport errors and logs
+            // nothing). The loop's only contract is liveness, not surfacing failures.
             try {
                 _tick();
             }
             catch {
-                // swallow and keep polling
+                // swallow and keep polling; see contract note above
             }
             Thread.Sleep(_intervalMs);
         }

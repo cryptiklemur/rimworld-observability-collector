@@ -300,42 +300,24 @@ ON CONFLICT(parent_id, section_id) DO UPDATE SET
         tx.Commit();
     }
 
-    public int CountCallTreeEdges() {
+    public int CountCallTreeEdges() => CountRows("call_tree_edges");
+
+    public int CountSections() => CountRows("sections");
+
+    public int CountMetrics() => CountRows("metrics");
+
+    public int CountMetricLabels() => CountRows("metric_labels");
+
+    public int CountGcEvents() => CountRows("gc_events");
+
+    private int CountRows(string table) {
         ThrowIfDisposed();
         using SqliteCommand cmd = _connection.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM call_tree_edges;";
+        cmd.CommandText = $"SELECT COUNT(*) FROM {table};";
         return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
     }
 
-    public int CountSections() {
-        ThrowIfDisposed();
-        using SqliteCommand cmd = _connection.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM sections;";
-        return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
-    }
-
-    public int CountMetrics() {
-        ThrowIfDisposed();
-        using SqliteCommand cmd = _connection.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM metrics;";
-        return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
-    }
-
-    public int CountMetricLabels() {
-        ThrowIfDisposed();
-        using SqliteCommand cmd = _connection.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM metric_labels;";
-        return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
-    }
-
-    public int CountGcEvents() {
-        ThrowIfDisposed();
-        using SqliteCommand cmd = _connection.CreateCommand();
-        cmd.CommandText = "SELECT COUNT(*) FROM gc_events;";
-        return Convert.ToInt32(cmd.ExecuteScalar(), CultureInfo.InvariantCulture);
-    }
-
-    public List<SectionRow> GetAllSections() {
+    public List<SectionRow> GetSectionMetadata() {
         ThrowIfDisposed();
 
         using SqliteCommand cmd = _connection.CreateCommand();
@@ -353,7 +335,7 @@ ON CONFLICT(parent_id, section_id) DO UPDATE SET
         return rows;
     }
 
-    public List<SectionStatsRow> GetFullSections() {
+    public List<SectionStatsRow> GetSectionStats() {
         ThrowIfDisposed();
 
         using SqliteCommand cmd = _connection.CreateCommand();

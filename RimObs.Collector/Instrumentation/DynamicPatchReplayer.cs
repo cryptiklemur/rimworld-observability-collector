@@ -23,13 +23,13 @@ public sealed class DynamicPatchReplayer {
                     MethodName = row.MethodName,
                     ParamTypeFullNames = paramTypes,
                 });
-                if (res.Status == "active")
-                    _store.UpdateStatus(row.Id, "active", null);
+                if (res.Status == PatchStatus.Active)
+                    _store.UpdateStatus(row.Id, PatchStatus.Active, null);
                 else
-                    _store.UpdateStatus(row.Id, "stale", res.ErrorReason);
+                    _store.UpdateStatus(row.Id, PatchStatus.Stale, res.ErrorReason);
             }
             catch (System.Exception ex) {
-                _store.UpdateStatus(row.Id, "stale", ex.Message);
+                _store.UpdateStatus(row.Id, PatchStatus.Stale, ex.Message);
             }
         }
     }

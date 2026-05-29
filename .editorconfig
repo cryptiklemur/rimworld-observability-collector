@@ -25,5 +25,17 @@ csharp_new_line_before_open_brace = false
 dotnet_style_prefer_collection_expression = true
 dotnet_diagnostic.CA1707.severity = none
 
+# Private static fields default to PascalCase with no prefix (RimObs.Collector, RimObs.Wire).
+# RimObs.Library deliberately overrides this with an s_ prefix in its own .editorconfig to match
+# the Unity Mono / Roslyn house style. The per-project split is intentional and documented here
+# so it reads as a tooling-enforced choice, not an accidental inconsistency.
+dotnet_naming_rule.private_static_fields_pascal.symbols = private_static_fields
+dotnet_naming_rule.private_static_fields_pascal.style = pascal_case
+dotnet_naming_rule.private_static_fields_pascal.severity = suggestion
+dotnet_naming_symbols.private_static_fields.applicable_kinds = field
+dotnet_naming_symbols.private_static_fields.applicable_accessibilities = private
+dotnet_naming_symbols.private_static_fields.required_modifiers = static
+dotnet_naming_style.pascal_case.capitalization = pascal_case
+
 [Makefile]
 indent_style = tab

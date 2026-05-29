@@ -49,7 +49,7 @@ public sealed class ControlClientTests {
             PatchId = 42,
             SectionId = 7,
             SectionName = "MyMod.MyType.MyMethod",
-            Status = "active",
+            Status = PatchStatus.Active,
         };
         stub.Start();
         ControlClient client = new(stub.Port, "topsecret");
@@ -62,7 +62,7 @@ public sealed class ControlClientTests {
 
         res.PatchId.Should().Be(42);
         res.SectionName.Should().Be("MyMod.MyType.MyMethod");
-        res.Status.Should().Be("active");
+        res.Status.Should().Be(PatchStatus.Active);
     }
 
     [Fact]
@@ -74,7 +74,7 @@ public sealed class ControlClientTests {
                     PatchId = 1,
                     Signature = "MyMod.MyType.MyMethod()",
                     SectionId = 7,
-                    Status = "active",
+                    Status = PatchStatus.Active,
                 },
             ],
         };
@@ -89,14 +89,27 @@ public sealed class ControlClientTests {
     }
 
     [Fact]
-    public async Task Unpatch_returns_false_when_stub_reports_not_found() {
+    public async Task Unpatch_treats_not_found_as_idempotent_success() {
         using StubControlServer stub = new("topsecret");
         stub.OnUnpatch = _ => false;
         stub.Start();
         ControlClient client = new(stub.Port, "topsecret");
 
-        bool ok = await client.UnpatchAsync(123);
+        Func<Task> act = () => client.UnpatchAsync(123);
 
-        ok.Should().BeFalse();
+        await act.Should().NotThrowAsync(
+            "a 404 means the patch is already gone, which is the goal of an unpatch");
+    }
+
+    [Fact]
+    public async Task Unpatch_throws_on_wrong_secret() {
+        using StubControlServer stub = new("topsecret");
+        stub.Start();
+        ControlClient client = new(stub.Port, "wrong");
+
+        Func<Task> act = () => client.UnpatchAsync(123);
+
+        ControlClientException ex = (await act.Should().ThrowAsync<ControlClientException>()).Which;
+        ex.Status.Should().Be(401);
     }
 }

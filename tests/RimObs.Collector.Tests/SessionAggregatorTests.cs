@@ -203,6 +203,24 @@ public sealed class SessionAggregatorTests {
     }
 
     [Fact]
+    public void OnGcEvents_tolerates_length_mismatch_by_truncating() {
+        SessionAggregator agg = new();
+        GcEventsBatch batch = new() {
+            Generations = new byte[] { 0, 1, 2 },
+            PauseTypes = new byte[3],
+            HeapBefore = new long[3],
+            HeapAfter = new long[3],
+            DurationMicros = new long[] { 5 },
+            Ticks = new long[3],
+            AllocationRateBytesPerMinute = new long[3],
+        };
+
+        agg.OnGcEvents(batch);
+
+        agg.TotalGcEvents.Should().Be(1);
+    }
+
+    [Fact]
     public void OnAllocations_increments_total_count_by_window_count() {
         SessionAggregator agg = new();
         AllocationsBatch batch = new() {

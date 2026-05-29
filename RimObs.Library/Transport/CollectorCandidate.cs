@@ -39,12 +39,13 @@ public sealed class CollectorCandidate {
     internal static string? ExtractPrerelease(string s) {
         if (string.IsNullOrWhiteSpace(s))
             return null;
-        int dash = s.IndexOf('-');
+        int plus = s.IndexOf('+');
+        string core = plus >= 0 ? s.Substring(0, plus) : s;
+        int dash = core.IndexOf('-');
         if (dash < 0)
             return null;
-        int plus = s.IndexOf('+');
-        int end = plus > dash ? plus : s.Length;
-        return s.Substring(dash + 1, end - dash - 1);
+        string pre = core.Substring(dash + 1);
+        return pre.Length == 0 ? null : pre;
     }
 
     internal static int Compare(CollectorCandidate a, CollectorCandidate b) {

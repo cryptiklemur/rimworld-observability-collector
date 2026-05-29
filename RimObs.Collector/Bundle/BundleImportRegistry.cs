@@ -9,11 +9,13 @@ namespace Cryptiklemur.RimObs.Collector.Bundle;
 public sealed class BundleImportRegistry {
     private readonly string _baseDir;
     private readonly TimeSpan _idleTimeout;
+    private readonly Func<DateTime> _nowUtc;
     private readonly ConcurrentDictionary<string, BundleImportEntry> _entries = new();
 
-    public BundleImportRegistry(string baseDir, TimeSpan idleTimeout) {
+    public BundleImportRegistry(string baseDir, TimeSpan idleTimeout, Func<DateTime>? nowUtc = null) {
         _baseDir = baseDir;
         _idleTimeout = idleTimeout;
+        _nowUtc = nowUtc ?? (() => DateTime.UtcNow);
         Directory.CreateDirectory(_baseDir);
     }
 
@@ -25,7 +27,7 @@ public sealed class BundleImportRegistry {
             Token = token,
             TempDir = dir,
             Contents = contents,
-            LastAccess = DateTime.UtcNow,
+            LastAccess = _nowUtc(),
         };
         _entries[token] = entry;
         return entry;
@@ -39,7 +41,7 @@ public sealed class BundleImportRegistry {
 
     public void Touch(string token) {
         if (_entries.TryGetValue(token, out BundleImportEntry? entry))
-            entry.LastAccess = DateTime.UtcNow;
+            entry.LastAccess = _nowUtc();
     }
 
     public bool Remove(string token) {
@@ -50,7 +52,7 @@ public sealed class BundleImportRegistry {
     }
 
     public int SweepIdle() {
-        DateTime cutoff = DateTime.UtcNow - _idleTimeout;
+        DateTime cutoff = _nowUtc() - _idleTimeout;
         int removed = 0;
         foreach (KeyValuePair<string, BundleImportEntry> pair in _entries) {
             if (pair.Value.LastAccess < cutoff && _entries.TryRemove(pair.Key, out BundleImportEntry? entry)) {

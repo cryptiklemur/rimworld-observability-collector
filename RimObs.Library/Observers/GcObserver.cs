@@ -6,7 +6,7 @@ using Cryptiklemur.RimObs.Wire;
 namespace Cryptiklemur.RimObs.Observers;
 
 internal sealed class GcObserver {
-    private static readonly long TimestampTicksPerSecond = Stopwatch.Frequency;
+    private static readonly long s_TimestampTicksPerSecond = Stopwatch.Frequency;
     private const long MicrosPerSecond = 1_000_000L;
 
     private readonly int[] _lastCounts;
@@ -39,7 +39,7 @@ internal sealed class GcObserver {
         long heapDelta = heapNow - _lastHeapBytes;
         long elapsedTimestampTicks = timestampNow - _lastHeapTimestamp;
         if (heapDelta > 0 && elapsedTimestampTicks > 0) {
-            long bytesPerSecond = heapDelta * TimestampTicksPerSecond / elapsedTimestampTicks;
+            long bytesPerSecond = heapDelta * s_TimestampTicksPerSecond / elapsedTimestampTicks;
             Interlocked.Exchange(ref _allocationRateBytesPerMinute, bytesPerSecond * 60);
         }
 
@@ -66,7 +66,7 @@ internal sealed class GcObserver {
         _lastHeapBytes = heapNow;
 
         long durationMicros = elapsedTimestampTicks > 0
-            ? elapsedTimestampTicks * MicrosPerSecond / TimestampTicksPerSecond
+            ? elapsedTimestampTicks * MicrosPerSecond / s_TimestampTicksPerSecond
             : 0;
 
         Interlocked.Increment(ref _eventsObserved);

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using Serilog;
 
 namespace Cryptiklemur.RimObs.Collector.Config;
 
@@ -39,10 +40,12 @@ public sealed class ConfigStore {
             string json = File.ReadAllText(_path);
             return JsonSerializer.Deserialize<RimObsConfig>(json, ConfigJson.Options) ?? new RimObsConfig();
         }
-        catch (JsonException) {
+        catch (JsonException ex) {
+            Log.Warning(ex, "Config at {Path} is corrupt; falling back to defaults", _path);
             return new RimObsConfig();
         }
-        catch (IOException) {
+        catch (IOException ex) {
+            Log.Warning(ex, "Could not read config at {Path}; falling back to defaults", _path);
             return new RimObsConfig();
         }
     }
@@ -60,7 +63,8 @@ public sealed class ConfigStore {
 
             File.WriteAllText(_path, JsonSerializer.Serialize(config, ConfigJson.Options));
         }
-        catch (IOException) {
+        catch (IOException ex) {
+            Log.Warning(ex, "Could not persist config to {Path}; in-memory value kept", _path);
         }
     }
 }

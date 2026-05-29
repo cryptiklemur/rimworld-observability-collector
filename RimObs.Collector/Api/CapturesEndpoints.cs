@@ -127,12 +127,9 @@ public static class CapturesEndpoints {
         };
     }
 
-    private static double NsPerTick(SessionMeta? meta) {
-        long freq = meta is { StopwatchFrequency: > 0 } ? meta.StopwatchFrequency : Stopwatch.Frequency;
-        return 1_000_000_000.0 / freq;
-    }
+    private static double NsPerTick(SessionMeta? meta) => TickConverter.NsPerTick(meta);
 
-    private static double NsPerTickFallback() => 1_000_000_000.0 / Stopwatch.Frequency;
+    private static double NsPerTickFallback() => TickConverter.NsPerTick(0L);
 
     private static CaptureOptions ConfigDefaults() => new();
 }

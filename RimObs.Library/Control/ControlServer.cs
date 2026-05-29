@@ -57,7 +57,7 @@ internal sealed class ControlServer {
     }
 
     private void Handle(HttpListenerContext ctx) {
-        string? presented = ctx.Request.Headers["X-RimObs-Control"];
+        string? presented = ctx.Request.Headers[ControlProtocol.SecretHeader];
         if (!ConstantTimeEquals(presented, Secret)) {
             ctx.Response.StatusCode = (int)HttpStatusCode.Unauthorized;
             return;
@@ -80,7 +80,7 @@ internal sealed class ControlServer {
         byte[] body = ReadBody(ctx);
         ControlSearchRequest req = WireCodec.Deserialize<ControlSearchRequest>(body);
         ControlSearchResponse res = ControlSearchService.Run(req, _assemblies());
-        WriteMsg(ctx, WireCodec.Serialize(res));
+        WriteResponse(ctx, WireCodec.Serialize(res));
     }
 
     private void HandlePatch(HttpListenerContext ctx) {
@@ -89,8 +89,8 @@ internal sealed class ControlServer {
 
         MethodResolveResult resolved = MethodResolver.Resolve(req.TypeFullName, req.MethodName, req.ParamTypeFullNames, _assemblies());
         if (resolved.Refused) {
-            WriteMsg(ctx, WireCodec.Serialize(new ControlPatchResponse {
-                Status = "refused",
+            WriteResponse(ctx, WireCodec.Serialize(new ControlPatchResponse {
+                Status = PatchStatus.Refused,
                 ErrorReason = resolved.Reason,
             }), HttpStatusCode.BadRequest);
             return;
@@ -102,14 +102,14 @@ internal sealed class ControlServer {
         ControlServices.Queue.Enqueue(op);
 
         if (!op.Wait(TimeSpan.FromSeconds(2)) || apply is null) {
-            WriteMsg(ctx, WireCodec.Serialize(new ControlPatchResponse {
-                Status = "refused",
+            WriteResponse(ctx, WireCodec.Serialize(new ControlPatchResponse {
+                Status = PatchStatus.Refused,
                 ErrorReason = "main-thread drain timed out",
             }), HttpStatusCode.GatewayTimeout);
             return;
         }
 
-        WriteMsg(ctx, WireCodec.Serialize(new ControlPatchResponse {
+        WriteResponse(ctx, WireCodec.Serialize(new ControlPatchResponse {
             PatchId = apply.PatchId,
             SectionId = apply.SectionId,
             SectionName = apply.SectionName,
@@ -120,9 +120,9 @@ internal sealed class ControlServer {
 
     private void HandlePatchList(HttpListenerContext ctx) {
         List<ControlPatchEntry> entries = new List<ControlPatchEntry>();
-        foreach ((int id, string sig, int sec, string status) in PatchRegistry.Snapshot())
+        foreach ((int id, string sig, int sec, PatchStatus status) in PatchRegistry.Snapshot())
             entries.Add(new ControlPatchEntry { PatchId = id, Signature = sig, SectionId = sec, Status = status });
-        WriteMsg(ctx, WireCodec.Serialize(new ControlPatchListResponse { Patches = entries.ToArray() }));
+        WriteResponse(ctx, WireCodec.Serialize(new ControlPatchListResponse { Patches = entries.ToArray() }));
     }
 
     private void HandleUnpatch(HttpListenerContext ctx, string path) {
@@ -149,7 +149,7 @@ internal sealed class ControlServer {
         return ms.ToArray();
     }
 
-    private static void WriteMsg(HttpListenerContext ctx, byte[] body, HttpStatusCode status = HttpStatusCode.OK) {
+    private static void WriteResponse(HttpListenerContext ctx, byte[] body, HttpStatusCode status = HttpStatusCode.OK) {
         ctx.Response.StatusCode = (int)status;
         ctx.Response.ContentType = "application/x-msgpack";
         ctx.Response.ContentLength64 = body.Length;

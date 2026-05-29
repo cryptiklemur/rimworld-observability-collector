@@ -21,16 +21,16 @@ public sealed class SemVer {
         if (trimmed.Length > 0 && (trimmed[0] == 'v' || trimmed[0] == 'V'))
             trimmed = trimmed.Substring(1);
 
-        int plusIdx = trimmed.IndexOf('+');
-        if (plusIdx >= 0)
-            trimmed = trimmed.Substring(0, plusIdx);
+        int plusIndex = trimmed.IndexOf('+');
+        if (plusIndex >= 0)
+            trimmed = trimmed.Substring(0, plusIndex);
 
         string corePart;
         string? pre;
-        int dashIdx = trimmed.IndexOf('-');
-        if (dashIdx >= 0) {
-            corePart = trimmed.Substring(0, dashIdx);
-            pre = trimmed.Substring(dashIdx + 1);
+        int dashIndex = trimmed.IndexOf('-');
+        if (dashIndex >= 0) {
+            corePart = trimmed.Substring(0, dashIndex);
+            pre = trimmed.Substring(dashIndex + 1);
             if (pre.Length == 0)
                 return false;
         }

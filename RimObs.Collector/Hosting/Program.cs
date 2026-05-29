@@ -1,6 +1,3 @@
-using System;
-using System.Threading;
-using System.Threading.Tasks;
 using Cryptiklemur.RimObs.Collector.Api;
 using Cryptiklemur.RimObs.Collector.Runtime;
 using Cryptiklemur.RimObs.Wire;
@@ -36,7 +33,7 @@ public static class Program {
                 RuntimeFiles.WriteAll(configDir, token, port);
                 Log.Information("Wrote discovery files to {ConfigDir} (port: {Port}, token source: {Source})", configDir, port, token.FromEnv ? "env" : "generated");
             }
-            catch (System.Exception ex) {
+            catch (Exception ex) {
                 Log.Warning(ex, "Failed to write discovery files to {ConfigDir}", configDir);
             }
 
@@ -49,7 +46,7 @@ public static class Program {
             app.Run();
             return 0;
         }
-        catch (System.Exception ex) {
+        catch (Exception ex) {
             if (Log.Logger is null || ReferenceEquals(Log.Logger, Serilog.Core.Logger.None)) {
                 ConfigureLogger(logSink, logDir);
             }
@@ -76,7 +73,7 @@ public static class Program {
                     rollingInterval: RollingInterval.Day,
                     retainedFileCountLimit: 7);
             }
-            catch (System.Exception) {
+            catch (Exception) {
                 // Best-effort: if we cannot create the log directory, continue with console + ring sinks only.
             }
         }
@@ -97,7 +94,8 @@ public static class Program {
         builder.Services.AddSingleton<Update.UpdateState>();
         bool hasPersister = !string.IsNullOrWhiteSpace(sessionsDir);
         if (hasPersister) {
-            builder.Services.AddSingleton<Storage.ISessionPersister>(_ => new Storage.SqliteSessionPersister(sessionsDir!));
+            builder.Services.AddSingleton(_ => new Storage.SqliteSessionPersister(sessionsDir!));
+            builder.Services.AddSingleton<Storage.ISessionPersister>(sp => sp.GetRequiredService<Storage.SqliteSessionPersister>());
         }
         builder.Services.AddSingleton(configStore ?? new Config.ConfigStore(ResolveConfigFilePath(sessionsDir)));
         builder.Services.AddSingleton<Panels.PanelRegistry>();
@@ -106,7 +104,7 @@ public static class Program {
             sp.GetRequiredService<Aggregation.SessionAggregator>(),
             sp.GetService<Storage.ISessionPersister>(),
             BuildInfo.Revision));
-        string importsDir = System.IO.Path.Combine(sessionsDir ?? ConfigDirResolver.Resolve(), "imports");
+        string importsDir = Path.Combine(sessionsDir ?? ConfigDirResolver.Resolve(), "imports");
         builder.Services.AddSingleton(new Bundle.BundleImportRegistry(importsDir, TimeSpan.FromMinutes(30)));
         builder.Services.AddSingleton<Bundle.BundleImportService>();
         builder.Services.AddHostedService<Bundle.BundleImportSweeper>();
@@ -144,17 +142,17 @@ public static class Program {
     private static string? ResolveConfigFilePath(string? sessionsDir) {
         if (string.IsNullOrWhiteSpace(sessionsDir))
             return null;
-        string trimmed = sessionsDir.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
-        string parent = System.IO.Path.GetDirectoryName(trimmed) ?? sessionsDir;
-        return System.IO.Path.Combine(parent, "config.json");
+        string trimmed = sessionsDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string parent = Path.GetDirectoryName(trimmed) ?? sessionsDir;
+        return Path.Combine(parent, "config.json");
     }
 
     private static string? ResolveDynamicPatchStorePath(string? sessionsDir) {
         if (string.IsNullOrWhiteSpace(sessionsDir))
             return null;
-        string trimmed = sessionsDir.TrimEnd(System.IO.Path.DirectorySeparatorChar, System.IO.Path.AltDirectorySeparatorChar);
-        string parent = System.IO.Path.GetDirectoryName(trimmed) ?? sessionsDir;
-        return System.IO.Path.Combine(parent, "dynamic_patches.db");
+        string trimmed = sessionsDir.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        string parent = Path.GetDirectoryName(trimmed) ?? sessionsDir;
+        return Path.Combine(parent, "dynamic_patches.db");
     }
 
     public static void MapApiEndpoints(WebApplication app) {
@@ -179,7 +177,7 @@ public static class Program {
         Update.UpdateState state = services.GetRequiredService<Update.UpdateState>();
         _ = Task.Run(async () => {
             try {
-                using System.Net.Http.HttpClient client = new System.Net.Http.HttpClient {
+                using HttpClient client = new HttpClient {
                     Timeout = TimeSpan.FromSeconds(10),
                 };
                 using CancellationTokenSource cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
@@ -191,7 +189,7 @@ public static class Program {
                     Log.Information("Update available: {Tag} ({Url})", latest.TagName, latest.HtmlUrl);
                 }
             }
-            catch (System.Exception ex) {
+            catch (Exception ex) {
                 Log.Warning(ex, "Update check failed");
             }
         });

@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Reflection;
 using Cryptiklemur.RimObs.Wire;
 using Cryptiklemur.RimObs.Wire.Control;
 using FluentAssertions;
@@ -377,12 +378,12 @@ public sealed class WireCodecTests {
             PatchId = 42,
             SectionId = 8,
             SectionName = "com.cryptiklemur.rimobs.dynamic.Verse.PathFinder.FindPath",
-            Status = "active",
+            Status = PatchStatus.Active,
             ErrorReason = null,
         };
         ControlPatchResponse back = WireCodec.Deserialize<ControlPatchResponse>(WireCodec.Serialize(res));
         back.PatchId.Should().Be(42);
-        back.Status.Should().Be("active");
+        back.Status.Should().Be(PatchStatus.Active);
         back.ErrorReason.Should().BeNull();
     }
 
@@ -390,13 +391,45 @@ public sealed class WireCodecTests {
     public void ControlPatchListResponse_round_trips() {
         ControlPatchListResponse list = new() {
             Patches = [
-                new ControlPatchEntry { PatchId = 1, Signature = "A.B:C()", SectionId = 5, Status = "active" },
-                new ControlPatchEntry { PatchId = 2, Signature = "A.B:D()", SectionId = 6, Status = "stale" },
+                new ControlPatchEntry { PatchId = 1, Signature = "A.B:C()", SectionId = 5, Status = PatchStatus.Active },
+                new ControlPatchEntry { PatchId = 2, Signature = "A.B:D()", SectionId = 6, Status = PatchStatus.Stale },
             ],
         };
         ControlPatchListResponse back = WireCodec.Deserialize<ControlPatchListResponse>(WireCodec.Serialize(list));
         back.Patches.Should().HaveCount(2);
-        back.Patches[1].Status.Should().Be("stale");
+        back.Patches[1].Status.Should().Be(PatchStatus.Stale);
+    }
+
+    // Exhaustiveness guard for WireCodec's two parallel hand-maintained dispatch tables
+    // (the Serialize<T> switch and the Deserialize<T> if/else chain). The set of supported
+    // types is derived from the concrete Serialize overloads, so adding a new wire type means
+    // adding an overload — which immediately forces a case in BOTH generic tables, or this fails.
+    public static IEnumerable<object[]> AllWireTypes() {
+        return typeof(WireCodec)
+            .GetMethods(BindingFlags.Public | BindingFlags.Static)
+            .Where(m => m.Name == nameof(WireCodec.Serialize) && !m.IsGenericMethod && m.GetParameters().Length == 1)
+            .Select(m => m.GetParameters()[0].ParameterType)
+            .Distinct()
+            .Select(t => new object[] { t });
+    }
+
+    [Theory]
+    [MemberData(nameof(AllWireTypes))]
+    public void Every_wire_type_round_trips_through_generic_dispatch(Type wireType) {
+        object instance = Activator.CreateInstance(wireType)!;
+
+        byte[] bytes = WireCodec.Serialize(instance);
+
+        MethodInfo deserialize = typeof(WireCodec).GetMethod(nameof(WireCodec.Deserialize))!.MakeGenericMethod(wireType);
+        object? decoded = deserialize.Invoke(null, [bytes]);
+
+        decoded.Should().NotBeNull();
+        decoded.Should().BeOfType(wireType);
+    }
+
+    [Fact]
+    public void Generic_dispatch_covers_every_serializable_wire_type() {
+        AllWireTypes().Should().HaveCount(17);
     }
 }
 

@@ -35,7 +35,7 @@ public class SessionComparerTests {
         ComparisonResult result = SessionComparer.Compare(baseline, head);
 
         SectionDelta delta = result.Hotspots.Single(h => h.Name == "modA_pawnscan");
-        delta.Status.Should().Be("regressed");
+        delta.Status.Should().Be(DeltaStatus.Regressed);
         delta.LikelyRegressionCandidate.Should().BeTrue();
     }
 
@@ -56,8 +56,8 @@ public class SessionComparerTests {
 
         ComparisonResult result = SessionComparer.Compare(baseline, head);
 
-        result.Hotspots.Single(h => h.Name == "old_section").Status.Should().Be("removed");
-        result.Hotspots.Single(h => h.Name == "new_section").Status.Should().Be("added");
+        result.Hotspots.Single(h => h.Name == "old_section").Status.Should().Be(DeltaStatus.Removed);
+        result.Hotspots.Single(h => h.Name == "new_section").Status.Should().Be(DeltaStatus.Added);
     }
 
     [Fact]

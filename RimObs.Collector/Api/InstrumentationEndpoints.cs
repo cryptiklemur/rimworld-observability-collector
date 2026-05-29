@@ -24,13 +24,16 @@ public static class InstrumentationEndpoints {
             });
         });
 
-        endpoints.MapPost("/api/v1/instrumentation/patch", async (SessionMetaRegistry registry, DynamicPatchStore store, ControlPatchRequest req) => {
+        endpoints.MapPost("/api/v1/instrumentation/patch", async (HttpContext ctx, SessionMetaRegistry registry, DynamicPatchStore store) => {
             if (!registry.IsAvailable)
                 return Unavailable();
+            (ControlPatchRequest? req, IResult? error) = await RequestBody.Read<ControlPatchRequest>(ctx, "patch");
+            if (error is not null)
+                return error;
             ControlClient client = new(registry.ControlPort, registry.ControlSecret);
-            ControlPatchResponse res = await client.PatchAsync(req);
-            if (res.Status == "active")
-                store.Insert(req.TypeFullName, req.MethodName, string.Join(";", req.ParamTypeFullNames));
+            ControlPatchResponse res = await client.PatchAsync(req!);
+            if (res.Status == PatchStatus.Active)
+                store.Insert(req!.TypeFullName, req.MethodName, string.Join(";", req.ParamTypeFullNames));
             return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
                 patch = res,
@@ -38,27 +41,25 @@ public static class InstrumentationEndpoints {
         });
 
         endpoints.MapGet("/api/v1/instrumentation/patches", async (SessionMetaRegistry registry, DynamicPatchStore store) => {
-            if (!registry.IsAvailable) {
-                return Results.Ok(new {
-                    schema_version = SchemaVersion.Current,
-                    patches = store.List(),
-                });
+            ControlPatchEntry[] live = [];
+            if (registry.IsAvailable) {
+                ControlClient client = new(registry.ControlPort, registry.ControlSecret);
+                ControlPatchListResponse res = await client.ListAsync();
+                live = res.Patches;
             }
-            ControlClient client = new(registry.ControlPort, registry.ControlSecret);
-            ControlPatchListResponse live = await client.ListAsync();
             return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
                 persisted = store.List(),
-                live = live.Patches,
+                live,
             });
         });
 
         endpoints.MapDelete("/api/v1/instrumentation/patches/{id:long}", async (SessionMetaRegistry registry, DynamicPatchStore store, long id) => {
-            store.Delete(id);
             if (registry.IsAvailable) {
                 ControlClient client = new(registry.ControlPort, registry.ControlSecret);
-                await client.UnpatchAsync((int)id);
+                await client.UnpatchAsync(id);
             }
+            store.Delete(id);
             return Results.NoContent();
         });
 

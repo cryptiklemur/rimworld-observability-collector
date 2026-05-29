@@ -422,7 +422,7 @@ public static class WireCodec {
         writer.WriteInt32(value.PatchId);
         writer.WriteInt32(value.SectionId);
         writer.WriteString(value.SectionName);
-        writer.WriteString(value.Status);
+        writer.WriteUInt8((byte)value.Status);
         writer.WriteString(value.ErrorReason ?? string.Empty);
         return writer.ToArray();
     }
@@ -437,7 +437,7 @@ public static class WireCodec {
             writer.WriteInt32(e.PatchId);
             writer.WriteString(e.Signature);
             writer.WriteInt32(e.SectionId);
-            writer.WriteString(e.Status);
+            writer.WriteUInt8((byte)e.Status);
         }
         return writer.ToArray();
     }
@@ -458,7 +458,7 @@ public static class WireCodec {
         int patchId = reader.ReadInt32();
         int sectionId = reader.ReadInt32();
         string sectionName = reader.ReadString() ?? string.Empty;
-        string status = reader.ReadString() ?? string.Empty;
+        PatchStatus status = (PatchStatus)reader.ReadUInt8();
         string errRaw = reader.ReadString() ?? string.Empty;
         return new ControlPatchResponse {
             PatchId = patchId,
@@ -480,7 +480,7 @@ public static class WireCodec {
                 PatchId = reader.ReadInt32(),
                 Signature = reader.ReadString() ?? string.Empty,
                 SectionId = reader.ReadInt32(),
-                Status = reader.ReadString() ?? string.Empty,
+                Status = (PatchStatus)reader.ReadUInt8(),
             };
         }
         return new ControlPatchListResponse { Patches = patches };

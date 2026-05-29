@@ -5,7 +5,7 @@ namespace Cryptiklemur.RimObs.Observers;
 // Derives ticks-per-second and frames-per-second by differencing the cumulative FrameTickCounters
 // against wall time between polls. The tick count doubles as the sample's monotonic tick number.
 internal sealed class TpsFpsObserver {
-    private static readonly long TimestampTicksPerSecond = Stopwatch.Frequency;
+    private static readonly long s_TimestampTicksPerSecond = Stopwatch.Frequency;
 
     private long _lastTicks;
     private long _lastFrames;
@@ -28,7 +28,7 @@ internal sealed class TpsFpsObserver {
             return false;
         }
 
-        double elapsedSeconds = (double)elapsedTimestampTicks / TimestampTicksPerSecond;
+        double elapsedSeconds = (double)elapsedTimestampTicks / s_TimestampTicksPerSecond;
         double tps = (ticksNow - _lastTicks) / elapsedSeconds;
         double fps = (framesNow - _lastFrames) / elapsedSeconds;
 

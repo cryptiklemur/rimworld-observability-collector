@@ -2,12 +2,13 @@ using System.Collections.Generic;
 using System.Reflection;
 using Cryptiklemur.RimObs.Patching;
 using Cryptiklemur.RimObs.Profile;
+using Cryptiklemur.RimObs.Wire.Control;
 using HarmonyLib;
 
 namespace Cryptiklemur.RimObs.Library.Control;
 
 internal sealed class ApplyResult {
-    internal ApplyResult(int patchId, int sectionId, string sectionName, string status, string? errorReason = null) {
+    internal ApplyResult(int patchId, int sectionId, string sectionName, PatchStatus status, string? errorReason = null) {
         PatchId = patchId;
         SectionId = sectionId;
         SectionName = sectionName;
@@ -18,11 +19,11 @@ internal sealed class ApplyResult {
     public int PatchId { get; }
     public int SectionId { get; }
     public string SectionName { get; }
-    public string Status { get; }
+    public PatchStatus Status { get; }
     public string? ErrorReason { get; }
 
     public static ApplyResult Refused(string reason) =>
-        new(0, -1, string.Empty, "refused", reason);
+        new(0, -1, string.Empty, PatchStatus.Refused, reason);
 }
 
 internal static class PatchRegistry {
@@ -37,7 +38,7 @@ internal static class PatchRegistry {
         lock (s_Gate) {
             if (s_BySignature.TryGetValue(signature, out int existingId)) {
                 Entry existing = s_ById[existingId];
-                return new ApplyResult(existingId, existing.SectionId, existing.SectionName, "active");
+                return new ApplyResult(existingId, existing.SectionId, existing.SectionName, PatchStatus.Active);
             }
 
             if (SectionRegistry.Count >= SectionRegistry.MaxSections)
@@ -54,7 +55,7 @@ internal static class PatchRegistry {
             s_BySignature[signature] = id;
             s_ById[id] = new Entry(signature, target, sectionId, sectionName);
 
-            return new ApplyResult(id, sectionId, sectionName, "active");
+            return new ApplyResult(id, sectionId, sectionName, PatchStatus.Active);
         }
     }
 
@@ -73,11 +74,11 @@ internal static class PatchRegistry {
         }
     }
 
-    public static IEnumerable<(int Id, string Signature, int SectionId, string Status)> Snapshot() {
+    public static IEnumerable<(int Id, string Signature, int SectionId, PatchStatus Status)> Snapshot() {
         lock (s_Gate) {
-            List<(int, string, int, string)> rows = new List<(int, string, int, string)>(s_ById.Count);
+            List<(int, string, int, PatchStatus)> rows = new List<(int, string, int, PatchStatus)>(s_ById.Count);
             foreach (KeyValuePair<int, Entry> kv in s_ById) {
-                rows.Add((kv.Key, kv.Value.Signature, kv.Value.SectionId, "active"));
+                rows.Add((kv.Key, kv.Value.Signature, kv.Value.SectionId, PatchStatus.Active));
             }
             return rows;
         }

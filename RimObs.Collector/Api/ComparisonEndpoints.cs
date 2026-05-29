@@ -127,7 +127,7 @@ public static class ComparisonEndpoints {
     private const string BundleSourcePrefix = "bundle:";
 
     private static SessionSnapshotReader Reader(SessionAggregator aggregator, IServiceProvider services) {
-        return new SessionSnapshotReader(aggregator, services.GetService<ISessionPersister>());
+        return new SessionSnapshotReader(aggregator, services.GetService<SqliteSessionPersister>());
     }
 
     private static BundleSnapshotReader? BundleReader(IServiceProvider services) {
@@ -181,7 +181,7 @@ public static class ComparisonEndpoints {
                 id = h.SectionId,
                 name = h.Name,
                 owner = h.Owner,
-                status = h.Status,
+                status = h.Status.ToWireString(),
                 base_total_ns = h.BaseTotalNs,
                 head_total_ns = h.HeadTotalNs,
                 delta_ns = h.DeltaNs,
@@ -192,7 +192,7 @@ public static class ComparisonEndpoints {
             }).ToArray(),
             mod_costs = result.ModCosts.Select(m => new {
                 owner = m.Owner,
-                status = m.Status,
+                status = m.Status.ToWireString(),
                 base_total_ns = m.BaseTotalNs,
                 head_total_ns = m.HeadTotalNs,
                 delta_ns = m.DeltaNs,
@@ -204,7 +204,7 @@ public static class ComparisonEndpoints {
                 owner = m.Owner,
                 kind = m.Kind,
                 unit = m.Unit,
-                status = m.Status,
+                status = m.Status.ToWireString(),
                 base_value = m.BaseValue,
                 head_value = m.HeadValue,
                 delta_value = m.DeltaValue,

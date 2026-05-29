@@ -2,6 +2,7 @@ using System.Reflection;
 using Cryptiklemur.RimObs.Library.Control;
 using Cryptiklemur.RimObs.Patching;
 using Cryptiklemur.RimObs.Profile;
+using Cryptiklemur.RimObs.Wire.Control;
 using FluentAssertions;
 using RimObsTest.Fixtures;
 using Xunit;
@@ -30,7 +31,7 @@ public class PatchRegistryTests : IDisposable {
 
         ApplyResult applied = PatchRegistry.Apply("test.pkg", target, "ResolverTargets:Add(Int32,Int32)");
 
-        applied.Status.Should().Be("active");
+        applied.Status.Should().Be(PatchStatus.Active);
         applied.PatchId.Should().BeGreaterThan(0);
         applied.SectionName.Should().StartWith("test.pkg.dynamic.");
         SectionRegistry.Count.Should().Be(1);

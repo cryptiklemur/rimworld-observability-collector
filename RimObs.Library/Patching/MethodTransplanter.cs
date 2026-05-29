@@ -8,12 +8,12 @@ using HarmonyLib;
 namespace Cryptiklemur.RimObs.Patching;
 
 internal static class MethodTransplanter {
-    private static readonly MethodInfo StartByIdMethod = typeof(Profiler).GetMethod(
+    private static readonly MethodInfo s_StartByIdMethod = typeof(Profiler).GetMethod(
         nameof(Profiler.StartById),
         BindingFlags.Public | BindingFlags.Static
     ) ?? throw new InvalidOperationException("Profiler.StartById not found.");
 
-    private static readonly MethodInfo StopByIdMethod = typeof(Profiler).GetMethod(
+    private static readonly MethodInfo s_StopByIdMethod = typeof(Profiler).GetMethod(
         nameof(Profiler.StopById),
         BindingFlags.Public | BindingFlags.Static
     ) ?? throw new InvalidOperationException("Profiler.StopById not found.");
@@ -42,14 +42,14 @@ internal static class MethodTransplanter {
         Label endLabel = generator.DefineLabel();
 
         yield return new CodeInstruction(OpCodes.Ldc_I4, sectionId);
-        yield return new CodeInstruction(OpCodes.Call, StartByIdMethod);
+        yield return new CodeInstruction(OpCodes.Call, s_StartByIdMethod);
         yield return new CodeInstruction(OpCodes.Stloc, tokenLocal);
 
         List<CodeInstruction> body = new(instructions);
         if (body.Count == 0) {
             yield return new CodeInstruction(OpCodes.Ldc_I4, sectionId);
             yield return new CodeInstruction(OpCodes.Ldloc, tokenLocal);
-            yield return new CodeInstruction(OpCodes.Call, StopByIdMethod);
+            yield return new CodeInstruction(OpCodes.Call, s_StopByIdMethod);
             if (hasReturn) {
                 if (returnType.IsValueType) {
                     LocalBuilder defaultLocal = generator.DeclareLocal(returnType);
@@ -93,7 +93,7 @@ internal static class MethodTransplanter {
         finallyStart.blocks.Add(new ExceptionBlock(ExceptionBlockType.BeginFinallyBlock));
         yield return finallyStart;
         yield return new CodeInstruction(OpCodes.Ldloc, tokenLocal);
-        yield return new CodeInstruction(OpCodes.Call, StopByIdMethod);
+        yield return new CodeInstruction(OpCodes.Call, s_StopByIdMethod);
 
         CodeInstruction endFinally = new(OpCodes.Endfinally);
         endFinally.blocks.Add(new ExceptionBlock(ExceptionBlockType.EndExceptionBlock));

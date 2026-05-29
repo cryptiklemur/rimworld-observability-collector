@@ -194,6 +194,7 @@ public sealed class CollectorLauncherTests {
     [Fact]
     public void EnsureRunning_reports_failure_when_launch_action_throws() {
         int deadPort = GetFreePort();
+        InvalidOperationException thrown = new("launch failed");
 
         CollectorLaunchResult result = CollectorLauncher.EnsureRunning(
             [new CollectorCandidate("/x", new Version(1, 0, 0))],
@@ -202,10 +203,11 @@ public sealed class CollectorLauncherTests {
             "owner",
             TimeSpan.FromMilliseconds(150),
             TimeSpan.FromMilliseconds(400),
-            _ => throw new InvalidOperationException("launch failed"));
+            _ => throw thrown);
 
         result.IsRunning.Should().BeFalse();
         result.LaunchAttempted.Should().BeTrue();
+        result.LaunchError.Should().BeSameAs(thrown);
     }
 
     private static int GetFreePort() {

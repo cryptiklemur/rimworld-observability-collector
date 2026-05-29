@@ -3,6 +3,10 @@ using Cryptiklemur.RimObs.Wire;
 
 namespace Cryptiklemur.RimObs.Collector.Storage;
 
+// Write/persist seam only. This exists so the flush path can be spied on in tests;
+// it deliberately exposes no read or filesystem-location members. Read sites that need
+// the on-disk layout (sessions directory, db path resolution) depend on the concrete
+// SqliteSessionPersister directly rather than widening this contract.
 public interface ISessionPersister : IDisposable {
     void WriteSessionMeta(SessionMeta meta);
 

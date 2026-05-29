@@ -367,7 +367,7 @@ public sealed class SessionStoreSubsystemTests : IDisposable {
         using SessionStore store = SessionStore.Open(_dbPath);
         store.WriteSectionsSnapshot([withSub, noSub]);
 
-        List<SectionRow> rows = store.GetAllSections();
+        List<SectionRow> rows = store.GetSectionMetadata();
         rows.Should().HaveCount(2);
 
         SectionRow? pawns = rows.FirstOrDefault(r => r.SectionId == 1);

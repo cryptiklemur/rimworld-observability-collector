@@ -15,10 +15,10 @@ public static class Profiler {
     internal static ISampleSink? Sink;
 
     [ThreadStatic]
-    private static int[]? s_stack;
+    private static int[]? s_Stack;
 
     [ThreadStatic]
-    private static int s_depth;
+    private static int s_Depth;
 
     internal static void SetSink(ISampleSink? sink) => Sink = sink;
 
@@ -37,11 +37,11 @@ public static class Profiler {
         if (!SectionRegistry.s_Active[sectionId])
             return DisabledToken;
 
-        int[] stack = s_stack ??= new int[MaxStackDepth];
-        int depth = s_depth;
+        int[] stack = s_Stack ??= new int[MaxStackDepth];
+        int depth = s_Depth;
         if (depth < MaxStackDepth)
             stack[depth] = sectionId;
-        s_depth = depth + 1;
+        s_Depth = depth + 1;
 
         return Stopwatch.GetTimestamp();
     }
@@ -53,12 +53,12 @@ public static class Profiler {
 
         long elapsed = Stopwatch.GetTimestamp() - token;
 
-        int depth = s_depth;
+        int depth = s_Depth;
         int parentId = NoParent;
         if (depth > 0) {
             depth--;
-            s_depth = depth;
-            int[]? stack = s_stack;
+            s_Depth = depth;
+            int[]? stack = s_Stack;
             if (stack != null && depth > 0 && depth - 1 < MaxStackDepth)
                 parentId = stack[depth - 1];
         }

@@ -168,10 +168,7 @@ public sealed class PrometheusMetricsBuilder {
         return sb.ToString();
     }
 
-    private static double NsPerTick(SessionMeta? meta) {
-        long freq = meta is { StopwatchFrequency: > 0 } ? meta.StopwatchFrequency : Stopwatch.Frequency;
-        return 1_000_000_000.0 / freq;
-    }
+    private static double NsPerTick(SessionMeta? meta) => TickConverter.NsPerTick(meta);
 
     private struct GcGenerationAccumulator {
         public long Collections;

@@ -211,7 +211,7 @@ public sealed class BundleExportService {
     }
 
     private object BuildHotspots(SessionMeta meta) {
-        double nsPerTick = 1_000_000_000.0 / (meta.StopwatchFrequency > 0 ? meta.StopwatchFrequency : System.Diagnostics.Stopwatch.Frequency);
+        double nsPerTick = TickConverter.NsPerTick(meta);
         return new {
             hotspots = _aggregator.Sections
                 .OrderByDescending(s => s.TotalElapsedTicks)
@@ -284,7 +284,7 @@ public sealed class BundleExportService {
     }
 
     private object BuildCallHierarchy(SessionMeta meta) {
-        double nsPerTick = 1_000_000_000.0 / (meta.StopwatchFrequency > 0 ? meta.StopwatchFrequency : System.Diagnostics.Stopwatch.Frequency);
+        double nsPerTick = TickConverter.NsPerTick(meta);
         Dictionary<int, string> names = _aggregator.Sections.ToDictionary(s => s.SectionId, s => s.Name);
         IReadOnlyList<CallTreeNode> roots = CallTreeBuilder.Build(_aggregator.CallEdges, names, nsPerTick, CallTreeBuilder.DefaultDepthCap, CallTreeBuilder.DefaultTopN);
         return new { roots = roots };

@@ -17,7 +17,7 @@ public class DynamicPatchReplayerTests {
             PatchId = 1,
             SectionId = 0,
             SectionName = "test.dynamic.X.Y:Z",
-            Status = "active",
+            Status = PatchStatus.Active,
         };
         stub.Start();
         ControlClient client = new ControlClient(stub.Port, "s");
@@ -25,7 +25,7 @@ public class DynamicPatchReplayerTests {
         DynamicPatchReplayer replayer = new DynamicPatchReplayer(store);
         await replayer.ReplayAsync(client);
 
-        store.List()[0].LastStatus.Should().Be("active");
+        store.List()[0].LastStatus.Should().Be(PatchStatus.Active);
     }
 
     [Fact]
@@ -40,6 +40,6 @@ public class DynamicPatchReplayerTests {
         DynamicPatchReplayer replayer = new DynamicPatchReplayer(store);
         await replayer.ReplayAsync(client);
 
-        store.List()[0].LastStatus.Should().Be("stale");
+        store.List()[0].LastStatus.Should().Be(PatchStatus.Stale);
     }
 }

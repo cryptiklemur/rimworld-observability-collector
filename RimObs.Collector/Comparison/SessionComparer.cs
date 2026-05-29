@@ -79,14 +79,8 @@ public static class SessionComparer {
         Dictionary<string, SectionSnapshot> baseByName = IndexByName(baseline.Sections);
         Dictionary<string, SectionSnapshot> headByName = IndexByName(head.Sections);
 
-        HashSet<string> names = new(StringComparer.Ordinal);
-        foreach (string n in baseByName.Keys)
-            names.Add(n);
-        foreach (string n in headByName.Keys)
-            names.Add(n);
-
         List<SectionDelta> deltas = [];
-        foreach (string name in names) {
+        foreach (string name in UnionKeys(baseByName, headByName)) {
             baseByName.TryGetValue(name, out SectionSnapshot? b);
             headByName.TryGetValue(name, out SectionSnapshot? h);
 
@@ -97,7 +91,7 @@ public static class SessionComparer {
             long delta = headTotal - baseTotal;
             double? pct = Percent(baseTotal, headTotal);
 
-            string status = Status(b is not null, h is not null, delta);
+            DeltaStatus status = Status(b is not null, h is not null, delta);
             bool candidate = IsRegressionCandidate(b is not null, h is not null, delta, pct);
 
             deltas.Add(new SectionDelta(
@@ -122,14 +116,8 @@ public static class SessionComparer {
         Dictionary<string, long> baseByOwner = SumByOwner(baseline.Sections);
         Dictionary<string, long> headByOwner = SumByOwner(head.Sections);
 
-        HashSet<string> owners = new(StringComparer.Ordinal);
-        foreach (string o in baseByOwner.Keys)
-            owners.Add(o);
-        foreach (string o in headByOwner.Keys)
-            owners.Add(o);
-
         List<OwnerDelta> deltas = [];
-        foreach (string owner in owners) {
+        foreach (string owner in UnionKeys(baseByOwner, headByOwner)) {
             bool inBase = baseByOwner.TryGetValue(owner, out long baseTotal);
             bool inHead = headByOwner.TryGetValue(owner, out long headTotal);
             long delta = headTotal - baseTotal;
@@ -157,14 +145,8 @@ public static class SessionComparer {
         foreach (MetricSnapshot m in head.Metrics)
             headByName[m.Name] = m;
 
-        HashSet<string> names = new(StringComparer.Ordinal);
-        foreach (string n in baseByName.Keys)
-            names.Add(n);
-        foreach (string n in headByName.Keys)
-            names.Add(n);
-
         List<MetricDelta> deltas = [];
-        foreach (string name in names) {
+        foreach (string name in UnionKeys(baseByName, headByName)) {
             baseByName.TryGetValue(name, out MetricSnapshot? b);
             headByName.TryGetValue(name, out MetricSnapshot? h);
 
@@ -233,16 +215,25 @@ public static class SessionComparer {
         return set;
     }
 
-    private static string Status(bool inBase, bool inHead, long delta) {
+    private static HashSet<string> UnionKeys<TValue>(Dictionary<string, TValue> a, Dictionary<string, TValue> b) {
+        HashSet<string> keys = new(StringComparer.Ordinal);
+        foreach (string key in a.Keys)
+            keys.Add(key);
+        foreach (string key in b.Keys)
+            keys.Add(key);
+        return keys;
+    }
+
+    private static DeltaStatus Status(bool inBase, bool inHead, long delta) {
         if (inBase && !inHead)
-            return "removed";
+            return DeltaStatus.Removed;
         if (!inBase && inHead)
-            return "added";
+            return DeltaStatus.Added;
         if (delta > 0)
-            return "regressed";
+            return DeltaStatus.Regressed;
         if (delta < 0)
-            return "improved";
-        return "unchanged";
+            return DeltaStatus.Improved;
+        return DeltaStatus.Unchanged;
     }
 
     private static bool IsRegressionCandidate(bool inBase, bool inHead, long delta, double? pct) {

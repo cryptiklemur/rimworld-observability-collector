@@ -73,7 +73,7 @@ public sealed class StubControlServer : System.IDisposable {
         }
         if (method == "POST" && path == "/patch") {
             ControlPatchRequest req = WireCodec.Deserialize<ControlPatchRequest>(body);
-            Write(ctx, WireCodec.Serialize(OnPatch?.Invoke(req) ?? new ControlPatchResponse { Status = "active", PatchId = 1 }));
+            Write(ctx, WireCodec.Serialize(OnPatch?.Invoke(req) ?? new ControlPatchResponse { Status = PatchStatus.Active, PatchId = 1 }));
             return;
         }
         if (method == "GET" && path == "/patches") {

@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using Cryptiklemur.RimObs.Collector.Storage;
+using Cryptiklemur.RimObs.Wire.Control;
 using FluentAssertions;
 using Microsoft.Data.Sqlite;
 using Xunit;
@@ -20,7 +21,7 @@ public class DynamicPatchStoreTests {
         rows.Should().HaveCount(1);
         rows[0].Id.Should().Be(id);
         rows[0].TypeFullName.Should().Be("Verse.PathFinder");
-        rows[0].LastStatus.Should().Be("pending");
+        rows[0].LastStatus.Should().Be(PatchStatus.Pending);
     }
 
     [Fact]
@@ -36,11 +37,24 @@ public class DynamicPatchStoreTests {
     public void Update_status_persists() {
         using DynamicPatchStore store = Open();
         long id = store.Insert("A", "B", "");
-        store.UpdateStatus(id, "stale", "mod uninstalled");
+        store.UpdateStatus(id, PatchStatus.Stale, "mod uninstalled");
 
         DynamicPatchRow row = store.List()[0];
-        row.LastStatus.Should().Be("stale");
+        row.LastStatus.Should().Be(PatchStatus.Stale);
         row.LastError.Should().Be("mod uninstalled");
+    }
+
+    [Theory]
+    [InlineData(PatchStatus.Pending)]
+    [InlineData(PatchStatus.Active)]
+    [InlineData(PatchStatus.Refused)]
+    [InlineData(PatchStatus.Stale)]
+    public void Update_status_round_trips_every_status(PatchStatus status) {
+        using DynamicPatchStore store = Open();
+        long id = store.Insert("A", "B", "");
+        store.UpdateStatus(id, status, null);
+
+        store.List()[0].LastStatus.Should().Be(status);
     }
 
     [Fact]

@@ -10,9 +10,9 @@ namespace Cryptiklemur.RimObs.Collector.Comparison;
 
 public sealed class SessionSnapshotReader {
     private readonly SessionAggregator _aggregator;
-    private readonly ISessionPersister? _persister;
+    private readonly SqliteSessionPersister? _persister;
 
-    public SessionSnapshotReader(SessionAggregator aggregator, ISessionPersister? persister) {
+    public SessionSnapshotReader(SessionAggregator aggregator, SqliteSessionPersister? persister) {
         ArgumentNullException.ThrowIfNull(aggregator);
         _aggregator = aggregator;
         _persister = persister;
@@ -84,10 +84,10 @@ public sealed class SessionSnapshotReader {
     }
 
     private SessionSnapshot? ReadPersisted(string sessionId) {
-        if (_persister is not SqliteSessionPersister persister)
+        if (_persister is null)
             return null;
 
-        string dbPath = persister.ResolveDatabasePath(sessionId);
+        string dbPath = _persister.ResolveDatabasePath(sessionId);
         if (!System.IO.File.Exists(dbPath))
             return null;
 
@@ -99,7 +99,7 @@ public sealed class SessionSnapshotReader {
         double nsPerTick = NsPerTick(meta.StopwatchFrequency);
 
         List<SectionSnapshot> sections = [];
-        foreach (SectionStatsRow row in store.GetFullSections()) {
+        foreach (SectionStatsRow row in store.GetSectionStats()) {
             sections.Add(new SectionSnapshot(
                 SectionId: row.SectionId,
                 Name: row.Name,
@@ -139,8 +139,5 @@ public sealed class SessionSnapshotReader {
             Metrics: metrics);
     }
 
-    private static double NsPerTick(long stopwatchFrequency) {
-        long freq = stopwatchFrequency > 0 ? stopwatchFrequency : Stopwatch.Frequency;
-        return 1_000_000_000.0 / freq;
-    }
+    private static double NsPerTick(long stopwatchFrequency) => TickConverter.NsPerTick(stopwatchFrequency);
 }

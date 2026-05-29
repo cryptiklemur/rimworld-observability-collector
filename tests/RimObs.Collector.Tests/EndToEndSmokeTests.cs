@@ -1154,7 +1154,7 @@ public sealed class EndToEndSmokeTests {
             PatchId = 7,
             SectionId = 3,
             SectionName = "test.dynamic.A:B",
-            Status = "active",
+            Status = PatchStatus.Active,
         };
         stub.Start();
 
