@@ -99,7 +99,7 @@ public sealed class CallTreeBuilderTests {
         IReadOnlyList<CallTreeNode> roots = CallTreeBuilder.Build(edges, names, 1.0, topN: 2);
 
         roots.Should().HaveCount(3);
-        CallTreeNode other = roots.Last();
+        CallTreeNode other = roots[^1];
         other.IsOther.Should().BeTrue();
         other.SectionId.Should().Be(CallTreeBuilder.OtherSectionId);
         other.Name.Should().Be("(other)");
