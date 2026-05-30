@@ -114,7 +114,7 @@ public sealed class RimObsMod : Mod {
             ObservedSectionScanner.ScanResult attrs = LoadObservedSections();
             FrameTickPatches.InstallAll();
             s_Sink?.SetPatchConflicts(HarmonyConflictRecorder.BuildBatch());
-            Profiler.Enabled = true;
+            Profiler.SetEnabled(true);
             GcObserverHost.Start();
             TpsFpsObserverHost.Start();
             // AllocationSamplerHost is opt-in and stays inert at bootstrap. Mod authors
