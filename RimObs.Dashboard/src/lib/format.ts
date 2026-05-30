@@ -1,5 +1,3 @@
-import type { MetricKind } from './api';
-
 export function ns(value: number): string {
     if (value <= 0) return '0';
     if (value < 1_000) return `${value} ns`;
@@ -27,7 +25,7 @@ export function rate(value: number | null): string {
 }
 
 const METRIC_KINDS = ['counter', 'gauge', 'histogram'];
-export function metricKind(kind: MetricKind | number): string {
+export function metricKind(kind: number): string {
     return METRIC_KINDS[kind] ?? `kind:${kind}`;
 }
 
