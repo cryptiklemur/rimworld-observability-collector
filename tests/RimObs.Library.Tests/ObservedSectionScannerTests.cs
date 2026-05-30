@@ -23,6 +23,7 @@ public class ObservedSectionScannerTests : System.IDisposable {
         SectionCatalog.Clear();
         SectionRegistry.Clear();
         OwnerRegistry.Clear();
+        System.GC.SuppressFinalize(this);
     }
 
     public class Target_BareAttribute {

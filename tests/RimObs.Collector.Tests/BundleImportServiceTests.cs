@@ -23,6 +23,7 @@ public class BundleImportServiceTests : IDisposable {
     public void Dispose() {
         _registry.RemoveAll();
         if (Directory.Exists(_baseDir)) Directory.Delete(_baseDir, recursive: true);
+        GC.SuppressFinalize(this);
     }
 
     private static MemoryStream BuildSampleBundle() {

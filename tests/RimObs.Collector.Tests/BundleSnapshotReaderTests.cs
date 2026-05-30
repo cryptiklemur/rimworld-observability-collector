@@ -26,6 +26,7 @@ public class BundleSnapshotReaderTests : IDisposable {
         }
         catch (IOException) {
         }
+        GC.SuppressFinalize(this);
     }
 
     private static SessionAggregator BuildSeededAggregator() {

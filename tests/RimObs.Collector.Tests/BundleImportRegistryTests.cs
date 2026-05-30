@@ -18,6 +18,7 @@ public class BundleImportRegistryTests : IDisposable {
     public void Dispose() {
         if (Directory.Exists(_baseDir))
             Directory.Delete(_baseDir, recursive: true);
+        GC.SuppressFinalize(this);
     }
 
     [Fact]

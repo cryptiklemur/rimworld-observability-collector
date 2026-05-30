@@ -22,6 +22,7 @@ public class PatchRegistryTests : IDisposable {
         PatchInstaller.ResetForTests();
         SectionCatalog.Clear();
         SectionRegistry.Clear();
+        System.GC.SuppressFinalize(this);
     }
 
     [Fact]

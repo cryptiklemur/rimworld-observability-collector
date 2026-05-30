@@ -57,6 +57,7 @@ public class ControlServerTests : IDisposable {
         SectionCatalog.Clear();
         SectionRegistry.Clear();
         ControlServices.ResetForTests();
+        GC.SuppressFinalize(this);
     }
 
     [Fact]

@@ -32,6 +32,7 @@ public class ComparisonEndpointsTests : IDisposable {
         }
         catch (IOException) {
         }
+        GC.SuppressFinalize(this);
     }
 
     private void SeedSession(string sessionId, string gameVersion, params (int Id, string Name, long Samples, long Total)[] sections) {
