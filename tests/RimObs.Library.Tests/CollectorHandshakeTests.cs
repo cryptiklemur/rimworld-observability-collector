@@ -57,6 +57,22 @@ public sealed class CollectorHandshakeTests {
         pong.SessionId.Should().Be("live");
     }
 
+
+    [Fact]
+    public void Receiver_survives_malformed_datagram_and_still_answers() {
+        using ReceiverServer server = new(collectorVersion: "9.9.9", sessionId: "resilient");
+
+        using (UdpClient garbage = new()) {
+            byte[] junk = { 0xdc };
+            garbage.Send(junk, junk.Length, "127.0.0.1", server.Port);
+        }
+
+        PongMessage? pong = CollectorHandshake.TryPing("127.0.0.1", server.Port, "the.owner", TimeSpan.FromSeconds(2));
+
+        pong.Should().NotBeNull("a malformed datagram must be skipped, not crash the receiver loop");
+        pong!.OwnerId.Should().Be("the.owner");
+    }
+
     [Fact]
     public void TryPing_returns_null_when_no_listener_responds() {
         int deadPort = GetFreePort();
@@ -112,12 +128,17 @@ public sealed class CollectorHandshakeTests {
                     break;
                 }
 
-                TelemetryBatch envelope = WireCodec.Deserialize<TelemetryBatch>(datagram);
-                if (envelope.BatchType != BatchType.Ping)
+                try {
+                    TelemetryBatch envelope = WireCodec.Deserialize<TelemetryBatch>(datagram);
+                    if (envelope.BatchType != BatchType.Ping)
+                        continue;
+                    PingMessage ping = WireCodec.Deserialize<PingMessage>(envelope.Payload);
+                    byte[] pong = BuildPong(ping.OwnerId, ping.SentAtUtcTicks, _version, _sessionId);
+                    _client.Send(pong, pong.Length, remote);
+                }
+                catch (WireFormatException) {
                     continue;
-                PingMessage ping = WireCodec.Deserialize<PingMessage>(envelope.Payload);
-                byte[] pong = BuildPong(ping.OwnerId, ping.SentAtUtcTicks, _version, _sessionId);
-                _client.Send(pong, pong.Length, remote);
+                }
             }
         }
 
