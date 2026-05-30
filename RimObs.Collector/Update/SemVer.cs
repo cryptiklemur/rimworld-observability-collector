@@ -39,7 +39,7 @@ public sealed class SemVer {
             pre = null;
         }
 
-        if (!Version.TryParse(corePart, out Version? core) || core is null)
+        if (!Version.TryParse(corePart, out Version? core))
             return false;
 
         result = new SemVer(core, pre);
