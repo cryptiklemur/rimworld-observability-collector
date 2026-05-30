@@ -16,6 +16,8 @@ internal sealed class WireBufferReader {
         _pos = 0;
     }
 
+    public int BytesRemaining => _data.Length - _pos;
+
     public int ReadArrayHeader() {
         byte code = ReadRawByte();
         if ((code & 0xf0) == 0x90)

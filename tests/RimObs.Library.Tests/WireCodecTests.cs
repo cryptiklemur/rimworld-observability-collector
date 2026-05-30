@@ -400,6 +400,46 @@ public sealed class WireCodecTests {
         back.Patches[1].Status.Should().Be(PatchStatus.Stale);
     }
 
+    [Fact]
+    public void ControlSearchResponse_rejects_count_larger_than_buffer() {
+        // Outer array header (0x91), then an int32 count of 0x7FFFFFFF (uint32 BE) and no payload.
+        // The old code allocated new ControlMethodDescriptor[count] from this attacker-controlled
+        // count before reading anything (SonarCloud S6680), risking an OOM on a malformed frame.
+        byte[] malformed = [0x91, 0xce, 0x7f, 0xff, 0xff, 0xff];
+
+        Action act = () => WireCodec.Deserialize<ControlSearchResponse>(malformed);
+
+        act.Should().Throw<WireFormatException>();
+    }
+
+    [Fact]
+    public void ControlPatchListResponse_rejects_count_larger_than_buffer() {
+        byte[] malformed = [0x91, 0xce, 0x7f, 0xff, 0xff, 0xff];
+
+        Action act = () => WireCodec.Deserialize<ControlPatchListResponse>(malformed);
+
+        act.Should().Throw<WireFormatException>();
+    }
+
+    [Fact]
+    public void ControlSearchResponse_rejects_descriptor_array_length_larger_than_buffer() {
+        // Valid envelope of one descriptor, but its ParamTypeFullNames array header claims 65535
+        // entries (0xdc 0xFFFF) with no data following. Guards ReadStringArray's element count.
+        byte[] malformed = [
+            0x91,                   // outer array header (discarded)
+            0x01,                   // count = 1 descriptor
+            0x95,                   // descriptor array header (discarded)
+            0xa0,                   // TypeFullName: ""
+            0xa0,                   // MethodName: ""
+            0xa0,                   // Signature: ""
+            0xdc, 0xff, 0xff,       // ParamTypeFullNames array header: 65535 entries
+        ];
+
+        Action act = () => WireCodec.Deserialize<ControlSearchResponse>(malformed);
+
+        act.Should().Throw<WireFormatException>();
+    }
+
     // Exhaustiveness guard for WireCodec's two parallel hand-maintained dispatch tables
     // (the Serialize<T> switch and the Deserialize<T> if/else chain). The set of supported
     // types is derived from the concrete Serialize overloads, so adding a new wire type means

@@ -401,6 +401,7 @@ public static class WireCodec {
         WireBufferReader reader = new WireBufferReader(data);
         reader.ReadArrayHeader();
         int count = reader.ReadInt32();
+        ValidateElementCount(count, reader);
         ControlMethodDescriptor[] results = new ControlMethodDescriptor[count];
         for (int i = 0; i < count; i++)
             results[i] = ReadControlMethodDescriptor(reader);
@@ -473,6 +474,7 @@ public static class WireCodec {
         WireBufferReader reader = new WireBufferReader(data);
         reader.ReadArrayHeader();
         int count = reader.ReadInt32();
+        ValidateElementCount(count, reader);
         ControlPatchEntry[] patches = new ControlPatchEntry[count];
         for (int i = 0; i < count; i++) {
             reader.ReadArrayHeader();
@@ -524,8 +526,14 @@ public static class WireCodec {
             writer.WriteString(values[i]);
     }
 
+    private static void ValidateElementCount(int count, WireBufferReader reader) {
+        if (count < 0 || count > reader.BytesRemaining)
+            throw new WireFormatException($"Array length {count} is invalid for a buffer with {reader.BytesRemaining} bytes remaining.");
+    }
+
     private static int[] ReadInt32Array(WireBufferReader reader) {
         int count = reader.ReadArrayHeader();
+        ValidateElementCount(count, reader);
         int[] result = new int[count];
         for (int i = 0; i < count; i++)
             result[i] = reader.ReadInt32();
@@ -534,6 +542,7 @@ public static class WireCodec {
 
     private static long[] ReadInt64Array(WireBufferReader reader) {
         int count = reader.ReadArrayHeader();
+        ValidateElementCount(count, reader);
         long[] result = new long[count];
         for (int i = 0; i < count; i++)
             result[i] = reader.ReadInt64();
@@ -542,6 +551,7 @@ public static class WireCodec {
 
     private static string[] ReadStringArray(WireBufferReader reader) {
         int count = reader.ReadArrayHeader();
+        ValidateElementCount(count, reader);
         string[] result = new string[count];
         for (int i = 0; i < count; i++)
             result[i] = reader.ReadString() ?? string.Empty;
