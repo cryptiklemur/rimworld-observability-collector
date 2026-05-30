@@ -34,8 +34,10 @@ public static class RuntimeFiles {
                 File.Delete(path);
         }
         catch (IOException) {
+            // Best-effort cleanup: the file may be locked or already gone.
         }
         catch (UnauthorizedAccessException) {
+            // Best-effort cleanup: deleting without permission is non-fatal here.
         }
     }
 

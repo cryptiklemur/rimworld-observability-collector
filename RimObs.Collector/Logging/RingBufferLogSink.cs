@@ -32,6 +32,7 @@ public sealed class RingBufferLogSink : ILogEventSink {
 
         _entries.Enqueue(entry);
         while (_entries.Count > _capacity && _entries.TryDequeue(out _)) {
+            // Eviction happens in the loop condition; nothing to do per iteration.
         }
     }
 
