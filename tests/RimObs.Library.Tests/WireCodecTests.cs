@@ -440,6 +440,23 @@ public sealed class WireCodecTests {
         act.Should().Throw<WireFormatException>();
     }
 
+
+    [Fact]
+    public void SectionRegistrationsBatch_rejects_nullable_subsystem_array_length_larger_than_buffer() {
+        // v3 payload: empty SectionIds and Names, but the Subsystems (nullable string) array
+        // header claims 65535 entries with no data following. Guards ReadNullableStringArray.
+        byte[] malformed = [
+            0x93,                   // outer array header: 3 fields
+            0x90,                   // SectionIds: empty int32 array
+            0x90,                   // Names: empty string array
+            0xdc, 0xff, 0xff,       // Subsystems array header: 65535 entries, no data
+        ];
+
+        Action act = () => WireCodec.Deserialize<SectionRegistrationsBatch>(malformed);
+
+        act.Should().Throw<WireFormatException>();
+    }
+
     // Exhaustiveness guard for WireCodec's two parallel hand-maintained dispatch tables
     // (the Serialize<T> switch and the Deserialize<T> if/else chain). The set of supported
     // types is derived from the concrete Serialize overloads, so adding a new wire type means

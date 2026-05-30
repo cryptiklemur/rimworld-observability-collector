@@ -526,8 +526,10 @@ public static class WireCodec {
             writer.WriteString(values[i]);
     }
 
+    private const int MaxElementCount = 1 << 20;
+
     private static void ValidateElementCount(int count, WireBufferReader reader) {
-        if (count < 0 || count > reader.BytesRemaining)
+        if (count < 0 || count > MaxElementCount || count > reader.BytesRemaining)
             throw new WireFormatException($"Array length {count} is invalid for a buffer with {reader.BytesRemaining} bytes remaining.");
     }
 
@@ -566,6 +568,7 @@ public static class WireCodec {
 
     private static string?[] ReadNullableStringArray(WireBufferReader reader) {
         int count = reader.ReadArrayHeader();
+        ValidateElementCount(count, reader);
         string?[] result = new string?[count];
         for (int i = 0; i < count; i++)
             result[i] = reader.ReadString();
