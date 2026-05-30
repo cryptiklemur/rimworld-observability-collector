@@ -55,53 +55,58 @@ internal static class ProfilingXmlLoader {
         foreach (XmlNode sectionNode in root.ChildNodes) {
             if (sectionNode.NodeType != XmlNodeType.Element || sectionNode.Name != "Section")
                 continue;
+            LoadSection((XmlElement)sectionNode, packageId, result);
+        }
+    }
 
-            XmlElement section = (XmlElement)sectionNode;
-            string sectionName = section.GetAttribute("name");
-            if (string.IsNullOrEmpty(sectionName)) {
-                result.Warnings.Add($"[{packageId}] <Section> missing 'name' attribute");
-                continue;
-            }
+    private static void LoadSection(XmlElement section, string packageId, LoadResult result) {
+        string sectionName = section.GetAttribute("name");
+        if (string.IsNullOrEmpty(sectionName)) {
+            result.Warnings.Add($"[{packageId}] <Section> missing 'name' attribute");
+            return;
+        }
 
-            string subsystem = section.GetAttribute("subsystem");
-            string prefixedName = packageId + "." + sectionName;
-            result.SectionsDeclared++;
+        string subsystem = section.GetAttribute("subsystem");
+        string prefixedName = packageId + "." + sectionName;
+        result.SectionsDeclared++;
 
-            XmlElement? methodsContainer = null;
-            foreach (XmlNode child in section.ChildNodes) {
-                if (child.NodeType == XmlNodeType.Element && child.Name == "Methods") {
-                    methodsContainer = (XmlElement)child;
-                    break;
-                }
-            }
-
-            if (methodsContainer == null) {
-                result.Warnings.Add($"[{packageId}] section '{sectionName}' missing <Methods> container");
-                continue;
-            }
-
-            foreach (XmlNode methodNode in methodsContainer.ChildNodes) {
-                if (methodNode.NodeType != XmlNodeType.Element || methodNode.Name != "Method")
-                    continue;
-
-                string spec = methodNode.InnerText?.Trim() ?? string.Empty;
-                if (spec.Length == 0) {
-                    result.Warnings.Add($"[{packageId}] section '{sectionName}' contains empty <Method>");
-                    continue;
-                }
-
-                if (!TrySplitMethodSpec(spec, out string typeName, out string methodName)) {
-                    result.Warnings.Add($"[{packageId}] section '{sectionName}' invalid <Method> '{spec}' (expected 'Type.FullName:MethodName')");
-                    continue;
-                }
-
-                string? entrySubsystem = string.IsNullOrEmpty(subsystem) ? null : subsystem;
-                CatalogEntry entry = SectionCatalog.Register(prefixedName, typeName, methodName, null, entrySubsystem);
-                entry.Declared = true;
-                entry.Owner = packageId;
-                result.MethodsDeclared++;
+        XmlElement? methodsContainer = null;
+        foreach (XmlNode child in section.ChildNodes) {
+            if (child.NodeType == XmlNodeType.Element && child.Name == "Methods") {
+                methodsContainer = (XmlElement)child;
+                break;
             }
         }
+
+        if (methodsContainer == null) {
+            result.Warnings.Add($"[{packageId}] section '{sectionName}' missing <Methods> container");
+            return;
+        }
+
+        foreach (XmlNode methodNode in methodsContainer.ChildNodes) {
+            if (methodNode.NodeType != XmlNodeType.Element || methodNode.Name != "Method")
+                continue;
+            LoadMethod(methodNode, sectionName, subsystem, prefixedName, packageId, result);
+        }
+    }
+
+    private static void LoadMethod(XmlNode methodNode, string sectionName, string subsystem, string prefixedName, string packageId, LoadResult result) {
+        string spec = methodNode.InnerText?.Trim() ?? string.Empty;
+        if (spec.Length == 0) {
+            result.Warnings.Add($"[{packageId}] section '{sectionName}' contains empty <Method>");
+            return;
+        }
+
+        if (!TrySplitMethodSpec(spec, out string typeName, out string methodName)) {
+            result.Warnings.Add($"[{packageId}] section '{sectionName}' invalid <Method> '{spec}' (expected 'Type.FullName:MethodName')");
+            return;
+        }
+
+        string? entrySubsystem = string.IsNullOrEmpty(subsystem) ? null : subsystem;
+        CatalogEntry entry = SectionCatalog.Register(prefixedName, typeName, methodName, null, entrySubsystem);
+        entry.Declared = true;
+        entry.Owner = packageId;
+        result.MethodsDeclared++;
     }
 
     internal static bool TrySplitMethodSpec(string spec, out string typeName, out string methodName) {

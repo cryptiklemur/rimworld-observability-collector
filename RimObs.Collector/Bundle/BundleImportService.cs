@@ -33,35 +33,17 @@ public sealed class BundleImportService {
         try {
             using ZipArchive zip = new ZipArchive(archiveStream, ZipArchiveMode.Read, leaveOpen: false);
 
-            foreach (ZipArchiveEntry e in zip.Entries) {
-                if (string.IsNullOrEmpty(e.Name)) continue;
-                if (e.FullName != e.Name) {
-                    return new BundleImportResult { Status = BundleImportStatus.InvalidArchive };
-                }
-                if (e.FullName.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(e.FullName)) {
-                    return new BundleImportResult { Status = BundleImportStatus.InvalidArchive };
-                }
-                names.Add(e.FullName);
-            }
+            if (!TryCollectEntryNames(zip, names))
+                return new BundleImportResult { Status = BundleImportStatus.InvalidArchive };
 
             if (!names.Contains("manifest.json"))
                 return new BundleImportResult { Status = BundleImportStatus.MissingManifest };
 
             entry = _registry.Register(names.ToArray());
 
-            string root = Path.GetFullPath(entry.TempDir) + Path.DirectorySeparatorChar;
-            foreach (ZipArchiveEntry e in zip.Entries) {
-                if (string.IsNullOrEmpty(e.Name)) continue;
-                string destPath = Path.GetFullPath(Path.Combine(entry.TempDir, e.FullName));
-                if (!destPath.StartsWith(root, StringComparison.Ordinal)) {
-                    _registry.Remove(entry.Token);
-                    return new BundleImportResult { Status = BundleImportStatus.InvalidArchive };
-                }
-                string? destDir = Path.GetDirectoryName(destPath);
-                if (destDir is not null) Directory.CreateDirectory(destDir);
-                using Stream src = e.Open();
-                using FileStream dst = File.Create(destPath);
-                await src.CopyToAsync(dst);
+            if (!await TryExtractEntries(zip, entry)) {
+                _registry.Remove(entry.Token);
+                return new BundleImportResult { Status = BundleImportStatus.InvalidArchive };
             }
 
             string manifestPath = Path.Combine(entry.TempDir, "manifest.json");
@@ -78,5 +60,33 @@ public sealed class BundleImportService {
             if (entry is not null) _registry.Remove(entry.Token);
             return new BundleImportResult { Status = BundleImportStatus.InvalidArchive };
         }
+    }
+
+    private static bool TryCollectEntryNames(ZipArchive zip, List<string> names) {
+        foreach (ZipArchiveEntry e in zip.Entries) {
+            if (string.IsNullOrEmpty(e.Name)) continue;
+            if (e.FullName != e.Name)
+                return false;
+            if (e.FullName.Contains("..", StringComparison.Ordinal) || Path.IsPathRooted(e.FullName))
+                return false;
+            names.Add(e.FullName);
+        }
+        return true;
+    }
+
+    private static async Task<bool> TryExtractEntries(ZipArchive zip, BundleImportEntry entry) {
+        string root = Path.GetFullPath(entry.TempDir) + Path.DirectorySeparatorChar;
+        foreach (ZipArchiveEntry e in zip.Entries) {
+            if (string.IsNullOrEmpty(e.Name)) continue;
+            string destPath = Path.GetFullPath(Path.Combine(entry.TempDir, e.FullName));
+            if (!destPath.StartsWith(root, StringComparison.Ordinal))
+                return false;
+            string? destDir = Path.GetDirectoryName(destPath);
+            if (destDir is not null) Directory.CreateDirectory(destDir);
+            using Stream src = e.Open();
+            using FileStream dst = File.Create(destPath);
+            await src.CopyToAsync(dst);
+        }
+        return true;
     }
 }
