@@ -107,9 +107,19 @@ public class ControlServerTests : IDisposable {
         HttpResponseMessage res = await PostMsg("/patch", WireCodec.Serialize(req));
         res.StatusCode.Should().Be(HttpStatusCode.OK);
 
-        HttpResponseMessage list = await GetMsg("/patches");
-        ControlPatchListResponse decoded = WireCodec.Deserialize<ControlPatchListResponse>(
-            await list.Content.ReadAsByteArrayAsync());
+        // The POST only enqueues the patch op; the background drain pump applies it ~5ms later.
+        // Poll /patches until the apply lands instead of reading once and racing the drain.
+        ControlPatchListResponse decoded = new();
+        DateTime deadline = DateTime.UtcNow.AddSeconds(2);
+        while (DateTime.UtcNow < deadline) {
+            HttpResponseMessage list = await GetMsg("/patches");
+            decoded = WireCodec.Deserialize<ControlPatchListResponse>(
+                await list.Content.ReadAsByteArrayAsync());
+            if (decoded.Patches.Length > 0)
+                break;
+            await Task.Delay(10);
+        }
+
         decoded.Patches.Should().NotBeEmpty();
     }
 
