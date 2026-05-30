@@ -247,7 +247,7 @@ public sealed class BundleExportService {
         };
     }
 
-    private object BuildLoadOrder() {
+    private static object BuildLoadOrder() {
         return new { mods = Array.Empty<object>() };
     }
 
@@ -259,7 +259,7 @@ public sealed class BundleExportService {
         };
     }
 
-    private object BuildAllocations() {
+    private static object BuildAllocations() {
         return new { allocations = Array.Empty<object>() };
     }
 

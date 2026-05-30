@@ -118,14 +118,14 @@ internal sealed class ControlServer {
         }));
     }
 
-    private void HandlePatchList(HttpListenerContext ctx) {
+    private static void HandlePatchList(HttpListenerContext ctx) {
         List<ControlPatchEntry> entries = new List<ControlPatchEntry>();
         foreach ((int id, string sig, int sec, PatchStatus status) in PatchRegistry.Snapshot())
             entries.Add(new ControlPatchEntry { PatchId = id, Signature = sig, SectionId = sec, Status = status });
         WriteResponse(ctx, WireCodec.Serialize(new ControlPatchListResponse { Patches = entries.ToArray() }));
     }
 
-    private void HandleUnpatch(HttpListenerContext ctx, string path) {
+    private static void HandleUnpatch(HttpListenerContext ctx, string path) {
         string suffix = path.Substring("/patch/".Length);
         if (!int.TryParse(suffix, out int id)) {
             ctx.Response.StatusCode = (int)HttpStatusCode.BadRequest;
