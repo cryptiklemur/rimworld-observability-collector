@@ -15,6 +15,7 @@ namespace Cryptiklemur.RimObs.Collector.Api;
 public static class ComparisonEndpoints {
     private const int DefaultHotspotLimit = 50;
     private const int MaxHotspotLimit = 500;
+    private const string UnknownSessionReason = "unknown session";
 
     public static IEndpointRouteBuilder MapComparisonEndpoints(this IEndpointRouteBuilder endpoints) {
         endpoints.MapGet("/api/v1/sessions/current/load_order", (SessionAggregator aggregator, IServiceProvider services) => {
@@ -27,7 +28,7 @@ public static class ComparisonEndpoints {
         endpoints.MapGet("/api/v1/sessions/{id}/summary", (string id, SessionAggregator aggregator, IServiceProvider services) => {
             SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
             if (snapshot is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown session" });
+                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
 
             long totalNs = 0;
             long totalSamples = 0;
@@ -55,7 +56,7 @@ public static class ComparisonEndpoints {
         endpoints.MapGet("/api/v1/sessions/{id}/hotspots", (string id, int? limit, SessionAggregator aggregator, IServiceProvider services) => {
             SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
             if (snapshot is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown session" });
+                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
 
             int take = QueryLimit.Clamp(limit, DefaultHotspotLimit, MaxHotspotLimit);
             return Results.Ok(new {
@@ -81,7 +82,7 @@ public static class ComparisonEndpoints {
         endpoints.MapGet("/api/v1/sessions/{id}/metrics", (string id, SessionAggregator aggregator, IServiceProvider services) => {
             SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
             if (snapshot is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown session" });
+                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
 
             return Results.Ok(new {
                 schema_version = SchemaVersion.Current,
@@ -100,7 +101,7 @@ public static class ComparisonEndpoints {
         endpoints.MapGet("/api/v1/sessions/{id}/load_order", (string id, SessionAggregator aggregator, IServiceProvider services) => {
             SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
             if (snapshot is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown session" });
+                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
             return Results.Ok(LoadOrderPayload(snapshot));
         });
 

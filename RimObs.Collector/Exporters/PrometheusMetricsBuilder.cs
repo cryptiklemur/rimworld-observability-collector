@@ -15,6 +15,8 @@ public sealed class PrometheusMetricsBuilder {
 
     private const string Ns = "rimobs_";
     private const int TopSectionLimit = 64;
+    private const string GaugeType = "gauge";
+    private const string CounterType = "counter";
 
     private readonly int _labelCardinalityLimit;
 
@@ -39,13 +41,13 @@ public sealed class PrometheusMetricsBuilder {
     }
 
     private static int WriteReceiveMetrics(PrometheusExposition ex, SessionAggregator aggregator) {
-        ex.WriteMetadata(Ns + "collector_connected", "gauge", "1 when a session is currently reporting, else 0.");
+        ex.WriteMetadata(Ns + "collector_connected", GaugeType, "1 when a session is currently reporting, else 0.");
         ex.WriteSample(Ns + "collector_connected", aggregator.Meta is null ? 0 : 1);
 
-        ex.WriteMetadata(Ns + "collector_batches_total", "counter", "Total telemetry batches received by the collector.");
+        ex.WriteMetadata(Ns + "collector_batches_total", CounterType, "Total telemetry batches received by the collector.");
         ex.WriteSample(Ns + "collector_batches_total", aggregator.TotalBatches);
 
-        ex.WriteMetadata(Ns + "collector_samples_total", "counter", "Total section timing samples received.");
+        ex.WriteMetadata(Ns + "collector_samples_total", CounterType, "Total section timing samples received.");
         ex.WriteSample(Ns + "collector_samples_total", aggregator.TotalSamples);
 
         return 3;
@@ -55,10 +57,10 @@ public sealed class PrometheusMetricsBuilder {
         if (!aggregator.HasTpsFps)
             return 0;
 
-        ex.WriteMetadata(Ns + "tps", "gauge", "Most recent ticks-per-second sample.");
+        ex.WriteMetadata(Ns + "tps", GaugeType, "Most recent ticks-per-second sample.");
         ex.WriteSample(Ns + "tps", aggregator.LatestTps);
 
-        ex.WriteMetadata(Ns + "fps", "gauge", "Most recent frames-per-second sample.");
+        ex.WriteMetadata(Ns + "fps", GaugeType, "Most recent frames-per-second sample.");
         ex.WriteSample(Ns + "fps", aggregator.LatestFps);
 
         return 2;
@@ -79,9 +81,9 @@ public sealed class PrometheusMetricsBuilder {
         for (int i = 0; i < count; i++) {
             SectionStats s = sections[i];
             if (!metaWritten) {
-                ex.WriteMetadata(Ns + "section_duration_seconds_count", "counter", "Section timing sample count, top sections only.");
-                ex.WriteMetadata(Ns + "section_duration_seconds_sum", "counter", "Section total elapsed time in seconds, top sections only.");
-                ex.WriteMetadata(Ns + "section_duration_seconds_max", "gauge", "Section maximum elapsed time in seconds, top sections only.");
+                ex.WriteMetadata(Ns + "section_duration_seconds_count", CounterType, "Section timing sample count, top sections only.");
+                ex.WriteMetadata(Ns + "section_duration_seconds_sum", CounterType, "Section total elapsed time in seconds, top sections only.");
+                ex.WriteMetadata(Ns + "section_duration_seconds_max", GaugeType, "Section maximum elapsed time in seconds, top sections only.");
                 metaWritten = true;
             }
 
@@ -113,10 +115,10 @@ public sealed class PrometheusMetricsBuilder {
             byGen[e.Generation] = acc;
         }
 
-        ex.WriteMetadata(Ns + "gc_collections_total", "counter", "GC collections observed, by generation.");
-        ex.WriteMetadata(Ns + "gc_pause_seconds_sum", "counter", "Total GC pause time in seconds, by generation.");
-        ex.WriteMetadata(Ns + "gc_pause_seconds_count", "counter", "GC pause sample count, by generation.");
-        ex.WriteMetadata(Ns + "managed_heap_bytes", "gauge", "Most recent managed heap size in bytes, by generation.");
+        ex.WriteMetadata(Ns + "gc_collections_total", CounterType, "GC collections observed, by generation.");
+        ex.WriteMetadata(Ns + "gc_pause_seconds_sum", CounterType, "Total GC pause time in seconds, by generation.");
+        ex.WriteMetadata(Ns + "gc_pause_seconds_count", CounterType, "GC pause sample count, by generation.");
+        ex.WriteMetadata(Ns + "managed_heap_bytes", GaugeType, "Most recent managed heap size in bytes, by generation.");
 
         int samples = 0;
         PrometheusLabelCardinality genLabels = new(_labelCardinalityLimit);
@@ -141,8 +143,8 @@ public sealed class PrometheusMetricsBuilder {
 
             string name = Ns + "metric_" + Sanitize(metric.Name);
             string type = metric.Kind switch {
-                MetricKind.Counter => "counter",
-                MetricKind.Gauge => "gauge",
+                MetricKind.Counter => CounterType,
+                MetricKind.Gauge => GaugeType,
                 _ => "untyped",
             };
             ex.WriteMetadata(name, type, $"Custom {metric.Kind} '{metric.Name}'.");
