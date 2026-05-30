@@ -7,6 +7,7 @@ using Xunit;
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
 public sealed class RingBufferLogSinkTests {
+    private static readonly string[] NewestFirstMessages = ["c", "b"];
     [Fact]
     public void Ctor_rejects_zero_or_negative_capacity() {
         Action zero = () => _ = new RingBufferLogSink(0);
@@ -43,7 +44,7 @@ public sealed class RingBufferLogSinkTests {
         sink.Count.Should().Be(2);
         IReadOnlyList<LogEntry> snap = sink.Snapshot(limit: 10);
         snap.Should().HaveCount(2);
-        snap.Select(e => e.Message).Should().BeEquivalentTo(new[] { "c", "b" }, opts => opts.WithStrictOrdering());
+        snap.Select(e => e.Message).Should().BeEquivalentTo(NewestFirstMessages, opts => opts.WithStrictOrdering());
     }
 
     [Fact]

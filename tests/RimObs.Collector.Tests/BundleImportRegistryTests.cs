@@ -7,6 +7,7 @@ using Xunit;
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
 public class BundleImportRegistryTests : IDisposable {
+    private static readonly string[] ManifestOnly = ["manifest.json"];
     private readonly string _baseDir;
 
     public BundleImportRegistryTests() {
@@ -22,7 +23,7 @@ public class BundleImportRegistryTests : IDisposable {
     [Fact]
     public void Register_ReturnsToken_WithDirectoryUnderBase() {
         BundleImportRegistry registry = new BundleImportRegistry(_baseDir, TimeSpan.FromMinutes(30));
-        BundleImportEntry entry = registry.Register(new[] { "manifest.json" });
+        BundleImportEntry entry = registry.Register(ManifestOnly);
 
         entry.Token.Should().NotBeNullOrEmpty();
         entry.TempDir.Should().StartWith(_baseDir);
@@ -32,7 +33,7 @@ public class BundleImportRegistryTests : IDisposable {
     [Fact]
     public void TryGet_ReturnsRegisteredEntry() {
         BundleImportRegistry registry = new BundleImportRegistry(_baseDir, TimeSpan.FromMinutes(30));
-        BundleImportEntry entry = registry.Register(new[] { "manifest.json" });
+        BundleImportEntry entry = registry.Register(ManifestOnly);
 
         registry.TryGet(entry.Token, out BundleImportEntry? found).Should().BeTrue();
         found!.Token.Should().Be(entry.Token);
@@ -41,7 +42,7 @@ public class BundleImportRegistryTests : IDisposable {
     [Fact]
     public void Remove_DeletesTempDir() {
         BundleImportRegistry registry = new BundleImportRegistry(_baseDir, TimeSpan.FromMinutes(30));
-        BundleImportEntry entry = registry.Register(new[] { "manifest.json" });
+        BundleImportEntry entry = registry.Register(ManifestOnly);
         File.WriteAllText(Path.Combine(entry.TempDir, "manifest.json"), "{}");
 
         registry.Remove(entry.Token).Should().BeTrue();
@@ -53,7 +54,7 @@ public class BundleImportRegistryTests : IDisposable {
     public void SweepIdle_RemovesEntriesPastTimeout() {
         DateTime now = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         BundleImportRegistry registry = new BundleImportRegistry(_baseDir, TimeSpan.FromMinutes(30), () => now);
-        BundleImportEntry entry = registry.Register(new[] { "manifest.json" });
+        BundleImportEntry entry = registry.Register(ManifestOnly);
         now = now.AddMinutes(31);
 
         int removed = registry.SweepIdle();
@@ -66,7 +67,7 @@ public class BundleImportRegistryTests : IDisposable {
     public void Touch_ResetsLastAccess() {
         DateTime now = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
         BundleImportRegistry registry = new BundleImportRegistry(_baseDir, TimeSpan.FromMinutes(30), () => now);
-        BundleImportEntry entry = registry.Register(new[] { "manifest.json" });
+        BundleImportEntry entry = registry.Register(ManifestOnly);
         now = now.AddMinutes(20);
         registry.Touch(entry.Token);
         now = now.AddMinutes(20);
@@ -80,8 +81,8 @@ public class BundleImportRegistryTests : IDisposable {
     [Fact]
     public void RemoveAll_WipesEverything() {
         BundleImportRegistry registry = new BundleImportRegistry(_baseDir, TimeSpan.FromMinutes(30));
-        BundleImportEntry a = registry.Register(new[] { "manifest.json" });
-        BundleImportEntry b = registry.Register(new[] { "manifest.json" });
+        BundleImportEntry a = registry.Register(ManifestOnly);
+        BundleImportEntry b = registry.Register(ManifestOnly);
 
         registry.RemoveAll();
 

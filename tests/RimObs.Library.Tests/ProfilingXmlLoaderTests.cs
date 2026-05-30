@@ -11,6 +11,8 @@ using Xunit;
 namespace Cryptiklemur.RimObs.Tests;
 
 public sealed class ProfilingXmlLoaderTests : IDisposable {
+    private static readonly string[] ExpectedMethodNames = ["Calculate", "Apply"];
+    private static readonly string[] ExpectedTypeNames = ["MyMod.Combat.HitChance", "MyMod.Combat.Damage"];
     private readonly List<string> _tempDirs = new();
 
     public void Dispose() {
@@ -88,8 +90,8 @@ public sealed class ProfilingXmlLoaderTests : IDisposable {
             e.Owner.Should().Be("test.single");
             e.Subsystem.Should().Be("game");
         });
-        mine.Select(e => e.MethodName).Should().BeEquivalentTo(new[] { "Calculate", "Apply" });
-        mine.Select(e => e.TypeName).Should().BeEquivalentTo(new[] { "MyMod.Combat.HitChance", "MyMod.Combat.Damage" });
+        mine.Select(e => e.MethodName).Should().BeEquivalentTo(ExpectedMethodNames);
+        mine.Select(e => e.TypeName).Should().BeEquivalentTo(ExpectedTypeNames);
     }
 
     [Fact]

@@ -10,6 +10,7 @@ using Xunit;
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
 public class BundleImportServiceTests : IDisposable {
+    private static readonly string[] ExpectedContents = ["manifest.json", "session_summary.json"];
     private readonly string _baseDir;
     private readonly BundleImportRegistry _registry;
 
@@ -53,7 +54,7 @@ public class BundleImportServiceTests : IDisposable {
 
         result.Status.Should().Be(BundleImportStatus.Ok);
         result.Entry.Should().NotBeNull();
-        result.Entry!.Contents.Should().BeEquivalentTo(new[] { "manifest.json", "session_summary.json" });
+        result.Entry!.Contents.Should().BeEquivalentTo(ExpectedContents);
         File.Exists(Path.Combine(result.Entry.TempDir, "manifest.json")).Should().BeTrue();
     }
 

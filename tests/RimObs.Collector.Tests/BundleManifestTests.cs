@@ -7,6 +7,7 @@ using Xunit;
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
 public class BundleManifestTests {
+    private static readonly string[] ExpectedEntries = ["manifest.json", "session_summary.json"];
     [Fact]
     public void Manifest_RoundTripsThroughJson() {
         BundleManifest manifest = new BundleManifest {
@@ -23,7 +24,7 @@ public class BundleManifestTests {
         round.Should().NotBeNull();
         round!.SchemaVersion.Should().Be(1);
         round.SessionId.Should().Be("sess-abc");
-        round.Entries.Should().BeEquivalentTo(new[] { "manifest.json", "session_summary.json" });
+        round.Entries.Should().BeEquivalentTo(ExpectedEntries);
     }
 
     [Fact]

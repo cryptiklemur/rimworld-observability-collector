@@ -15,6 +15,22 @@ using Xunit;
 namespace Cryptiklemur.RimObs.Collector.Tests;
 
 public class BundleExportServiceTests {
+    private static readonly string[] RequiredEntries = [
+        "manifest.json",
+        "session_summary.json",
+        "metric_descriptors.json",
+        "hotspots.json",
+        "custom_metrics.json",
+        "load_order.json",
+        "collector_health.json",
+        "report.html",
+    ];
+    private static readonly string[] OptionalEntries = [
+        "allocations.json",
+        "gc_events.json",
+        "patches.json",
+        "call_hierarchy.json",
+    ];
     private static SessionAggregator BuildAggregator() {
         SessionAggregator aggregator = new SessionAggregator();
         aggregator.OnSessionMeta(new SessionMeta {
@@ -43,16 +59,7 @@ public class BundleExportServiceTests {
         using MemoryStream ms = new MemoryStream(result.Bytes!);
         using ZipArchive zip = new ZipArchive(ms, ZipArchiveMode.Read);
         IEnumerable<string> names = zip.Entries.Select(e => e.FullName);
-        names.Should().Contain(new[] {
-            "manifest.json",
-            "session_summary.json",
-            "metric_descriptors.json",
-            "hotspots.json",
-            "custom_metrics.json",
-            "load_order.json",
-            "collector_health.json",
-            "report.html",
-        });
+        names.Should().Contain(RequiredEntries);
     }
 
     [Fact]
@@ -73,12 +80,7 @@ public class BundleExportServiceTests {
         using MemoryStream ms = new MemoryStream(result.Bytes!);
         using ZipArchive zip = new ZipArchive(ms, ZipArchiveMode.Read);
         IEnumerable<string> names = zip.Entries.Select(e => e.FullName).ToArray();
-        names.Should().Contain(new[] {
-            "allocations.json",
-            "gc_events.json",
-            "patches.json",
-            "call_hierarchy.json",
-        });
+        names.Should().Contain(OptionalEntries);
         names.Should().NotContain("metrics.sqlite");
     }
 
