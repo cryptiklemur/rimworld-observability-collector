@@ -401,8 +401,7 @@ ON CONFLICT(parent_id, section_id) DO UPDATE SET
     }
 
     private void ThrowIfDisposed() {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(SessionStore));
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
     private static void SetWalMode(SqliteConnection connection) {

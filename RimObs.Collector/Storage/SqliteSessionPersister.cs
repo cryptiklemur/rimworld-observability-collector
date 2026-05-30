@@ -94,8 +94,7 @@ public sealed class SqliteSessionPersister : ISessionPersister {
     }
 
     private void ThrowIfDisposed() {
-        if (_disposed)
-            throw new ObjectDisposedException(nameof(SqliteSessionPersister));
+        ObjectDisposedException.ThrowIf(_disposed, this);
     }
 
 
