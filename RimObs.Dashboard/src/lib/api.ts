@@ -408,10 +408,10 @@ export const api = {
     gc: (limit = 200) => get<GcResponse>(`/api/v1/sessions/current/gc?limit=${limit}`),
     callTree: (depth = 10, top = 16) =>
         get<CallTreeResponse>(`/api/v1/sessions/current/call_tree?depth=${depth}&top=${top}`),
-    logs: (limit = 200, level?: string) =>
-        get<LogsResponse>(
-            `/api/v1/logs?limit=${limit}${level ? `&level=${encodeURIComponent(level)}` : ''}`,
-        ),
+    logs: (limit = 200, level?: string) => {
+        const levelParam = level ? `&level=${encodeURIComponent(level)}` : '';
+        return get<LogsResponse>(`/api/v1/logs?limit=${limit}${levelParam}`);
+    },
     sessions: () => get<SessionsResponse>('/api/v1/sessions'),
     compareSessions: (base: string, head: string) =>
         get<ComparisonResponse>(
@@ -433,7 +433,11 @@ export const api = {
     }): Promise<InstrumentationPatchResult> => {
         const res = await fetch('/api/v1/instrumentation/patch', {
             method: 'POST',
-            headers: { 'content-type': 'application/json', accept: 'application/json', ...authHeaders() },
+            headers: {
+                'content-type': 'application/json',
+                accept: 'application/json',
+                ...authHeaders(),
+            },
             body: JSON.stringify(req),
         });
         if (!res.ok) throw new ApiError(res.status, `${res.status} ${res.statusText}`);
@@ -458,12 +462,19 @@ export const api = {
         });
         if (res.status === 413) {
             const body = await res.json();
-            return { kind: 'over_cap', estimatedBytes: body.estimated_bytes, capBytes: body.cap_bytes };
+            return {
+                kind: 'over_cap',
+                estimatedBytes: body.estimated_bytes,
+                capBytes: body.cap_bytes,
+            };
         }
         if (!res.ok) return { kind: 'error', message: `server returned ${res.status}` };
         return { kind: 'ok', blob: await res.blob() };
     },
-    estimateBundle: async (sessionId: string, includes: string[]): Promise<EstimateBundleResult> => {
+    estimateBundle: async (
+        sessionId: string,
+        includes: string[],
+    ): Promise<EstimateBundleResult> => {
         const res = await fetch('/api/v1/export/bundle/estimate', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', ...authHeaders() },
@@ -496,7 +507,8 @@ export const api = {
             method: 'DELETE',
             headers: authHeaders(),
         });
-        if (!res.ok && res.status !== 404) throw new ApiError(res.status, `delete failed: ${res.status}`);
+        if (!res.ok && res.status !== 404)
+            throw new ApiError(res.status, `delete failed: ${res.status}`);
     },
     captures: (tree = false) =>
         get<CapturesResponse>(`/api/v1/sessions/current/captures${tree ? '?tree=true' : ''}`),
