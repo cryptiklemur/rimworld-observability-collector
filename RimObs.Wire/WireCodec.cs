@@ -51,52 +51,6 @@ public static class WireCodec {
         }
     }
 
-    public static T Deserialize<T>(byte[] data) where T : class {
-        if (data == null)
-            throw new ArgumentNullException(nameof(data));
-
-        Type t = typeof(T);
-        object result;
-        if (t == typeof(TelemetryBatch))
-            result = ReadTelemetryBatch(data);
-        else if (t == typeof(PingMessage))
-            result = ReadPingMessage(data);
-        else if (t == typeof(PongMessage))
-            result = ReadPongMessage(data);
-        else if (t == typeof(SessionMeta))
-            result = ReadSessionMeta(data);
-        else if (t == typeof(SectionRegistrationsBatch))
-            result = ReadSectionRegistrationsBatch(data);
-        else if (t == typeof(SectionBatch))
-            result = ReadSectionBatch(data);
-        else if (t == typeof(MetricRegistrationsBatch))
-            result = ReadMetricRegistrationsBatch(data);
-        else if (t == typeof(MetricsBatch))
-            result = ReadMetricsBatch(data);
-        else if (t == typeof(GcEventsBatch))
-            result = ReadGcEventsBatch(data);
-        else if (t == typeof(AllocationsBatch))
-            result = ReadAllocationsBatch(data);
-        else if (t == typeof(PatchConflictsBatch))
-            result = ReadPatchConflictsBatch(data);
-        else if (t == typeof(TpsFpsBatch))
-            result = ReadTpsFpsBatch(data);
-        else if (t == typeof(ControlSearchRequest))
-            result = ReadControlSearchRequest(data);
-        else if (t == typeof(ControlSearchResponse))
-            result = ReadControlSearchResponse(data);
-        else if (t == typeof(ControlPatchRequest))
-            result = ReadControlPatchRequest(data);
-        else if (t == typeof(ControlPatchResponse))
-            result = ReadControlPatchResponse(data);
-        else if (t == typeof(ControlPatchListResponse))
-            result = ReadControlPatchListResponse(data);
-        else
-            throw new NotSupportedException($"WireCodec cannot deserialize {t}.");
-
-        return (T)result;
-    }
-
     public static byte[] Serialize(TelemetryBatch value) {
         WireBufferWriter writer = new WireBufferWriter();
         writer.WriteArrayHeader(5);
@@ -239,6 +193,87 @@ public static class WireCodec {
         for (int i = 0; i < value.Results.Length; i++)
             WriteControlMethodDescriptor(writer, value.Results[i]);
         return writer.ToArray();
+    }
+
+    public static byte[] Serialize(ControlPatchRequest value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(3);
+        writer.WriteString(value.TypeFullName);
+        writer.WriteString(value.MethodName);
+        WriteStringArray(writer, value.ParamTypeFullNames);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(ControlPatchResponse value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(5);
+        writer.WriteInt32(value.PatchId);
+        writer.WriteInt32(value.SectionId);
+        writer.WriteString(value.SectionName);
+        writer.WriteUInt8((byte)value.Status);
+        writer.WriteString(value.ErrorReason ?? string.Empty);
+        return writer.ToArray();
+    }
+
+    public static byte[] Serialize(ControlPatchListResponse value) {
+        WireBufferWriter writer = new WireBufferWriter();
+        writer.WriteArrayHeader(1);
+        writer.WriteInt32(value.Patches.Length);
+        for (int i = 0; i < value.Patches.Length; i++) {
+            ControlPatchEntry e = value.Patches[i];
+            writer.WriteArrayHeader(4);
+            writer.WriteInt32(e.PatchId);
+            writer.WriteString(e.Signature);
+            writer.WriteInt32(e.SectionId);
+            writer.WriteUInt8((byte)e.Status);
+        }
+        return writer.ToArray();
+    }
+
+    public static T Deserialize<T>(byte[] data) where T : class {
+        if (data == null)
+            throw new ArgumentNullException(nameof(data));
+
+        Type t = typeof(T);
+        object result;
+        if (t == typeof(TelemetryBatch))
+            result = ReadTelemetryBatch(data);
+        else if (t == typeof(PingMessage))
+            result = ReadPingMessage(data);
+        else if (t == typeof(PongMessage))
+            result = ReadPongMessage(data);
+        else if (t == typeof(SessionMeta))
+            result = ReadSessionMeta(data);
+        else if (t == typeof(SectionRegistrationsBatch))
+            result = ReadSectionRegistrationsBatch(data);
+        else if (t == typeof(SectionBatch))
+            result = ReadSectionBatch(data);
+        else if (t == typeof(MetricRegistrationsBatch))
+            result = ReadMetricRegistrationsBatch(data);
+        else if (t == typeof(MetricsBatch))
+            result = ReadMetricsBatch(data);
+        else if (t == typeof(GcEventsBatch))
+            result = ReadGcEventsBatch(data);
+        else if (t == typeof(AllocationsBatch))
+            result = ReadAllocationsBatch(data);
+        else if (t == typeof(PatchConflictsBatch))
+            result = ReadPatchConflictsBatch(data);
+        else if (t == typeof(TpsFpsBatch))
+            result = ReadTpsFpsBatch(data);
+        else if (t == typeof(ControlSearchRequest))
+            result = ReadControlSearchRequest(data);
+        else if (t == typeof(ControlSearchResponse))
+            result = ReadControlSearchResponse(data);
+        else if (t == typeof(ControlPatchRequest))
+            result = ReadControlPatchRequest(data);
+        else if (t == typeof(ControlPatchResponse))
+            result = ReadControlPatchResponse(data);
+        else if (t == typeof(ControlPatchListResponse))
+            result = ReadControlPatchListResponse(data);
+        else
+            throw new NotSupportedException($"WireCodec cannot deserialize {t}.");
+
+        return (T)result;
     }
 
     private static TelemetryBatch ReadTelemetryBatch(byte[] data) {
@@ -406,41 +441,6 @@ public static class WireCodec {
         for (int i = 0; i < count; i++)
             results[i] = ReadControlMethodDescriptor(reader);
         return new ControlSearchResponse { Results = results };
-    }
-
-    public static byte[] Serialize(ControlPatchRequest value) {
-        WireBufferWriter writer = new WireBufferWriter();
-        writer.WriteArrayHeader(3);
-        writer.WriteString(value.TypeFullName);
-        writer.WriteString(value.MethodName);
-        WriteStringArray(writer, value.ParamTypeFullNames);
-        return writer.ToArray();
-    }
-
-    public static byte[] Serialize(ControlPatchResponse value) {
-        WireBufferWriter writer = new WireBufferWriter();
-        writer.WriteArrayHeader(5);
-        writer.WriteInt32(value.PatchId);
-        writer.WriteInt32(value.SectionId);
-        writer.WriteString(value.SectionName);
-        writer.WriteUInt8((byte)value.Status);
-        writer.WriteString(value.ErrorReason ?? string.Empty);
-        return writer.ToArray();
-    }
-
-    public static byte[] Serialize(ControlPatchListResponse value) {
-        WireBufferWriter writer = new WireBufferWriter();
-        writer.WriteArrayHeader(1);
-        writer.WriteInt32(value.Patches.Length);
-        for (int i = 0; i < value.Patches.Length; i++) {
-            ControlPatchEntry e = value.Patches[i];
-            writer.WriteArrayHeader(4);
-            writer.WriteInt32(e.PatchId);
-            writer.WriteString(e.Signature);
-            writer.WriteInt32(e.SectionId);
-            writer.WriteUInt8((byte)e.Status);
-        }
-        return writer.ToArray();
     }
 
     private static ControlPatchRequest ReadControlPatchRequest(byte[] data) {
