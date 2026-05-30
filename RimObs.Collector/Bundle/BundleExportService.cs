@@ -43,15 +43,13 @@ public sealed class BundleExportService {
     public const int BundleSchemaVersion = 1;
 
     private readonly SessionAggregator _aggregator;
-    private readonly ISessionPersister? _persister;
     private readonly string _collectorVersion;
     private readonly DateTimeOffset _startedUtc;
 
     internal Func<BundleEstimateInput, BundleSizeEstimate>? EstimateOverride { get; set; }
 
-    public BundleExportService(SessionAggregator aggregator, ISessionPersister? persister, string collectorVersion, DateTimeOffset? startedUtc = null) {
+    public BundleExportService(SessionAggregator aggregator, string collectorVersion, DateTimeOffset? startedUtc = null) {
         _aggregator = aggregator;
-        _persister = persister;
         _collectorVersion = collectorVersion;
         _startedUtc = startedUtc ?? ProcessStartUtc();
     }

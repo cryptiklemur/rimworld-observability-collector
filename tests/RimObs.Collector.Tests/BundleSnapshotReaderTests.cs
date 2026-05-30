@@ -64,7 +64,7 @@ public class BundleSnapshotReaderTests : IDisposable {
     }
 
     private async Task<(BundleImportRegistry Registry, string Token)> ExportAndImport() {
-        BundleExportService export = new BundleExportService(BuildSeededAggregator(), persister: null, collectorVersion: "0.1.0");
+        BundleExportService export = new BundleExportService(BuildSeededAggregator(), collectorVersion: "0.1.0");
         BundleExportResult result = await export.ExportAsync(new BundleExportRequest {
             SessionId = "bundle-sess",
             Includes = new System.Collections.Generic.HashSet<BundleContentKey>(),

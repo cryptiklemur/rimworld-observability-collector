@@ -102,7 +102,6 @@ public static class Program {
         builder.Services.AddSingleton<Aggregation.SessionAggregator>();
         builder.Services.AddSingleton(sp => new Bundle.BundleExportService(
             sp.GetRequiredService<Aggregation.SessionAggregator>(),
-            sp.GetService<Storage.ISessionPersister>(),
             BuildInfo.Revision));
         string importsDir = Path.Combine(sessionsDir ?? ConfigDirResolver.Resolve(), "imports");
         builder.Services.AddSingleton(new Bundle.BundleImportRegistry(importsDir, TimeSpan.FromMinutes(30)));

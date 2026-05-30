@@ -109,7 +109,7 @@ public class ComparisonEndpointsTests : IDisposable {
         aggregator.OnSectionRegistrations(new SectionRegistrationsBatch { SectionIds = ids, Names = names });
         aggregator.OnSectionBatch(new SectionBatch { SectionIds = ids, StartTimestamps = starts, ElapsedTicks = elapsed });
 
-        BundleExportService export = new BundleExportService(aggregator, persister: null, collectorVersion: "0.1.0");
+        BundleExportService export = new BundleExportService(aggregator, collectorVersion: "0.1.0");
         BundleExportResult result = export.ExportAsync(new BundleExportRequest {
             SessionId = sessionId,
             Includes = new HashSet<BundleContentKey>(),

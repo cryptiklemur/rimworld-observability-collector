@@ -45,7 +45,7 @@ public class BundleExportServiceTests {
 
     [Fact]
     public async Task Export_WritesAllRequiredEntries() {
-        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0");
+        BundleExportService service = new BundleExportService(BuildAggregator(), collectorVersion: "0.1.0");
 
         BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
             SessionId = "sess-test",
@@ -64,7 +64,7 @@ public class BundleExportServiceTests {
 
     [Fact]
     public async Task Export_OptionalEntriesAddedWhenIncluded() {
-        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0");
+        BundleExportService service = new BundleExportService(BuildAggregator(), collectorVersion: "0.1.0");
 
         BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
             SessionId = "sess-test",
@@ -86,7 +86,7 @@ public class BundleExportServiceTests {
 
     [Fact]
     public async Task Export_RejectsUnknownSession() {
-        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0");
+        BundleExportService service = new BundleExportService(BuildAggregator(), collectorVersion: "0.1.0");
 
         BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
             SessionId = "wrong-id",
@@ -100,7 +100,7 @@ public class BundleExportServiceTests {
 
     [Fact]
     public async Task Export_RejectsOverCapWithoutForce() {
-        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0") {
+        BundleExportService service = new BundleExportService(BuildAggregator(), collectorVersion: "0.1.0") {
             EstimateOverride = _ => new BundleSizeEstimate(BundleSizeEstimator.SoftCapBytes + 1),
         };
 
@@ -116,7 +116,7 @@ public class BundleExportServiceTests {
 
     [Fact]
     public async Task Export_OverCapWithForce_Succeeds() {
-        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0") {
+        BundleExportService service = new BundleExportService(BuildAggregator(), collectorVersion: "0.1.0") {
             EstimateOverride = _ => new BundleSizeEstimate(BundleSizeEstimator.SoftCapBytes + 1),
         };
 
@@ -132,7 +132,7 @@ public class BundleExportServiceTests {
     [Fact]
     public async Task Export_CollectorHealthReportsRealUptime() {
         DateTimeOffset startedUtc = DateTimeOffset.UtcNow - TimeSpan.FromSeconds(120);
-        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0", startedUtc: startedUtc);
+        BundleExportService service = new BundleExportService(BuildAggregator(), collectorVersion: "0.1.0", startedUtc: startedUtc);
 
         BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
             SessionId = "sess-test",
@@ -153,7 +153,7 @@ public class BundleExportServiceTests {
 
     [Fact]
     public async Task Export_ManifestLooksWellFormed() {
-        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0");
+        BundleExportService service = new BundleExportService(BuildAggregator(), collectorVersion: "0.1.0");
         BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
             SessionId = "sess-test",
             Includes = new HashSet<BundleContentKey>(),
