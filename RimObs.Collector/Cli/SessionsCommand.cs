@@ -10,6 +10,8 @@ using Cryptiklemur.RimObs.Wire;
 namespace Cryptiklemur.RimObs.Collector.Cli;
 
 public static class SessionsCommand {
+    private static readonly JsonSerializerOptions JsonOptions = new JsonSerializerOptions { WriteIndented = true };
+
     public static int Run(string[] args, TextWriter stdout, TextWriter stderr, string? sessionsDirOverride = null, bool? outputIsRedirected = null) {
         if (args is null || args.Length == 0) {
             stderr.WriteLine("Usage: Collector sessions <list>");
@@ -60,8 +62,7 @@ public static class SessionsCommand {
                 game_version = s.GameVersion,
             }),
         };
-        JsonSerializerOptions options = new JsonSerializerOptions { WriteIndented = true };
-        stdout.WriteLine(JsonSerializer.Serialize(payload, options));
+        stdout.WriteLine(JsonSerializer.Serialize(payload, JsonOptions));
     }
 
     private static void WriteTable(TextWriter stdout, IReadOnlyList<SessionMeta> sessions, string sessionsDir) {
