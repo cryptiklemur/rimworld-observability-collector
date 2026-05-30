@@ -16,7 +16,7 @@ internal static class ObservedSectionScanner {
         public List<string> Warnings { get; } = new();
     }
 
-    internal static bool? AttributesEnabledForTests;
+    internal static bool? AttributesEnabledForTests { get; set; }
 
     private static bool IsEnabled() {
         if (AttributesEnabledForTests.HasValue)
