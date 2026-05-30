@@ -47,7 +47,7 @@ function mockSessions() {
                         },
                         {
                             id: 'old-9',
-                            started_utc: new Date(Date.now() - 3600_000).toISOString(),
+                            started_utc: new Date(Date.now() - 3_600_000).toISOString(),
                             library_version: '1.0.0',
                             game_version: '1.6',
                             is_current: false,
