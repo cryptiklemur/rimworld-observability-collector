@@ -104,9 +104,11 @@ public static class BundleEndpoints {
         string safePath = Path.Combine(entry.TempDir, Path.GetFileName(name));
         if (!File.Exists(safePath)) return Results.NotFound();
 
-        string contentType = name.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ? "text/html"
-            : name.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase) ? "application/octet-stream"
-            : "application/json";
+        string contentType = "application/json";
+        if (name.EndsWith(".html", StringComparison.OrdinalIgnoreCase))
+            contentType = "text/html";
+        else if (name.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase))
+            contentType = "application/octet-stream";
         return Results.File(File.ReadAllBytes(safePath), contentType);
     }
 

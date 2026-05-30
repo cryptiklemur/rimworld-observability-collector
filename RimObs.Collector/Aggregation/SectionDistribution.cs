@@ -20,9 +20,7 @@ public sealed class SectionDistribution {
     }
 
     public void Record(long epochSeconds, long elapsedTicks) {
-        long value = elapsedTicks < LowestDiscernible
-            ? LowestDiscernible
-            : (elapsedTicks > HighestTrackable ? HighestTrackable : elapsedTicks);
+        long value = Math.Clamp(elapsedTicks, LowestDiscernible, HighestTrackable);
         int slot = (int)(((epochSeconds % BucketCount) + BucketCount) % BucketCount);
         lock (_gate) {
             _histogram.RecordValue(value);
