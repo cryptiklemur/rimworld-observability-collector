@@ -96,7 +96,7 @@ public sealed class RingBufferLogSinkTests {
         entry.Exception!.Should().Contain("boom");
     }
 
-    private static ILogger NewLogger(RingBufferLogSink sink) =>
+    private static Serilog.Core.Logger NewLogger(RingBufferLogSink sink) =>
         new LoggerConfiguration()
             .MinimumLevel.Is(LogEventLevel.Verbose)
             .WriteTo.Sink(sink)

@@ -56,7 +56,7 @@ public sealed class ObservedSectionScanBench : IDisposable {
         result.SkippedUnsupported.Should().Be(0);
     }
 
-    private static Assembly BuildSyntheticAssembly(
+    private static AssemblyBuilder BuildSyntheticAssembly(
         int attributedTypeCount,
         int methodsPerType,
         int unattributedTypeCount) {
