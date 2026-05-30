@@ -20,15 +20,7 @@ public static class UpdateChecker {
         ReleaseInfo? best = null;
         SemVer? bestVer = null;
         foreach (ReleaseInfo r in releases) {
-            if (r is null)
-                continue;
-            if (r.Draft || r.Prerelease)
-                continue;
-            if (!SemVer.TryParse(r.TagName, out SemVer? v) || v is null)
-                continue;
-            if (v.IsPrerelease)
-                continue;
-            if (SemVer.Compare(v, current) <= 0)
+            if (!IsEligibleUpgrade(r, current, out SemVer? v) || v is null)
                 continue;
             if (bestVer is null || SemVer.Compare(v, bestVer) > 0) {
                 best = r;
@@ -37,6 +29,22 @@ public static class UpdateChecker {
         }
 
         return best;
+    }
+
+    private static bool IsEligibleUpgrade(ReleaseInfo r, SemVer current, out SemVer? version) {
+        version = null;
+        if (r is null)
+            return false;
+        if (r.Draft || r.Prerelease)
+            return false;
+        if (!SemVer.TryParse(r.TagName, out SemVer? v) || v is null)
+            return false;
+        if (v.IsPrerelease)
+            return false;
+        if (SemVer.Compare(v, current) <= 0)
+            return false;
+        version = v;
+        return true;
     }
 
     public static async Task<ReleaseInfo?> CheckAsync(

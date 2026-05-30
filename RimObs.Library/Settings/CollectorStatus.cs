@@ -70,29 +70,10 @@ public sealed class CollectorStatus {
     public IReadOnlyList<StatusLine> BuildLines() {
         List<StatusLine> lines = new(12);
 
-        if (CollectorRunning)
-            lines.Add(new StatusLine("Collector", $"running on {Host}:{Port}", true));
-        else if (LaunchAttempted)
-            lines.Add(new StatusLine("Collector", "launch attempted but no response", false));
-        else
-            lines.Add(new StatusLine("Collector", "not running", false));
-
-        if (ControlPort > 0)
-            lines.Add(new StatusLine("Control server", $"bound on {Host}:{ControlPort}", true));
-        else
-            lines.Add(new StatusLine("Control server", "not bound (dynamic instrumentation disabled)", false));
-
-        bool coreHealthy = CoreTotal == 0 || (CoreInstalled == CoreTotal && UnresolvedCount == 0 && FailedCount == 0);
-        string coreValue = CoreTotal == 0
-            ? "0/0 (not installed)"
-            : $"{CoreInstalled}/{CoreTotal} installed (unresolved={UnresolvedCount}, failed={FailedCount})";
-        lines.Add(new StatusLine("Core sections", coreValue, coreHealthy));
-
-        bool declaredHealthy = DeclaredTotal == 0 || DeclaredInstalled == DeclaredTotal;
-        string declaredValue = DeclaredTotal == 0
-            ? "none"
-            : $"{DeclaredInstalled}/{DeclaredTotal} from profiling.xml";
-        lines.Add(new StatusLine("Declared sections", declaredValue, declaredHealthy));
+        lines.Add(BuildCollectorLine());
+        lines.Add(BuildControlServerLine());
+        lines.Add(BuildCoreSectionsLine());
+        lines.Add(BuildDeclaredSectionsLine());
 
         lines.Add(new StatusLine("Profiler", ProfilerEnabled ? "enabled" : "disabled", ProfilerEnabled));
         lines.Add(new StatusLine("Owners registered", OwnerCount.ToString(), OwnerCount > 0));
@@ -108,5 +89,35 @@ public sealed class CollectorStatus {
             lines.Add(new StatusLine("Owner id", OwnerId, true));
 
         return lines;
+    }
+
+    private StatusLine BuildCollectorLine() {
+        if (CollectorRunning)
+            return new StatusLine("Collector", $"running on {Host}:{Port}", true);
+        if (LaunchAttempted)
+            return new StatusLine("Collector", "launch attempted but no response", false);
+        return new StatusLine("Collector", "not running", false);
+    }
+
+    private StatusLine BuildControlServerLine() {
+        if (ControlPort > 0)
+            return new StatusLine("Control server", $"bound on {Host}:{ControlPort}", true);
+        return new StatusLine("Control server", "not bound (dynamic instrumentation disabled)", false);
+    }
+
+    private StatusLine BuildCoreSectionsLine() {
+        bool coreHealthy = CoreTotal == 0 || (CoreInstalled == CoreTotal && UnresolvedCount == 0 && FailedCount == 0);
+        string coreValue = CoreTotal == 0
+            ? "0/0 (not installed)"
+            : $"{CoreInstalled}/{CoreTotal} installed (unresolved={UnresolvedCount}, failed={FailedCount})";
+        return new StatusLine("Core sections", coreValue, coreHealthy);
+    }
+
+    private StatusLine BuildDeclaredSectionsLine() {
+        bool declaredHealthy = DeclaredTotal == 0 || DeclaredInstalled == DeclaredTotal;
+        string declaredValue = DeclaredTotal == 0
+            ? "none"
+            : $"{DeclaredInstalled}/{DeclaredTotal} from profiling.xml";
+        return new StatusLine("Declared sections", declaredValue, declaredHealthy);
     }
 }
