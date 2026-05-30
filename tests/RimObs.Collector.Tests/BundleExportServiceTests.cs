@@ -128,6 +128,28 @@ public class BundleExportServiceTests {
     }
 
     [Fact]
+    public async Task Export_CollectorHealthReportsRealUptime() {
+        DateTimeOffset startedUtc = DateTimeOffset.UtcNow - TimeSpan.FromSeconds(120);
+        BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0", startedUtc: startedUtc);
+
+        BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
+            SessionId = "sess-test",
+            Includes = new HashSet<BundleContentKey>(),
+            Force = false,
+        }, CancellationToken.None);
+
+        using MemoryStream ms = new MemoryStream(result.Bytes!);
+        using ZipArchive zip = new ZipArchive(ms, ZipArchiveMode.Read);
+        ZipArchiveEntry healthEntry = zip.GetEntry("collector_health.json")!;
+        using StreamReader reader = new StreamReader(healthEntry.Open());
+        using JsonDocument doc = JsonDocument.Parse(reader.ReadToEnd());
+
+        double uptime = doc.RootElement.GetProperty("uptime_seconds").GetDouble();
+        uptime.Should().BeGreaterThanOrEqualTo(120, "uptime is now - collector start, not the always-zero a - a regression (S1764)");
+        uptime.Should().BeLessThan(600, "elapsed should track the injected 120s start, not run away");
+    }
+
+    [Fact]
     public async Task Export_ManifestLooksWellFormed() {
         BundleExportService service = new BundleExportService(BuildAggregator(), persister: null, collectorVersion: "0.1.0");
         BundleExportResult result = await service.ExportAsync(new BundleExportRequest {

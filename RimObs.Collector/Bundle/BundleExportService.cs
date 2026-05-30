@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
@@ -44,13 +45,20 @@ public sealed class BundleExportService {
     private readonly SessionAggregator _aggregator;
     private readonly ISessionPersister? _persister;
     private readonly string _collectorVersion;
+    private readonly DateTimeOffset _startedUtc;
 
     internal Func<BundleEstimateInput, BundleSizeEstimate>? EstimateOverride { get; set; }
 
-    public BundleExportService(SessionAggregator aggregator, ISessionPersister? persister, string collectorVersion) {
+    public BundleExportService(SessionAggregator aggregator, ISessionPersister? persister, string collectorVersion, DateTimeOffset? startedUtc = null) {
         _aggregator = aggregator;
         _persister = persister;
         _collectorVersion = collectorVersion;
+        _startedUtc = startedUtc ?? ProcessStartUtc();
+    }
+
+    private static DateTimeOffset ProcessStartUtc() {
+        using Process process = Process.GetCurrentProcess();
+        return process.StartTime.ToUniversalTime();
     }
 
     public Task<BundleExportResult> ExportAsync(BundleExportRequest request, CancellationToken cancellationToken) {
@@ -245,7 +253,7 @@ public sealed class BundleExportService {
 
     private object BuildCollectorHealth() {
         return new {
-            uptime_seconds = (DateTimeOffset.UtcNow - DateTimeOffset.UtcNow).TotalSeconds,
+            uptime_seconds = Math.Max(0, (DateTimeOffset.UtcNow - _startedUtc).TotalSeconds),
             total_batches = _aggregator.TotalBatches,
             total_bytes = _aggregator.TotalBytes,
         };
