@@ -62,13 +62,16 @@ public sealed class GcObserverTests {
     [Fact]
     public void Allocation_rate_updates_on_heap_growth() {
         GcObserver observer = new();
+
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect();
+
         observer.TryPoll(0, out _);
-        long initialRate = observer.AllocationRateBytesPerMinute;
 
         byte[]? big = new byte[2_000_000];
         big[0] = 1;
 
-        System.Threading.Thread.Sleep(10);
         observer.TryPoll(1, out _);
 
         observer.AllocationRateBytesPerMinute.Should().BeGreaterThan(0);
