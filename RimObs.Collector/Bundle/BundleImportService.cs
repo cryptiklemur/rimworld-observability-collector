@@ -49,9 +49,14 @@ public sealed class BundleImportService {
 
             entry = _registry.Register(names.ToArray());
 
+            string root = Path.GetFullPath(entry.TempDir) + Path.DirectorySeparatorChar;
             foreach (ZipArchiveEntry e in zip.Entries) {
                 if (string.IsNullOrEmpty(e.Name)) continue;
-                string destPath = Path.Combine(entry.TempDir, e.FullName);
+                string destPath = Path.GetFullPath(Path.Combine(entry.TempDir, e.FullName));
+                if (!destPath.StartsWith(root, StringComparison.Ordinal)) {
+                    _registry.Remove(entry.Token);
+                    return new BundleImportResult { Status = BundleImportStatus.InvalidArchive };
+                }
                 string? destDir = Path.GetDirectoryName(destPath);
                 if (destDir is not null) Directory.CreateDirectory(destDir);
                 using Stream src = e.Open();

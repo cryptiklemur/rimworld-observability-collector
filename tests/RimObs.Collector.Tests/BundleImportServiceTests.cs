@@ -88,5 +88,13 @@ public class BundleImportServiceTests : IDisposable {
         BundleImportResult result = await service.ImportAsync(stream);
 
         result.Status.Should().Be(BundleImportStatus.InvalidArchive);
+
+        string? parent = Path.GetDirectoryName(_baseDir.TrimEnd(Path.DirectorySeparatorChar));
+        File.Exists(Path.Combine(_baseDir, "escape.json")).Should().BeFalse(
+            "a traversal entry must never be written inside the import root");
+        if (parent is not null) {
+            File.Exists(Path.Combine(parent, "escape.json")).Should().BeFalse(
+                "a traversal entry must never escape the import root");
+        }
     }
 }
