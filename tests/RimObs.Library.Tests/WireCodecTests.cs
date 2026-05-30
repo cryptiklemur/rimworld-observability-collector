@@ -461,13 +461,16 @@ public sealed class WireCodecTests {
     // (the Serialize<T> switch and the Deserialize<T> if/else chain). The set of supported
     // types is derived from the concrete Serialize overloads, so adding a new wire type means
     // adding an overload — which immediately forces a case in BOTH generic tables, or this fails.
-    public static IEnumerable<object[]> AllWireTypes() {
-        return typeof(WireCodec)
+    public static TheoryData<Type> AllWireTypes() {
+        TheoryData<Type> data = new TheoryData<Type>();
+        IEnumerable<Type> wireTypes = typeof(WireCodec)
             .GetMethods(BindingFlags.Public | BindingFlags.Static)
             .Where(m => m.Name == nameof(WireCodec.Serialize) && !m.IsGenericMethod && m.GetParameters().Length == 1)
             .Select(m => m.GetParameters()[0].ParameterType)
-            .Distinct()
-            .Select(t => new object[] { t });
+            .Distinct();
+        foreach (Type wireType in wireTypes)
+            data.Add(wireType);
+        return data;
     }
 
     [Theory]
@@ -486,7 +489,7 @@ public sealed class WireCodecTests {
 
     [Fact]
     public void Generic_dispatch_covers_every_serializable_wire_type() {
-        AllWireTypes().Should().HaveCount(17);
+        ((IEnumerable<object[]>)AllWireTypes()).Count().Should().Be(17);
     }
 }
 
