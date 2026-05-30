@@ -32,6 +32,21 @@ public sealed class BundleSnapshotReader {
         DescriptorsDto? descriptors = ReadJson<DescriptorsDto>(Path.Combine(dir, "metric_descriptors.json"));
         CustomMetricsDto? custom = ReadJson<CustomMetricsDto>(Path.Combine(dir, "custom_metrics.json"));
 
+        List<SectionSnapshot> sections = BuildSections(hotspots);
+        Dictionary<int, (long Value, long Samples)> labelTotals = BuildLabelTotals(custom);
+        List<MetricSnapshot> metrics = BuildMetrics(descriptors, labelTotals);
+
+        return new SessionSnapshot(
+            SessionId: summary.SessionId ?? string.Empty,
+            IsCurrent: false,
+            LibraryVersion: summary.LibraryVersion ?? string.Empty,
+            GameVersion: summary.GameVersion ?? string.Empty,
+            StartedUtcTicks: ToUtcTicks(summary.StartedUtc),
+            Sections: sections,
+            Metrics: metrics);
+    }
+
+    private static List<SectionSnapshot> BuildSections(HotspotsDto? hotspots) {
         List<SectionSnapshot> sections = [];
         if (hotspots?.Hotspots is not null) {
             foreach (HotspotDto h in hotspots.Hotspots) {
@@ -45,7 +60,10 @@ public sealed class BundleSnapshotReader {
                     MaxNs: 0));
             }
         }
+        return sections;
+    }
 
+    private static Dictionary<int, (long Value, long Samples)> BuildLabelTotals(CustomMetricsDto? custom) {
         Dictionary<int, (long Value, long Samples)> labelTotals = [];
         if (custom?.Metrics is not null) {
             foreach (CustomMetricDto m in custom.Metrics) {
@@ -60,7 +78,10 @@ public sealed class BundleSnapshotReader {
                 labelTotals[m.Id] = (value, samples);
             }
         }
+        return labelTotals;
+    }
 
+    private static List<MetricSnapshot> BuildMetrics(DescriptorsDto? descriptors, Dictionary<int, (long Value, long Samples)> labelTotals) {
         List<MetricSnapshot> metrics = [];
         if (descriptors?.Metrics is not null) {
             foreach (DescriptorDto d in descriptors.Metrics) {
@@ -75,15 +96,7 @@ public sealed class BundleSnapshotReader {
                     TotalSampleCount: totals.Samples));
             }
         }
-
-        return new SessionSnapshot(
-            SessionId: summary.SessionId ?? string.Empty,
-            IsCurrent: false,
-            LibraryVersion: summary.LibraryVersion ?? string.Empty,
-            GameVersion: summary.GameVersion ?? string.Empty,
-            StartedUtcTicks: ToUtcTicks(summary.StartedUtc),
-            Sections: sections,
-            Metrics: metrics);
+        return metrics;
     }
 
     private static long ToUtcTicks(DateTime dt) {

@@ -22,20 +22,46 @@ internal static class MethodResolver {
         string[] paramTypeFullNames,
         IEnumerable<Assembly> assemblies
     ) {
-        for (int i = 0; i < s_BlocklistedNamespaces.Length; i++) {
-            if (typeFullName.StartsWith(s_BlocklistedNamespaces[i], StringComparison.Ordinal))
-                return MethodResolveResult.Refuse("blocklist: cannot instrument RimObs internals");
-        }
+        if (IsBlocklisted(typeFullName))
+            return MethodResolveResult.Refuse("blocklist: cannot instrument RimObs internals");
 
-        Type? type = null;
-        foreach (Assembly assembly in assemblies) {
-            type = assembly.GetType(typeFullName, throwOnError: false, ignoreCase: false);
-            if (type is not null)
-                break;
-        }
+        Type? type = FindType(assemblies, typeFullName);
         if (type is null)
             return MethodResolveResult.Refuse($"type not found: {typeFullName}");
 
+        List<MethodInfo> byName = FindMethodsByName(type, methodName);
+        if (byName.Count == 0)
+            return MethodResolveResult.Refuse($"method not found: {typeFullName}.{methodName}");
+
+        MethodInfo? target = SelectOverload(byName, paramTypeFullNames);
+        if (target is null)
+            return MethodResolveResult.Refuse("ambiguous overload; specify exact param types");
+
+        string? rejection = ValidateInstrumentable(target);
+        if (rejection is not null)
+            return MethodResolveResult.Refuse(rejection);
+
+        return MethodResolveResult.Accept(target, BuildSignature(target));
+    }
+
+    private static bool IsBlocklisted(string typeFullName) {
+        for (int i = 0; i < s_BlocklistedNamespaces.Length; i++) {
+            if (typeFullName.StartsWith(s_BlocklistedNamespaces[i], StringComparison.Ordinal))
+                return true;
+        }
+        return false;
+    }
+
+    private static Type? FindType(IEnumerable<Assembly> assemblies, string typeFullName) {
+        foreach (Assembly assembly in assemblies) {
+            Type? type = assembly.GetType(typeFullName, throwOnError: false, ignoreCase: false);
+            if (type is not null)
+                return type;
+        }
+        return null;
+    }
+
+    private static List<MethodInfo> FindMethodsByName(Type type, string methodName) {
         MethodInfo[] candidates = type.GetMethods(
             BindingFlags.Public | BindingFlags.NonPublic |
             BindingFlags.Instance | BindingFlags.Static |
@@ -46,35 +72,32 @@ internal static class MethodResolver {
             if (string.Equals(candidates[i].Name, methodName, StringComparison.Ordinal))
                 byName.Add(candidates[i]);
         }
-        if (byName.Count == 0)
-            return MethodResolveResult.Refuse($"method not found: {typeFullName}.{methodName}");
+        return byName;
+    }
 
-        MethodInfo target;
-        if (byName.Count == 1) {
-            target = byName[0];
-        }
-        else {
-            MethodInfo? narrowed = null;
-            int narrowCount = 0;
-            for (int i = 0; i < byName.Count; i++) {
-                if (ParametersMatch(byName[i], paramTypeFullNames)) {
-                    narrowed = byName[i];
-                    narrowCount++;
-                }
+    private static MethodInfo? SelectOverload(List<MethodInfo> byName, string[] paramTypeFullNames) {
+        if (byName.Count == 1)
+            return byName[0];
+
+        MethodInfo? narrowed = null;
+        int narrowCount = 0;
+        for (int i = 0; i < byName.Count; i++) {
+            if (ParametersMatch(byName[i], paramTypeFullNames)) {
+                narrowed = byName[i];
+                narrowCount++;
             }
-            if (narrowCount != 1)
-                return MethodResolveResult.Refuse("ambiguous overload; specify exact param types");
-            target = narrowed!;
         }
+        return narrowCount == 1 ? narrowed : null;
+    }
 
+    private static string? ValidateInstrumentable(MethodInfo target) {
         if (target.IsAbstract)
-            return MethodResolveResult.Refuse("abstract method has no IL body");
+            return "abstract method has no IL body";
         if ((target.GetMethodImplementationFlags() & MethodImplAttributes.InternalCall) != 0)
-            return MethodResolveResult.Refuse("extern method has no IL body");
+            return "extern method has no IL body";
         if (target.IsGenericMethodDefinition || target.ContainsGenericParameters)
-            return MethodResolveResult.Refuse("open generic methods are not supported");
-
-        return MethodResolveResult.Accept(target, BuildSignature(target));
+            return "open generic methods are not supported";
+        return null;
     }
 
     public static string BuildSignature(MethodInfo method) {
