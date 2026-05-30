@@ -1,5 +1,8 @@
 # RimWorld Observability Collector
 
+[![Maintainability Rating](https://sonarcloud.io/api/project_badges/measure?project=cryptiklemur_rimworld-observability-collector&metric=sqale_rating)](https://sonarcloud.io/summary/new_code?id=cryptiklemur_rimworld-observability-collector)
+[![Reliability Rating](https://sonarcloud.io/api/project_badges/measure?project=cryptiklemur_rimworld-observability-collector&metric=reliability_rating)](https://sonarcloud.io/summary/new_code?id=cryptiklemur_rimworld-observability-collector)
+
 A telemetry framework for RimWorld mods. Mod authors register named sections
 and metrics; an out-of-process collector aggregates the data, serves a
 dashboard, and can export diagnostic bundles.
