@@ -163,6 +163,21 @@ public sealed class RimObsMod : Mod {
     }
 
     private static void LogBootstrapSummary(ProfilingXmlLoader.LoadResult declared, ObservedSectionScanner.ScanResult attrs) {
+        (int coreCount, int coreInstalled, int declaredCount, int declaredInstalled) = CountSections();
+
+        Log.Message(
+            $"[RimObs] Loaded. Core: {coreInstalled}/{coreCount} sections installed. "
+                + $"Declared: {declaredInstalled}/{declaredCount} sections from {declared.FilesLoaded}/{declared.FilesScanned} profiling.xml files. "
+                + $"Attributes: {attrs.Registered} registered ({attrs.SkippedDuplicate} duplicate, {attrs.SkippedUnsupported} unsupported, {attrs.Failed} failed) from {attrs.AssembliesScanned} assemblies. "
+                + $"(unresolved={PatchInstaller.UnresolvedCount}, failed={PatchInstaller.FailedCount}, conflicts={HarmonyConflictRecorder.Count}). "
+                + $"Owner registry: {OwnerRegistry.Count} mods. GcObserver: maxGen={GcObserverHost.Instance.MaxGeneration}."
+        );
+
+        LogLoadWarnings(declared, attrs);
+        LogSectionResolutionIssues();
+    }
+
+    private static (int CoreCount, int CoreInstalled, int DeclaredCount, int DeclaredInstalled) CountSections() {
         int coreCount = 0;
         int declaredCount = 0;
         int coreInstalled = 0;
@@ -179,21 +194,18 @@ public sealed class RimObsMod : Mod {
                     coreInstalled++;
             }
         }
+        return (coreCount, coreInstalled, declaredCount, declaredInstalled);
+    }
 
-        Log.Message(
-            $"[RimObs] Loaded. Core: {coreInstalled}/{coreCount} sections installed. "
-                + $"Declared: {declaredInstalled}/{declaredCount} sections from {declared.FilesLoaded}/{declared.FilesScanned} profiling.xml files. "
-                + $"Attributes: {attrs.Registered} registered ({attrs.SkippedDuplicate} duplicate, {attrs.SkippedUnsupported} unsupported, {attrs.Failed} failed) from {attrs.AssembliesScanned} assemblies. "
-                + $"(unresolved={PatchInstaller.UnresolvedCount}, failed={PatchInstaller.FailedCount}, conflicts={HarmonyConflictRecorder.Count}). "
-                + $"Owner registry: {OwnerRegistry.Count} mods. GcObserver: maxGen={GcObserverHost.Instance.MaxGeneration}."
-        );
-
+    private static void LogLoadWarnings(ProfilingXmlLoader.LoadResult declared, ObservedSectionScanner.ScanResult attrs) {
         foreach (string warning in declared.Warnings)
             Log.Warning($"[RimObs] profiling.xml: {warning}");
 
         foreach (string warning in attrs.Warnings)
             Log.Warning($"[RimObs] [ObservedSection]: {warning}");
+    }
 
+    private static void LogSectionResolutionIssues() {
         foreach (CatalogEntry entry in SectionCatalog.Entries) {
             if (!entry.Installed && entry.ResolutionError != null)
                 Log.Warning($"[RimObs] Section '{entry.Name}' unresolved: {entry.ResolutionError.Message}");
