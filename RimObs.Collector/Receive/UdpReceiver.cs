@@ -112,7 +112,8 @@ public sealed class UdpReceiver : BackgroundService {
                     PingMessage ping = WireCodec.Deserialize<PingMessage>(envelope.Payload);
                     return BuildPongEnvelope(ping, BuildInfo.Revision, _aggregator.Meta?.SessionId);
                 default:
-                    _log.LogDebug("Ignoring batch_type={Type} (not implemented in M0)", envelope.BatchType);
+                    if (_log.IsEnabled(LogLevel.Debug))
+                        _log.LogDebug("Ignoring batch_type={Type} (not implemented in M0)", envelope.BatchType);
                     break;
             }
         }
