@@ -25,7 +25,7 @@ export const LANGUAGES: Language[] = [
 export function getLang(): string {
     const pref = userPrefs.lang;
     if (pref && dictionaries[pref]) return pref;
-    const param = new URLSearchParams(window.location.search).get('lang');
+    const param = new URLSearchParams(globalThis.location.search).get('lang');
     return param && dictionaries[param] ? param : 'en';
 }
 

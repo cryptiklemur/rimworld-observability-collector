@@ -11,12 +11,12 @@ beforeEach(() => {
 
 afterEach(() => {
     vi.unstubAllGlobals();
-    window.location.hash = '';
+    globalThis.location.hash = '';
 });
 
 describe('App route dispatch', () => {
     it('renders the Logs route for #/logs', async () => {
-        window.location.hash = '#/logs';
+        globalThis.location.hash = '#/logs';
         render(App);
         expect(await screen.findByText('Warning')).toBeInTheDocument();
     });

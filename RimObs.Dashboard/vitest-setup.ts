@@ -3,8 +3,8 @@ import { afterEach } from 'vitest';
 import { cleanup } from '@testing-library/svelte';
 
 // jsdom has no matchMedia; uplot calls it at module load to track device pixel ratio.
-if (typeof window !== 'undefined' && !window.matchMedia) {
-    window.matchMedia = (query: string) =>
+if (typeof globalThis.window !== 'undefined' && !globalThis.matchMedia) {
+    globalThis.matchMedia = (query: string) =>
         ({
             matches: false,
             media: query,

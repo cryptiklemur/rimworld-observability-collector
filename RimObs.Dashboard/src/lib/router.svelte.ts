@@ -26,7 +26,7 @@ export const routes: RouteDef[] = [
 const DEFAULT_ROUTE = 'overview';
 
 function parseHash(): string {
-    const raw = window.location.hash.replace(/^#\/?/, '').split('?')[0];
+    const raw = globalThis.location.hash.replace(/^#\/?/, '').split('?')[0];
     return routes.some((r) => r.id === raw) ? raw : DEFAULT_ROUTE;
 }
 
@@ -35,16 +35,16 @@ class Router {
 
     start() {
         this.current = parseHash();
-        window.addEventListener('hashchange', () => {
+        globalThis.addEventListener('hashchange', () => {
             this.current = parseHash();
         });
-        if (!window.location.hash) {
-            window.location.hash = `#/${DEFAULT_ROUTE}`;
+        if (!globalThis.location.hash) {
+            globalThis.location.hash = `#/${DEFAULT_ROUTE}`;
         }
     }
 
     go(id: string) {
-        window.location.hash = `#/${id}`;
+        globalThis.location.hash = `#/${id}`;
     }
 
     get route(): RouteDef {

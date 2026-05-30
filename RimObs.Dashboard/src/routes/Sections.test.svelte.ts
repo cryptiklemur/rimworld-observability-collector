@@ -62,7 +62,7 @@ describe('Sections route', () => {
     });
 
     it('initializes filter from ?subsystem= URL param', async () => {
-        window.history.replaceState({}, '', '/?subsystem=pawns.work');
+        globalThis.history.replaceState({}, '', '/?subsystem=pawns.work');
         mockSections([
             { id: 1, name: 'pawns.work.Tick', subsystem: 'pawns.work' },
             { id: 2, name: 'core.Bar', subsystem: null },
@@ -75,7 +75,7 @@ describe('Sections route', () => {
     });
 
     it('updates URL when chip is clicked', async () => {
-        window.history.replaceState({}, '', '/');
+        globalThis.history.replaceState({}, '', '/');
         mockSections([
             { id: 1, name: 'pawns.work.Tick', subsystem: 'pawns.work' },
             { id: 2, name: 'core.Bar', subsystem: null },
@@ -85,11 +85,11 @@ describe('Sections route', () => {
         await screen.findByText('pawns.work.Tick');
         await fireEvent.click(screen.getByRole('button', { name: 'pawns.work' }));
 
-        expect(new URLSearchParams(window.location.search).get('subsystem')).toBe('pawns.work');
+        expect(new URLSearchParams(globalThis.location.search).get('subsystem')).toBe('pawns.work');
     });
 
     it('selects All when ?subsystem= is absent', async () => {
-        window.history.replaceState({}, '', '/');
+        globalThis.history.replaceState({}, '', '/');
         mockSections([
             { id: 1, name: 'pawns.work.Tick', subsystem: 'pawns.work' },
             { id: 2, name: 'core.Bar', subsystem: null },

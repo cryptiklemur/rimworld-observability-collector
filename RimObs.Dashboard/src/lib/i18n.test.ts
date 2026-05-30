@@ -3,7 +3,7 @@ import { t, getLang, LANGUAGES } from './i18n';
 import { userPrefs } from './userPrefs.svelte';
 
 function setSearch(search: string) {
-    window.history.replaceState({}, '', `/${search}`);
+    globalThis.history.replaceState({}, '', `/${search}`);
 }
 
 afterEach(() => {
