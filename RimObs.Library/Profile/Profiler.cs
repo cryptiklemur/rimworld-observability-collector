@@ -12,7 +12,7 @@ public static class Profiler {
 
     public static volatile bool Enabled = true;
 
-    internal static ISampleSink? Sink;
+    private static ISampleSink? Sink;
 
     [ThreadStatic]
     private static int[]? s_Stack;
