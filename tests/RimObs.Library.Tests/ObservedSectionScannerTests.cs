@@ -169,12 +169,12 @@ public class ObservedSectionScannerTests : System.IDisposable {
     public static class Target_PInvoke {
         [ObservedSection("pinvoke_method")]
         [System.Runtime.InteropServices.DllImport("kernel32.dll")]
-        public static extern bool Beep(uint dwFreq, uint dwDuration);
+        internal static extern bool Beep(uint dwFreq, uint dwDuration);
     }
 
     [Fact]
     public void Scan_PatchInstallFailure_Recorded() {
-        MethodInfo rejectedMethod = typeof(Target_PInvoke).GetMethod(nameof(Target_PInvoke.Beep))!;
+        MethodInfo rejectedMethod = typeof(Target_PInvoke).GetMethod(nameof(Target_PInvoke.Beep), BindingFlags.NonPublic | BindingFlags.Static)!;
         SectionCatalog.RegisterDirect("test.modid.pinvoke_method", rejectedMethod);
 
         int beforeFailed = PatchInstaller.FailedCount;
