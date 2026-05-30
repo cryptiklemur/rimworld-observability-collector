@@ -47,10 +47,8 @@ public sealed class SemVer {
     }
 
     public static int Compare(SemVer a, SemVer b) {
-        if (a is null)
-            throw new ArgumentNullException(nameof(a));
-        if (b is null)
-            throw new ArgumentNullException(nameof(b));
+        ArgumentNullException.ThrowIfNull(a);
+        ArgumentNullException.ThrowIfNull(b);
 
         int coreCmp = a.Core.CompareTo(b.Core);
         if (coreCmp != 0)
