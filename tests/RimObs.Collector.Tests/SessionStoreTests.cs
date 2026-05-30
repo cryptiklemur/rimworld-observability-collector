@@ -76,6 +76,36 @@ public sealed class SessionStoreTests : IDisposable {
     }
 
     [Fact]
+    public void Dispose_closes_connection_so_wal_sidecars_are_removed() {
+        // Regression: SessionStore opened its SqliteConnection with default pooling, so
+        // Dispose() returned the native sqlite3 handle to the pool instead of closing it.
+        // The lingering handle kept session.db (and its -wal/-shm sidecars) open, which on
+        // Windows locked the file and made test cleanup (Directory.Delete) throw IOException.
+        // The fix sets Pooling=false so Dispose truly closes the last connection, letting
+        // SQLite checkpoint and delete the WAL sidecars. That sidecar removal is observable on
+        // every platform, so this assertion has teeth on Linux too: with pooling on, -wal/-shm
+        // persist after Dispose and this test fails.
+        SessionMeta meta = new() {
+            SessionId = "wal-probe",
+            StartedUtcTicks = 638_500_000_000_000_000L,
+            StopwatchFrequency = 10_000_000L,
+            AnchorTimestamp = 42L,
+            LibraryVersion = "0.1.0",
+            GameVersion = "1.6.4633",
+        };
+
+        using (SessionStore store = SessionStore.Open(_dbPath)) {
+            store.WriteSessionMeta(meta);
+        }
+
+        File.Exists(_dbPath + "-wal").Should().BeFalse(
+            "disposing the store must close the SQLite connection so the WAL is checkpointed "
+            + "and the sidecar removed; a lingering pooled handle keeps session.db locked on Windows");
+        File.Exists(_dbPath + "-shm").Should().BeFalse(
+            "the shared-memory sidecar must also be cleaned up when the last connection closes");
+    }
+
+    [Fact]
     public void WriteSessionMeta_is_idempotent_on_same_session_id() {
         SessionMeta first = new() { SessionId = "s1", StartedUtcTicks = 1, StopwatchFrequency = 2, AnchorTimestamp = 3, LibraryVersion = "old", GameVersion = "1.6" };
         SessionMeta second = new() { SessionId = "s1", StartedUtcTicks = 10, StopwatchFrequency = 20, AnchorTimestamp = 30, LibraryVersion = "new", GameVersion = "1.6" };

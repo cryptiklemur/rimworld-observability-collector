@@ -30,6 +30,7 @@ public sealed class SessionStore : IDisposable {
             DataSource = dbPath,
             Mode = SqliteOpenMode.ReadWriteCreate,
             Cache = SqliteCacheMode.Default,
+            Pooling = false,
         };
         SqliteConnection connection = new(csb.ConnectionString);
         connection.Open();
@@ -54,6 +55,7 @@ public sealed class SessionStore : IDisposable {
             DataSource = dbPath,
             Mode = SqliteOpenMode.ReadOnly,
             Cache = SqliteCacheMode.Default,
+            Pooling = false,
         };
         SqliteConnection connection = new(csb.ConnectionString);
         connection.Open();
