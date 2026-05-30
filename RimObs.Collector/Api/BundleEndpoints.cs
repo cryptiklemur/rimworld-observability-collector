@@ -13,100 +13,105 @@ namespace Cryptiklemur.RimObs.Collector.Api;
 
 public static class BundleEndpoints {
     public static IEndpointRouteBuilder MapBundleEndpoints(this IEndpointRouteBuilder endpoints) {
-        endpoints.MapPost("/api/v1/export/bundle", async (HttpContext ctx, BundleExportService service) => {
-            (BundleExportRequestDto? dto, IResult? error) = await RequestBody.Read<BundleExportRequestDto>(ctx, "bundle export");
-            if (error is not null)
-                return error;
-            if (string.IsNullOrEmpty(dto!.SessionId))
-                return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "missing session_id" });
-
-            HashSet<BundleContentKey> includes = ParseIncludes(dto.Include);
-            BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
-                SessionId = dto.SessionId,
-                Includes = includes,
-                Force = dto.Force,
-            }, ctx.RequestAborted);
-
-            return result.Status switch {
-                BundleExportStatus.Ok => Results.File(result.Bytes!, "application/zip", $"{dto.SessionId}.rimobs.zip"),
-                BundleExportStatus.UnknownSession => Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown session" }),
-                BundleExportStatus.NoActiveSession => Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "no active session" }),
-                BundleExportStatus.ExceedsSoftCap => Results.Json(new {
-                    schema_version = SchemaVersion.Current,
-                    error = "estimate_exceeds_soft_cap",
-                    estimated_bytes = result.EstimatedBytes,
-                    cap_bytes = BundleSizeEstimator.SoftCapBytes,
-                    hint = "retry with force=true",
-                }, statusCode: StatusCodes.Status413PayloadTooLarge),
-                _ => Results.StatusCode(500),
-            };
-        });
-
-        endpoints.MapPost("/api/v1/export/bundle/estimate", async (HttpContext ctx, BundleExportService service) => {
-            (BundleExportRequestDto? dto, IResult? error) = await RequestBody.Read<BundleExportRequestDto>(ctx, "bundle estimate");
-            if (error is not null)
-                return error;
-            if (string.IsNullOrEmpty(dto!.SessionId))
-                return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "missing session_id" });
-
-            HashSet<BundleContentKey> includes = ParseIncludes(dto.Include);
-            BundleEstimateResult result = service.Estimate(dto.SessionId, includes);
-
-            return result.Status switch {
-                BundleExportStatus.Ok => Results.Ok(new {
-                    schema_version = SchemaVersion.Current,
-                    estimated_bytes = result.EstimatedBytes,
-                    cap_bytes = BundleSizeEstimator.SoftCapBytes,
-                    exceeds_soft_cap = result.ExceedsSoftCap,
-                }),
-                BundleExportStatus.UnknownSession => Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown session" }),
-                BundleExportStatus.NoActiveSession => Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "no active session" }),
-                _ => Results.StatusCode(500),
-            };
-        });
-
-        endpoints.MapPost("/api/v1/import/bundle", async (HttpContext ctx, BundleImportService importer) => {
-            if (!ctx.Request.HasFormContentType)
-                return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "expected multipart/form-data" });
-
-            IFormCollection form = await ctx.Request.ReadFormAsync(ctx.RequestAborted);
-            if (form.Files.Count == 0)
-                return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "no file uploaded" });
-
-            IFormFile file = form.Files[0];
-            using Stream stream = file.OpenReadStream();
-            BundleImportResult result = await importer.ImportAsync(stream);
-            return result.Status switch {
-                BundleImportStatus.Ok => Results.Ok(new {
-                    schema_version = SchemaVersion.Current,
-                    token = result.Entry!.Token,
-                    manifest = result.Manifest,
-                    contents = result.Entry.Contents,
-                }),
-                BundleImportStatus.MissingManifest => Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "missing manifest.json" }),
-                BundleImportStatus.InvalidArchive => Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "invalid archive" }),
-                _ => Results.StatusCode(500),
-            };
-        });
-
-        endpoints.MapGet("/api/v1/import/bundle/{token}/file/{name}", (string token, string name, BundleImportRegistry registry) => {
-            if (!registry.TryGet(token, out BundleImportEntry? entry) || entry is null)
-                return Results.NotFound();
-            registry.Touch(token);
-            string safePath = Path.Combine(entry.TempDir, Path.GetFileName(name));
-            if (!File.Exists(safePath)) return Results.NotFound();
-
-            string contentType = name.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ? "text/html"
-                : name.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase) ? "application/octet-stream"
-                : "application/json";
-            return Results.File(File.ReadAllBytes(safePath), contentType);
-        });
-
-        endpoints.MapDelete("/api/v1/import/bundle/{token}", (string token, BundleImportRegistry registry) => {
-            return registry.Remove(token) ? Results.NoContent() : Results.NotFound();
-        });
-
+        endpoints.MapPost("/api/v1/export/bundle", ExportBundle);
+        endpoints.MapPost("/api/v1/export/bundle/estimate", EstimateBundle);
+        endpoints.MapPost("/api/v1/import/bundle", ImportBundle);
+        endpoints.MapGet("/api/v1/import/bundle/{token}/file/{name}", GetImportedFile);
+        endpoints.MapDelete("/api/v1/import/bundle/{token}", DeleteImported);
         return endpoints;
+    }
+
+    private static async Task<IResult> ExportBundle(HttpContext ctx, BundleExportService service) {
+        (BundleExportRequestDto? dto, IResult? error) = await RequestBody.Read<BundleExportRequestDto>(ctx, "bundle export");
+        if (error is not null)
+            return error;
+        if (string.IsNullOrEmpty(dto!.SessionId))
+            return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "missing session_id" });
+
+        HashSet<BundleContentKey> includes = ParseIncludes(dto.Include);
+        BundleExportResult result = await service.ExportAsync(new BundleExportRequest {
+            SessionId = dto.SessionId,
+            Includes = includes,
+            Force = dto.Force,
+        }, ctx.RequestAborted);
+
+        return result.Status switch {
+            BundleExportStatus.Ok => Results.File(result.Bytes!, "application/zip", $"{dto.SessionId}.rimobs.zip"),
+            BundleExportStatus.UnknownSession => Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown session" }),
+            BundleExportStatus.NoActiveSession => Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "no active session" }),
+            BundleExportStatus.ExceedsSoftCap => Results.Json(new {
+                schema_version = SchemaVersion.Current,
+                error = "estimate_exceeds_soft_cap",
+                estimated_bytes = result.EstimatedBytes,
+                cap_bytes = BundleSizeEstimator.SoftCapBytes,
+                hint = "retry with force=true",
+            }, statusCode: StatusCodes.Status413PayloadTooLarge),
+            _ => Results.StatusCode(500),
+        };
+    }
+
+    private static async Task<IResult> EstimateBundle(HttpContext ctx, BundleExportService service) {
+        (BundleExportRequestDto? dto, IResult? error) = await RequestBody.Read<BundleExportRequestDto>(ctx, "bundle estimate");
+        if (error is not null)
+            return error;
+        if (string.IsNullOrEmpty(dto!.SessionId))
+            return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "missing session_id" });
+
+        HashSet<BundleContentKey> includes = ParseIncludes(dto.Include);
+        BundleEstimateResult result = service.Estimate(dto.SessionId, includes);
+
+        return result.Status switch {
+            BundleExportStatus.Ok => Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                estimated_bytes = result.EstimatedBytes,
+                cap_bytes = BundleSizeEstimator.SoftCapBytes,
+                exceeds_soft_cap = result.ExceedsSoftCap,
+            }),
+            BundleExportStatus.UnknownSession => Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown session" }),
+            BundleExportStatus.NoActiveSession => Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "no active session" }),
+            _ => Results.StatusCode(500),
+        };
+    }
+
+    private static async Task<IResult> ImportBundle(HttpContext ctx, BundleImportService importer) {
+        if (!ctx.Request.HasFormContentType)
+            return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "expected multipart/form-data" });
+
+        IFormCollection form = await ctx.Request.ReadFormAsync(ctx.RequestAborted);
+        if (form.Files.Count == 0)
+            return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "no file uploaded" });
+
+        IFormFile file = form.Files[0];
+        using Stream stream = file.OpenReadStream();
+        BundleImportResult result = await importer.ImportAsync(stream);
+        return result.Status switch {
+            BundleImportStatus.Ok => Results.Ok(new {
+                schema_version = SchemaVersion.Current,
+                token = result.Entry!.Token,
+                manifest = result.Manifest,
+                contents = result.Entry.Contents,
+            }),
+            BundleImportStatus.MissingManifest => Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "missing manifest.json" }),
+            BundleImportStatus.InvalidArchive => Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "invalid archive" }),
+            _ => Results.StatusCode(500),
+        };
+    }
+
+    private static IResult GetImportedFile(string token, string name, BundleImportRegistry registry) {
+        if (!registry.TryGet(token, out BundleImportEntry? entry) || entry is null)
+            return Results.NotFound();
+        registry.Touch(token);
+        string safePath = Path.Combine(entry.TempDir, Path.GetFileName(name));
+        if (!File.Exists(safePath)) return Results.NotFound();
+
+        string contentType = name.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ? "text/html"
+            : name.EndsWith(".sqlite", StringComparison.OrdinalIgnoreCase) ? "application/octet-stream"
+            : "application/json";
+        return Results.File(File.ReadAllBytes(safePath), contentType);
+    }
+
+    private static IResult DeleteImported(string token, BundleImportRegistry registry) {
+        return registry.Remove(token) ? Results.NoContent() : Results.NotFound();
     }
 
     private static HashSet<BundleContentKey> ParseIncludes(string[]? values) {

@@ -18,111 +18,117 @@ public static class ComparisonEndpoints {
     private const string UnknownSessionReason = "unknown session";
 
     public static IEndpointRouteBuilder MapComparisonEndpoints(this IEndpointRouteBuilder endpoints) {
-        endpoints.MapGet("/api/v1/sessions/current/load_order", (SessionAggregator aggregator, IServiceProvider services) => {
-            SessionSnapshot? snapshot = Reader(aggregator, services).ReadCurrent();
-            if (snapshot is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "no active session" });
-            return Results.Ok(LoadOrderPayload(snapshot));
-        });
-
-        endpoints.MapGet("/api/v1/sessions/{id}/summary", (string id, SessionAggregator aggregator, IServiceProvider services) => {
-            SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
-            if (snapshot is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
-
-            long totalNs = 0;
-            long totalSamples = 0;
-            foreach (SectionSnapshot s in snapshot.Sections) {
-                totalNs += s.TotalNs;
-                totalSamples += s.SampleCount;
-            }
-
-            return Results.Ok(new {
-                schema_version = SchemaVersion.Current,
-                session = new {
-                    id = snapshot.SessionId,
-                    started_utc = new DateTime(snapshot.StartedUtcTicks, DateTimeKind.Utc),
-                    library_version = snapshot.LibraryVersion,
-                    game_version = snapshot.GameVersion,
-                    is_current = snapshot.IsCurrent,
-                },
-                section_count = snapshot.Sections.Count,
-                metric_count = snapshot.Metrics.Count,
-                total_samples = totalSamples,
-                total_section_ns = totalNs,
-            });
-        });
-
-        endpoints.MapGet("/api/v1/sessions/{id}/hotspots", (string id, int? limit, SessionAggregator aggregator, IServiceProvider services) => {
-            SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
-            if (snapshot is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
-
-            int take = QueryLimit.Clamp(limit, DefaultHotspotLimit, MaxHotspotLimit);
-            return Results.Ok(new {
-                schema_version = SchemaVersion.Current,
-                unit = "ns",
-                hotspots = snapshot.Sections
-                    .OrderByDescending(s => s.TotalNs)
-                    .Take(take)
-                    .Select(s => new {
-                        id = s.SectionId,
-                        name = s.Name,
-                        owner = s.Owner,
-                        sample_count = s.SampleCount,
-                        total_ns = s.TotalNs,
-                        mean_ns = s.MeanNs,
-                        min_ns = s.MinNs,
-                        max_ns = s.MaxNs,
-                    })
-                    .ToArray(),
-            });
-        });
-
-        endpoints.MapGet("/api/v1/sessions/{id}/metrics", (string id, SessionAggregator aggregator, IServiceProvider services) => {
-            SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
-            if (snapshot is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
-
-            return Results.Ok(new {
-                schema_version = SchemaVersion.Current,
-                metrics = snapshot.Metrics.Select(m => new {
-                    id = m.MetricId,
-                    name = m.Name,
-                    owner = m.Owner,
-                    kind = m.Kind,
-                    unit = m.Unit,
-                    value = m.Value,
-                    total_sample_count = m.TotalSampleCount,
-                }).ToArray(),
-            });
-        });
-
-        endpoints.MapGet("/api/v1/sessions/{id}/load_order", (string id, SessionAggregator aggregator, IServiceProvider services) => {
-            SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
-            if (snapshot is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
-            return Results.Ok(LoadOrderPayload(snapshot));
-        });
-
-        endpoints.MapGet("/api/v1/sessions/compare", (string? @base, string? head, SessionAggregator aggregator, IServiceProvider services) => {
-            if (string.IsNullOrWhiteSpace(@base) || string.IsNullOrWhiteSpace(head))
-                return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "base and head query parameters are required" });
-
-            SessionSnapshotReader reader = Reader(aggregator, services);
-            BundleSnapshotReader? bundleReader = BundleReader(services);
-            SessionSnapshot? baseline = ResolveSource(@base, reader, bundleReader);
-            if (baseline is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown base source" });
-            SessionSnapshot? headSnapshot = ResolveSource(head, reader, bundleReader);
-            if (headSnapshot is null)
-                return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown head source" });
-
-            ComparisonResult result = SessionComparer.Compare(baseline, headSnapshot);
-            return Results.Ok(MapComparison(result));
-        });
-
+        endpoints.MapGet("/api/v1/sessions/current/load_order", GetCurrentLoadOrder);
+        endpoints.MapGet("/api/v1/sessions/{id}/summary", GetSessionSummary);
+        endpoints.MapGet("/api/v1/sessions/{id}/hotspots", GetSessionHotspots);
+        endpoints.MapGet("/api/v1/sessions/{id}/metrics", GetSessionMetrics);
+        endpoints.MapGet("/api/v1/sessions/{id}/load_order", GetSessionLoadOrder);
+        endpoints.MapGet("/api/v1/sessions/compare", CompareSessions);
         return endpoints;
+    }
+
+    private static IResult GetCurrentLoadOrder(SessionAggregator aggregator, IServiceProvider services) {
+        SessionSnapshot? snapshot = Reader(aggregator, services).ReadCurrent();
+        if (snapshot is null)
+            return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "no active session" });
+        return Results.Ok(LoadOrderPayload(snapshot));
+    }
+
+    private static IResult GetSessionSummary(string id, SessionAggregator aggregator, IServiceProvider services) {
+        SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
+        if (snapshot is null)
+            return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
+
+        long totalNs = 0;
+        long totalSamples = 0;
+        foreach (SectionSnapshot s in snapshot.Sections) {
+            totalNs += s.TotalNs;
+            totalSamples += s.SampleCount;
+        }
+
+        return Results.Ok(new {
+            schema_version = SchemaVersion.Current,
+            session = new {
+                id = snapshot.SessionId,
+                started_utc = new DateTime(snapshot.StartedUtcTicks, DateTimeKind.Utc),
+                library_version = snapshot.LibraryVersion,
+                game_version = snapshot.GameVersion,
+                is_current = snapshot.IsCurrent,
+            },
+            section_count = snapshot.Sections.Count,
+            metric_count = snapshot.Metrics.Count,
+            total_samples = totalSamples,
+            total_section_ns = totalNs,
+        });
+    }
+
+    private static IResult GetSessionHotspots(string id, int? limit, SessionAggregator aggregator, IServiceProvider services) {
+        SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
+        if (snapshot is null)
+            return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
+
+        int take = QueryLimit.Clamp(limit, DefaultHotspotLimit, MaxHotspotLimit);
+        return Results.Ok(new {
+            schema_version = SchemaVersion.Current,
+            unit = "ns",
+            hotspots = snapshot.Sections
+                .OrderByDescending(s => s.TotalNs)
+                .Take(take)
+                .Select(s => new {
+                    id = s.SectionId,
+                    name = s.Name,
+                    owner = s.Owner,
+                    sample_count = s.SampleCount,
+                    total_ns = s.TotalNs,
+                    mean_ns = s.MeanNs,
+                    min_ns = s.MinNs,
+                    max_ns = s.MaxNs,
+                })
+                .ToArray(),
+        });
+    }
+
+    private static IResult GetSessionMetrics(string id, SessionAggregator aggregator, IServiceProvider services) {
+        SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
+        if (snapshot is null)
+            return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
+
+        return Results.Ok(new {
+            schema_version = SchemaVersion.Current,
+            metrics = snapshot.Metrics.Select(m => new {
+                id = m.MetricId,
+                name = m.Name,
+                owner = m.Owner,
+                kind = m.Kind,
+                unit = m.Unit,
+                value = m.Value,
+                total_sample_count = m.TotalSampleCount,
+            }).ToArray(),
+        });
+    }
+
+    private static IResult GetSessionLoadOrder(string id, SessionAggregator aggregator, IServiceProvider services) {
+        SessionSnapshot? snapshot = Reader(aggregator, services).Read(id);
+        if (snapshot is null)
+            return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = UnknownSessionReason });
+        return Results.Ok(LoadOrderPayload(snapshot));
+    }
+
+    private static IResult CompareSessions(string? @base, string? head, SessionAggregator aggregator, IServiceProvider services) {
+        if (string.IsNullOrWhiteSpace(@base) || string.IsNullOrWhiteSpace(head))
+            return Results.BadRequest(new { schema_version = SchemaVersion.Current, reason = "base and head query parameters are required" });
+
+        SessionSnapshotReader reader = Reader(aggregator, services);
+        BundleSnapshotReader? bundleReader = BundleReader(services);
+        SessionSnapshot? baseline = ResolveSource(@base, reader, bundleReader);
+        if (baseline is null)
+            return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown base source" });
+        SessionSnapshot? headSnapshot = ResolveSource(head, reader, bundleReader);
+        if (headSnapshot is null)
+            return Results.NotFound(new { schema_version = SchemaVersion.Current, reason = "unknown head source" });
+
+        ComparisonResult result = SessionComparer.Compare(baseline, headSnapshot);
+        return Results.Ok(MapComparison(result));
     }
 
     private const string BundleSourcePrefix = "bundle:";
