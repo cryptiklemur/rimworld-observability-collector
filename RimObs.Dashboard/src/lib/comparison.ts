@@ -1,7 +1,9 @@
 import type { DeltaStatus } from './api';
 
 export function signedNs(value: number): string {
-    const sign = value > 0 ? '+' : value < 0 ? '-' : '';
+    let sign = '';
+    if (value > 0) sign = '+';
+    else if (value < 0) sign = '-';
     const abs = Math.abs(value);
     if (abs === 0) return '0';
     if (abs < 1_000) return `${sign}${abs} ns`;
